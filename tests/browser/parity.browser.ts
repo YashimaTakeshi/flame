@@ -43,13 +43,15 @@ import { done, expectTrue, test } from './harness';
  * 代わりに次の2つを使う。実測値は下の表のとおり。
  *
  *                        正常系(20件)     壊したもの(3件)
- *   免責領域の外の最大色差    26〜97        208〜214      ← 主
- *   インクの総量の差       0.47〜4.84%   0.30〜26.08%   ← 補
+ *   免責領域の外の最大色差    26〜104       208〜221      ← 主
+ *   インクの総量の差       0.46〜4.84%   0.07〜26.08%   ← 補
  *
- * 正常系は15スタイル全部を含む（この計測はスタイル登録簿を入れたときに取り直した）。
- * 「文字の大きさ4%違い」はインクでは 0.30% しか動かないが最大色差が 214 で捕まり、
+ * 正常系は15スタイル全部を含む。範囲は手元と CI の両方を合わせたもの。
+ * 「文字の大きさ4%違い」はインクでは動かないが最大色差が 214 で捕まり、
  * 「書体違い」は最大色差が 88 のままだがインクが 26% 動いて捕まる。
  * **2つの指標は別のものを見ている。片方だけでは穴がある。**
+ *
+ * ★どちらの値も固定の閾値にはしない。★ 理由は下の「固定の閾値を書いてはならない」。
  *
  * 「免責領域の外」は文字とグレインを除いた部分。ここに大きな色差が出るのは
  * 写真や枠の位置が動いたときで、レイアウトのずれを直接捕まえる。
@@ -58,31 +60,53 @@ import { done, expectTrue, test } from './harness';
  */
 
 /*
- * ★指標を1つのブラウザ版に合わせて決めてはならない★
+ * ★このテストで固定の閾値を書いてはならない★
  *
- * 最初は「インクの総量」に固定の閾値（1.5%）を置いたが、CI で落ちた。
- * CI と手元でブラウザの版が違うと、同じ場面でもインクの値が 3〜6倍ずれる。
+ * 同じ失敗を2度やった。どちらも「手元で測った値の少し上」を定数に書いた。
  *
- *                       手元（正常 / 壊れ）    CI（正常 / 壊れ）
- *   免責外の最大色差      61〜66 / 154〜205     61〜66 / 154〜205   ← 一致する
- *   インクの総量          0.17〜0.50% / 0.70〜  0.96〜1.70% / 2.29〜 ← ずれる
+ *   1度目: インクに 1.5% を置いた。CI のブラウザ版では正常系が 0.96〜1.70% で、
+ *          手元の 0.17〜0.50% と 3〜6倍ずれていた。CI が3回続けて落ちた。
+ *   2度目: 最大色差に 100 を置いた。手元の15スタイルが 26〜97 だったため。
+ *          CI では SQ4 が 100、FF1 が 104。また落ちた。
+ *          （手元では同じ2つが 26 と 47。暗幕の階調のディザが版で違うのが原因）
  *
- * そこで**環境に依らない「免責外の最大色差」を主**にし、
- * インクは**同じ実行の中で測った正常値を基準に自己校正**して補助に使う。
- * 固定値を残すと、また別のブラウザ版で落ちる。
+ * **2つの環境で測って一致したから環境に依らない、とは言えない。**
+ * 1度目のときに「最大色差は両環境で一致した」と書いたが、
+ * それは1つのスタイルでの話で、15スタイルに広げたら崩れた。
+ *
+ * そこで**絶対の閾値で判定するのをやめた**。
+ * 判定するのは「壊したものが、同じ実行の正常系の雑音から離れているか」だけにする。
+ * 雑音の大きさはその実行の中で測る。これならどのブラウザ版でも意味が変わらない。
+ *
+ * 絶対値は「全部まとめて壊れた」場合の取りこぼしを防ぐ網としてだけ置き、
+ * **観測値の 1.4 倍以上の余裕**を持たせる（調整するための値ではない）。
  */
 
-/** 免責領域の外で許す最大の色差。両環境とも正常 66 以下・壊れ 154 以上で、間を取る */
-const MAX_DELTA_OUTSIDE_EXEMPT = 100;
+/**
+ * 取りこぼし防止の網。観測された正常系の最悪値（手元 97 / CI 104）に対し、
+ * 十分な余裕を取る。壊したものは 208 以上なので、ここには触れない。
+ * ★CI が落ちたからといって、この値を上げて済ませてはいけない。★
+ */
+const MAX_DELTA_BACKSTOP = 150;
+const INK_BACKSTOP = 12;
 /** 画素差は判別力が低いので、あからさまな破綻を拾う網としてだけ置く */
 const PIXEL_GROSS_LIMIT = 3.0;
-/** インクの上限は「この実行の正常値 × この倍率」。下限は置く */
-const INK_FACTOR = 2.0;
-const INK_FLOOR = 2.2;
 
-/** 正常系を1度測って基準にする。実行のたびに測り直すので、ブラウザの版に依らない */
-let inkBaseline: number | null = null;
-const inkLimit = (): number => Math.max(INK_FLOOR, (inkBaseline ?? 0) * INK_FACTOR);
+/**
+ * 壊れたものが雑音から離れていると認める倍率。
+ *
+ * 観測された2つの母集団は「正常系 ≤104」と「壊れたもの ≥208」で、ちょうど 2.0 倍離れている。
+ * 境目はその**対数的な中間**、つまり √2 ≒ 1.41 に置く。
+ * 上に寄せると雑音が少し増えただけで落ち、下に寄せると小さな破綻を見逃す。
+ * 通すために動かす値ではない（動かしたくなったら、まず何が変わったのかを調べること）。
+ */
+const SEPARATION = 1.41;
+
+/** この実行で測った正常系。閾値はここから作る */
+const normals: { label: string; d: Diff }[] = [];
+const broken: { label: string; d: Diff }[] = [];
+const worstNormal = (pick: (d: Diff) => number): number =>
+  normals.reduce((a, n) => Math.max(a, pick(n.d)), 0);
 
 let photo: CanvasImageSource | null = null;
 
@@ -327,20 +351,24 @@ await test('準備: 書体を読み込む', async () => {
 function report(label: string, d: Diff): void {
   console.log(
     `  [${label.padEnd(16)}] 免責外の最大色差 ${String(d.maxOutsideExempt).padStart(3)} / ` +
-      `インク ${d.inkPct.toFixed(3)}%（上限 ${inkLimit().toFixed(2)}%） / 画素 ${d.pixelPct.toFixed(3)}%`,
+      `インク ${d.inkPct.toFixed(3)}% / 画素 ${d.pixelPct.toFixed(3)}%`,
   );
 }
 
-/** 一致していること。壊れていたら、どの指標でどれだけ外れたかを言う */
+/**
+ * 一致していること。
+ * ここで見るのは「網に触れていないか」だけ。本当の判定は最後の検出力テストが行う。
+ */
 function expectParity(label: string, d: Diff): void {
   report(label, d);
+  normals.push({ label, d });
   expectTrue(
-    d.maxOutsideExempt <= MAX_DELTA_OUTSIDE_EXEMPT,
-    `${label}: 免責領域の外の最大色差 ${d.maxOutsideExempt} が上限 ${MAX_DELTA_OUTSIDE_EXEMPT} を超えた（写真や枠の位置がずれている疑い）`,
+    d.maxOutsideExempt <= MAX_DELTA_BACKSTOP,
+    `${label}: 免責領域の外の最大色差 ${d.maxOutsideExempt} が網 ${MAX_DELTA_BACKSTOP} を超えた（写真や枠の位置がずれている疑い）`,
   );
   expectTrue(
-    d.inkPct <= inkLimit(),
-    `${label}: 文字のインク総量の差 ${d.inkPct.toFixed(3)}% が上限 ${inkLimit().toFixed(2)}% を超えた（書体か文字の大きさが違う疑い）`,
+    d.inkPct <= INK_BACKSTOP,
+    `${label}: 文字のインク総量の差 ${d.inkPct.toFixed(3)}% が網 ${INK_BACKSTOP}% を超えた（書体か文字の大きさが違う疑い）`,
   );
   expectTrue(
     d.pixelPct <= PIXEL_GROSS_LIMIT,
@@ -348,25 +376,14 @@ function expectParity(label: string, d: Diff): void {
   );
 }
 
-/** わざと壊したものが、確かに検出されること */
-function expectDetected(label: string, d: Diff): void {
+/** わざと壊したものを記録する。判定は最後にまとめて行う */
+function recordBroken(label: string, d: Diff): void {
   report(label, d);
-  const caught =
-    d.maxOutsideExempt > MAX_DELTA_OUTSIDE_EXEMPT ||
-    d.inkPct > inkLimit() ||
-    d.pixelPct > PIXEL_GROSS_LIMIT;
-  expectTrue(
-    caught,
-    `${label}: どの指標も反応しなかった（免責外の最大色差 ${d.maxOutsideExempt} / インク ${d.inkPct.toFixed(3)}%）。` +
-      `このテストには検出力がない`,
-  );
+  broken.push({ label, d });
 }
 
 await test('★プレビュー(800px)と書き出し(6000px)が一致する★', () => {
-  const d = parityOf(sceneFor());
-  // この実行でのインクの基準。以降の判定はこれを基に決まる
-  inkBaseline = d.inkPct;
-  expectParity('正常', d);
+  expectParity('正常', parityOf(sceneFor()));
 });
 
 await test('縦位置の写真でも一致する', () => {
@@ -412,7 +429,7 @@ await test('★わざと壊すと検出できる★ 文字の大きさが 4% 違
     sizeLu: (op.sizeLu * 1.04) as typeof op.sizeLu,
     measuredWidthLu: (op.measuredWidthLu * 1.04) as typeof op.measuredWidthLu,
   }));
-  expectDetected('文字4%違い', parityOf(good, bad));
+  recordBroken('文字4%違い', parityOf(good, bad));
 });
 
 /*
@@ -434,7 +451,7 @@ await test('★わざと壊すと検出できる★ 写真の位置が 2 論理�
         : op,
     ),
   };
-  expectDetected('写真が2lu下', parityOf(good, bad));
+  recordBroken('写真が2lu下', parityOf(good, bad));
 });
 
 await test('★わざと壊すと検出できる★ 書体が違う', async () => {
@@ -447,7 +464,36 @@ await test('★わざと壊すと検出できる★ 書体が違う', async () =
     ...op,
     font: { family: 'PlayfairDisplay', weight: 400 },
   }));
-  expectDetected('書体違い', parityOf(good, bad));
+  recordBroken('書体違い', parityOf(good, bad));
+});
+
+/**
+ * ★このテストの検出力を、毎回この実行の中で証明する★
+ *
+ * 閾値を外から与えないので、「手元では通るが CI では落ちる」が起きない。
+ * 見ているのは **壊したものが、同じ実行の正常系の最悪値から離れているか** だけ。
+ */
+await test('★検出力の証明★ 壊したものは正常系の雑音から離れている', () => {
+  const dMax = worstNormal((d) => d.maxOutsideExempt);
+  const iMax = worstNormal((d) => d.inkPct);
+  const dGate = dMax * SEPARATION;
+  const iGate = iMax * SEPARATION;
+  console.log(
+    `  正常系 ${normals.length} 件の最悪値: 最大色差 ${dMax} / インク ${iMax.toFixed(3)}%` +
+      ` → 検出の境目 ${dGate.toFixed(0)} / ${iGate.toFixed(2)}%`,
+  );
+  expectTrue(normals.length >= 20, `正常系が ${normals.length} 件しか測れていない`);
+  expectTrue(broken.length === 3, `壊したものが ${broken.length} 件しか測れていない`);
+
+  for (const { label, d } of broken) {
+    const byDelta = d.maxOutsideExempt >= dGate;
+    const byInk = d.inkPct >= iGate;
+    expectTrue(
+      byDelta || byInk,
+      `${label}: 正常系の雑音（最大色差 ${dMax} / インク ${iMax.toFixed(3)}%）から離れていない` +
+        `（この件は ${d.maxOutsideExempt} / ${d.inkPct.toFixed(3)}%）。このテストには検出力がない`,
+    );
+  }
 });
 
 done();
