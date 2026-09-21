@@ -1,0 +1,109 @@
+{
+  "latin": {
+    "helvetica": {
+      "family": "Arimo",
+      "variable": true,
+      "regular": {
+        "file": "fonts/Arimo-regular.woff2",
+        "bytes": 14812
+      },
+      "bold": {
+        "file": "fonts/Arimo-bold.woff2",
+        "bytes": 14904
+      }
+    },
+    "futura": {
+      "family": "Jost",
+      "variable": true,
+      "regular": {
+        "file": "fonts/Jost-regular.woff2",
+        "bytes": 11784
+      },
+      "bold": {
+        "file": "fonts/Jost-bold.woff2",
+        "bytes": 13128
+      }
+    },
+    "din": {
+      "family": "Oswald",
+      "variable": true,
+      "regular": {
+        "file": "fonts/Oswald-regular.woff2",
+        "bytes": 13024
+      },
+      "bold": {
+        "file": "fonts/Oswald-bold.woff2",
+        "bytes": 13524
+      }
+    },
+    "copperplate": {
+      "family": "Cinzel",
+      "variable": true,
+      "regular": {
+        "file": "fonts/Cinzel-regular.woff2",
+        "bytes": 15824
+      },
+      "bold": {
+        "file": "fonts/Cinzel-bold.woff2",
+        "bytes": 17020
+      }
+    },
+    "didot": {
+      "family": "PlayfairDisplay",
+      "variable": true,
+      "regular": {
+        "file": "fonts/PlayfairDisplay-regular.woff2",
+        "bytes": 21544
+      },
+      "bold": {
+        "file": "fonts/PlayfairDisplay-bold.woff2",
+        "bytes": 22992
+      }
+    },
+    "baskerville": {
+      "family": "LibreBaskerville",
+      "variable": true,
+      "regular": {
+        "file": "fonts/LibreBaskerville-regular.woff2",
+        "bytes": 21308
+      },
+      "bold": {
+        "file": "fonts/LibreBaskerville-bold.woff2",
+        "bytes": 22452
+      }
+    },
+    "georgia": {
+      "family": "PTSerif",
+      "variable": false,
+      "regular": {
+        "file": "fonts/PTSerif-regular.woff2",
+        "bytes": 14700
+      },
+      "bold": {
+        "file": "fonts/PTSerif-bold.woff2",
+        "bytes": 14880
+      }
+    },
+    "times": {
+      "family": "Tinos",
+      "variable": false,
+      "regular": {
+        "file": "fonts/Tinos-regular.woff2",
+        "bytes": 14736
+      },
+      "bold": {
+        "file": "fonts/Tinos-bold.woff2",
+        "bytes": 14776
+      }
+    }
+  },
+  "jp": {
+    "family": "NotoSansJP",
+    "regular": {
+      "file": "fonts/NotoSansJP-regular.woff2",
+      "bytes": 452976
+    },
+    "charCount": 3476,
+    "glyphs": 3475
+  }
+}
