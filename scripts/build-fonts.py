@@ -12,7 +12,7 @@
 
 必要なもの: python3 -m pip install fonttools brotli
 """
-import base64
+import hashlib
 import json
 import os
 import subprocess
@@ -54,6 +54,16 @@ LATIN_UNICODES = (
     "U+0020-007E,U+00A0-00FF,U+0100-017F,U+0192,U+01FA-01FF,"
     "U+2000-206F,U+2070,U+2074-2079,U+20AC,U+2122,U+2190-2193,U+2212,U+25CA"
 )
+
+
+def sha256(path):
+    """成果物の指紋。ビルドが再現するようにしてあるので、この値は入力が同じなら毎回同じ。
+    検査スクリプト（Node）はこれを照合して、Python 無しで改変を検知できる。"""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 16), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def sh(*args):
@@ -109,8 +119,15 @@ def jp_charset():
 
 
 def instance_wght(src, wght, dest):
-    """可変軸を固定して静的フォントにする。これを飛ばすと 2.3 倍のサイズになる。"""
-    sh(sys.executable, "-m", "fontTools.varLib.instancer", src, f"wght={wght}", "-o", dest)
+    """可変軸を固定して静的フォントにする。これを飛ばすと 2.3 倍のサイズになる。
+
+    --no-recalc-timestamp を外すと、フォント内の head.modified が現在時刻で
+    書き換わり、同じ入力から毎回違うバイト列が出る。成果物をコミットしている以上、
+    ビルドが再現しないと「この woff2 は本当にこのスクリプトから出たのか」を
+    確かめられなくなる。（subset 側は既定で書き換えない）
+    """
+    sh(sys.executable, "-m", "fontTools.varLib.instancer", "--no-recalc-timestamp",
+       src, f"wght={wght}", "-o", dest)
     return dest
 
 
@@ -145,7 +162,7 @@ def main():
                 out = os.path.join(OUT, f"{family}-{style}.woff2")
                 subset(st, out, unicodes=LATIN_UNICODES)
                 entry[style] = {"file": f"fonts/{family}-{style}.woff2",
-                                "bytes": os.path.getsize(out)}
+                                "bytes": os.path.getsize(out), "sha256": sha256(out)}
             manifest["latin"][key] = {"family": family, "variable": True, **entry}
         else:
             entry = {}
@@ -154,7 +171,7 @@ def main():
                 out = os.path.join(OUT, f"{family}-{style}.woff2")
                 subset(src, out, unicodes=LATIN_UNICODES)
                 entry[style] = {"file": f"fonts/{family}-{style}.woff2",
-                                "bytes": os.path.getsize(out)}
+                                "bytes": os.path.getsize(out), "sha256": sha256(out)}
             manifest["latin"][key] = {"family": family, "variable": False, **entry}
         print(f"  {family:18s} regular {manifest['latin'][key]['regular']['bytes']:>7,} B"
               f"  bold {manifest['latin'][key]['bold']['bytes']:>7,} B")
@@ -171,7 +188,8 @@ def main():
     subset(jp400, jp_out, text_file=txt)
     manifest["jp"] = {
         "family": JP_FAMILY,
-        "regular": {"file": f"fonts/{JP_FAMILY}-regular.woff2", "bytes": os.path.getsize(jp_out)},
+        "regular": {"file": f"fonts/{JP_FAMILY}-regular.woff2",
+                    "bytes": os.path.getsize(jp_out), "sha256": sha256(jp_out)},
         "charCount": len(charset),
     }
     print(f"  {JP_FAMILY:18s} regular {manifest['jp']['regular']['bytes']:>7,} B"

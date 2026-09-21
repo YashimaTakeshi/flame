@@ -5,11 +5,13 @@
       "variable": true,
       "regular": {
         "file": "fonts/Arimo-regular.woff2",
-        "bytes": 14812
+        "bytes": 14824,
+        "sha256": "ca7e72671bedd7b6ac33c04c37b0059c0e593b640af1608c9dcbec51111b0ebe"
       },
       "bold": {
         "file": "fonts/Arimo-bold.woff2",
-        "bytes": 14904
+        "bytes": 14900,
+        "sha256": "5812508eb54dfe7a7c8e27375c7389eee862068ffabe7034e8bf14ceba638bdb"
       }
     },
     "futura": {
@@ -17,11 +19,13 @@
       "variable": true,
       "regular": {
         "file": "fonts/Jost-regular.woff2",
-        "bytes": 11784
+        "bytes": 11784,
+        "sha256": "40db0f3fb8026b66928e203dde6d4cd62e74e156aa827b4115006c9e77112941"
       },
       "bold": {
         "file": "fonts/Jost-bold.woff2",
-        "bytes": 13128
+        "bytes": 13120,
+        "sha256": "1c40d6e5393059d763e8f9da206cb8a82011514f03931e56c0e0a6f327690513"
       }
     },
     "din": {
@@ -29,11 +33,13 @@
       "variable": true,
       "regular": {
         "file": "fonts/Oswald-regular.woff2",
-        "bytes": 13024
+        "bytes": 13016,
+        "sha256": "1ec55addf9312e6004e77935eef3fccdfac5b1cbec1edcb20b759973b116e2f3"
       },
       "bold": {
         "file": "fonts/Oswald-bold.woff2",
-        "bytes": 13524
+        "bytes": 13512,
+        "sha256": "e9568d04cdd9018e0d52c4b11baaed204c976545c63bbf2e1a0597bf1390615d"
       }
     },
     "copperplate": {
@@ -41,11 +47,13 @@
       "variable": true,
       "regular": {
         "file": "fonts/Cinzel-regular.woff2",
-        "bytes": 15824
+        "bytes": 15832,
+        "sha256": "05f0c31aa85f84f83519ca1fbb8a48e53506bf86084cb682b0cdf8504723cbd0"
       },
       "bold": {
         "file": "fonts/Cinzel-bold.woff2",
-        "bytes": 17020
+        "bytes": 17024,
+        "sha256": "0f555ea030b3d93c74e6484269c11e4fe6e97209b1e379dd1b99d335b97660bb"
       }
     },
     "didot": {
@@ -53,11 +61,13 @@
       "variable": true,
       "regular": {
         "file": "fonts/PlayfairDisplay-regular.woff2",
-        "bytes": 21544
+        "bytes": 21464,
+        "sha256": "3146df0b9eba897c5a9e943aa88e97f962f13ba5334efbd666f3b2fa9d40f52b"
       },
       "bold": {
         "file": "fonts/PlayfairDisplay-bold.woff2",
-        "bytes": 22992
+        "bytes": 23060,
+        "sha256": "374f285e445693dad956cd706aabfa415079bac5c814a9dcf917f9f7f62402b8"
       }
     },
     "baskerville": {
@@ -65,11 +75,13 @@
       "variable": true,
       "regular": {
         "file": "fonts/LibreBaskerville-regular.woff2",
-        "bytes": 21308
+        "bytes": 21440,
+        "sha256": "f58a2b223db155893d33af7dfa6c4abf4e9420a305c04d43de0eb7186aa386b8"
       },
       "bold": {
         "file": "fonts/LibreBaskerville-bold.woff2",
-        "bytes": 22452
+        "bytes": 22468,
+        "sha256": "49d0646ec55615575c7a4e71cef0e8ca06e8307a58728f9095bafde15ed5189a"
       }
     },
     "georgia": {
@@ -77,11 +89,13 @@
       "variable": false,
       "regular": {
         "file": "fonts/PTSerif-regular.woff2",
-        "bytes": 14700
+        "bytes": 14700,
+        "sha256": "663bc193dd0b69a4b022c9fe64ba68ba4ab5b5ff788b23af3a8a880cd2f6b9b6"
       },
       "bold": {
         "file": "fonts/PTSerif-bold.woff2",
-        "bytes": 14880
+        "bytes": 14880,
+        "sha256": "f0f21091cba25002eac2ebcbd417bb15d48f7f8bc6b22365b5019d5bfdc4c822"
       }
     },
     "times": {
@@ -89,11 +103,13 @@
       "variable": false,
       "regular": {
         "file": "fonts/Tinos-regular.woff2",
-        "bytes": 14736
+        "bytes": 14736,
+        "sha256": "242a7b4e31354e5fe13378c841d0e9168d70f8602d1346ce8462b1826eae7f52"
       },
       "bold": {
         "file": "fonts/Tinos-bold.woff2",
-        "bytes": 14776
+        "bytes": 14776,
+        "sha256": "d5995d722eceb5e79b0e2e3b6005ac066cd217a7605548d4153501bb51cc184d"
       }
     }
   },
@@ -101,7 +117,8 @@
     "family": "NotoSansJP",
     "regular": {
       "file": "fonts/NotoSansJP-regular.woff2",
-      "bytes": 452976
+      "bytes": 453096,
+      "sha256": "535732eceb1c172e83b448d7e8123e0c94d4635e301e660ce9b49e8b18e8505c"
     },
     "charCount": 3476,
     "glyphs": 3475

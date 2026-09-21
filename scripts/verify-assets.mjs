@@ -6,6 +6,7 @@
 //   * 地名データを差し替えたときに桁を間違える。
 // どちらもサイズを見れば分かるので、上限を決めて超えたら止める。
 import { readFileSync, existsSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -13,6 +14,10 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const kb = (n) => `${(n / 1024).toFixed(1)} KB`;
 const errors = [];
 const notes = [];
+
+function sha256(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
 
 function check(label, actual, max) {
   if (actual > max) {
@@ -38,6 +43,10 @@ if (!existsSync(manifestPath)) {
       if (size !== f[style].bytes) {
         errors.push(`${f[style].file}: 実サイズ ${size} が manifest の ${f[style].bytes} と違います`);
       }
+      // ビルドは再現するようにしてあるので、指紋が合わなければ手で触られている。
+      if (f[style].sha256 && sha256(p) !== f[style].sha256) {
+        errors.push(`${f[style].file}: 中身が manifest の sha256 と一致しません`);
+      }
       latinTotal += size;
       // 1書体1ウェイトが 60KB を超えるのは、サブセットが効いていない兆候
       check(`${f.family} ${style}`, size, 60 * 1024);
@@ -52,6 +61,9 @@ if (!existsSync(manifestPath)) {
     errors.push(`${m.jp.regular.file} がありません`);
   } else {
     check('和文 Regular', statSync(jp).size, 700 * 1024);
+    if (m.jp.regular.sha256 && sha256(jp) !== m.jp.regular.sha256) {
+      errors.push(`${m.jp.regular.file}: 中身が manifest の sha256 と一致しません`);
+    }
     if (m.jp.charCount < 3400) {
       errors.push(`和文の収録文字数が ${m.jp.charCount} 字しかありません（第一水準まで入っていない疑い）`);
     }

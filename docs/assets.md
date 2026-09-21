@@ -10,7 +10,7 @@
 | 地名データ | `npm run assets:geo` | Node のみ（52MB を取得する） |
 | **検査** | `npm run assets:verify` | Node のみ。**`npm run build` の先頭で必ず走る** |
 
-## フォント（`scripts/build_fonts.py`）
+## フォント（`scripts/build-fonts.py`）
 
 欧文8書体は Google Fonts（OFL 1.1）から取得してラテン範囲にサブセットする。
 和文は Noto Sans JP を JIS X 0208 第一水準＋異体字にサブセットする。
@@ -25,6 +25,19 @@
    姓として頻出するので、異体字を明示的に足し、**ビルドの最後に cmap を見て収録を確認**する。
 
 Tinos だけ `google/fonts` に `OFL.txt` が無い（404 を実測）。本家 `googlefonts/tinos` から取る。
+
+### ビルドは再現する
+
+同じ入力から毎回同じバイト列が出る。成果物をコミットしている以上、再現しないと
+「この woff2 は本当にこのスクリプトから出たのか」を確かめられない。
+
+再現を壊していたのは `varLib.instancer` で、**既定でフォント内の `head.modified` を
+現在時刻に書き換える**（`subset` 側は書き換えない）。実際に、2回のビルドで
+タイムスタンプが 1,609 秒ぶんずれ、14ファイルのバイト列が変わった。
+`--no-recalc-timestamp` を付けて止めてある。
+
+manifest には各ファイルの **SHA-256** を記録する。検査スクリプト（Node）はこれを照合するので、
+**Python が無い環境（CI・Cloudflare）でも、成果物が手で触られていないことを確かめられる**。
 
 ### 出来上がり（実測）
 

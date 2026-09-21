@@ -11,7 +11,7 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "assets:fonts": "node scripts/build-fonts.mjs",
+    "assets:fonts": "python3 scripts/build-fonts.py",
     "assets:geo": "node scripts/build-geo.mjs",
     "assets:verify": "node scripts/verify-assets.mjs",
     "verify": "npm run assets:verify && npx depcruise --config .dependency-cruiser.cjs src && npx eslint . && npm run typecheck"

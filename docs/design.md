@@ -297,71 +297,78 @@ module.exports = {
 };
 ```
 
-**ESLint（実物。レイヤーごとに overrides を分ける）**
+**ESLint（実物。`eslint.config.js`）**
+
+> **★フラット設定の落とし穴（実際に踏んだ）★**
+> 同じルール名を複数のブロックで指定すると、**マージではなく後勝ちで上書きされる。**
+> ブロックを分けて `no-restricted-syntax` を書くと、**最後のブロックの selector しか効かない。**
+> （最初にこの形で書いたとき、`core` から `document` を触るコードが素通りしていた。）
+> よって **selector は1つの表にまとめ、例外のあるファイルでは「その1件を除いた全部」を
+> 再指定する。**
 
 ```js
-// eslint.config.js（抜粋）
-export default [
-  {
-    files: ['src/core/**/*.ts'],
-    rules: {
-      'no-restricted-globals': ['error',
-        'window', 'document', 'navigator', 'localStorage', 'sessionStorage',
-        'fetch', 'Image', 'OffscreenCanvas', 'FontFace', 'caches', 'performance'],
-      'no-restricted-syntax': ['error',
-        { selector: "NewExpression[callee.name='Date']",
-          message: 'core は現在時刻を知らない。時刻は SceneInput で渡す' }],
-    },
+// eslint.config.js
+/** 素の呼び出しを禁止する API と、その唯一の入口 */
+const RESTRICTED = {
+  measureText: {
+    selector: "MemberExpression[property.name='measureText']",
+    message: '測定は render/measure.ts に集約する。実行層で測り直すと、プレビューと書き出しで別の値を使うことになる（§2.6）',
   },
-  {
-    files: ['src/**/*.ts', 'src/**/*.tsx'],
-    ignores: ['src/render/measure.ts'],
-    rules: {
-      'no-restricted-syntax': ['error',
-        { selector: "MemberExpression[property.name='measureText']",
-          message: '§2.6: 測定は render/measure.ts に集約する。実行層で測り直すと原則②が壊れる' }],
-    },
+  createCanvasElement: {
+    selector: "CallExpression[callee.object.name='document'][callee.property.name='createElement'][arguments.0.value='canvas']",
+    message: 'canvas の生成は render/guards.ts の createVerifiedCanvas を通す。面積上限を超えると例外を投げず透明な黒を返すため（§11.2）',
   },
-  {
-    files: ['src/**/*.ts', 'src/**/*.tsx'],
-    ignores: ['src/render/guards.ts'],
-    rules: {
-      'no-restricted-syntax': ['error',
-        { selector: "CallExpression[callee.object.name='document'][callee.property.name='createElement'][arguments.0.value='canvas']",
-          message: '§11.2: canvas の生成は createVerifiedCanvas を通す' },
-        { selector: "NewExpression[callee.name='OffscreenCanvas']",
-          message: '§11.2: canvas の生成は createVerifiedCanvas を通す' }],
-    },
+  newOffscreenCanvas: {
+    selector: "NewExpression[callee.name='OffscreenCanvas']",
+    message: 'canvas の生成は createVerifiedCanvas を通す（§11.2）',
   },
-  {
-    files: ['src/**/*.ts', 'src/**/*.tsx'],
-    ignores: ['src/render/resources/fonts.ts'],
-    rules: {
-      'no-restricted-syntax': ['error',
-        { selector: "MemberExpression[property.name='check'][object.property.name='fonts']",
-          message: '§11.3: document.fonts.check() は使わない。FontRegistry の台帳で判定する' },
-        { selector: "MemberExpression[property.name='fillText']",
-          message: '§11.3: fillText は render/ops/text.ts の TextRenderer 経由のみ' }],
-    },
+  fontsCheck: {
+    selector: "MemberExpression[property.name='check'][object.property.name='fonts']",
+    message: 'document.fonts.check() は描画後に true を返すため検知に使えない。FontRegistry の台帳で判定する（§11.3）',
   },
-  {
-    files: ['src/**/*.ts', 'src/**/*.tsx'],
-    ignores: ['src/platform/decode.ts'],
-    rules: {
-      'no-restricted-syntax': ['error',
-        { selector: "CallExpression[callee.name='createImageBitmap']",
-          message: '§16.5: デコードは platform/decode.ts に一本化する（Orientation 契約）' }],
-    },
+  fillText: {
+    selector: "MemberExpression[property.name='fillText']",
+    message: 'fillText は render/ops/text.ts 経由のみ。書体の読み込み待ちを型で保証するため（§11.3）',
   },
-  {
-    files: ['src/**/*.ts', 'src/**/*.tsx'],
-    ignores: ['src/platform/net.ts'],
-    rules: {
-      'no-restricted-globals': ['error', 'fetch'],   // §12.4: 通信は net.ts のログを必ず通す
-    },
+  createImageBitmap: {
+    selector: "CallExpression[callee.name='createImageBitmap']",
+    message: 'デコードは platform/decode.ts に一本化する。経路が分かれると Orientation の扱いがずれ、プレビューと書き出しの一致が破れる（§16.5）',
   },
+};
+
+/** core だけに課す追加の制約。core は決定論的で、外界を知らない */
+const CORE_ONLY = {
+  newDate:    { selector: "NewExpression[callee.name='Date']",
+                message: 'core は現在時刻を知らない。時刻は SceneInput で渡す' },
+  dateNow:    { selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+                message: 'core は現在時刻を知らない。時刻は SceneInput で渡す' },
+  mathRandom: { selector: "CallExpression[callee.object.name='Math'][callee.property.name='random']",
+                message: 'core は決定論的であること。ゆらぎは seed から導く' },
+};
+
+/** 指定したキーだけを外し、残り全部を禁止する */
+const restrict = (table, ...exempt) => [
+  'error',
+  ...Object.entries(table).filter(([k]) => !exempt.includes(k)).map(([, v]) => v),
 ];
+
+const CORE_GLOBALS = ['window', 'document', 'navigator', 'localStorage', 'sessionStorage',
+                      'fetch', 'Image', 'OffscreenCanvas', 'FontFace', 'caches', 'performance'];
+
+// 適用（概念）:
+//   src/**                      → restrict(RESTRICTED)                    全部禁止
+//   src/render/measure.ts       → restrict(RESTRICTED, 'measureText')
+//   src/render/guards.ts        → restrict(RESTRICTED, 'createCanvasElement', 'newOffscreenCanvas')
+//   src/render/resources/fonts.ts → restrict(RESTRICTED, 'fontsCheck')
+//   src/render/ops/text.ts      → restrict(RESTRICTED, 'fillText')
+//   src/platform/decode.ts      → restrict(RESTRICTED, 'createImageBitmap')
+//   src/platform/net.ts         → no-restricted-globals から 'fetch' を外す
+//   src/core/**                 → restrict({...RESTRICTED, ...CORE_ONLY}) ＋ CORE_GLOBALS
 ```
+
+**入れたら必ず「わざと違反を書いて落ちること」を確認する。**
+禁止した8件すべてが検出されること、依存方向の違反で `depcruise` の終了コードが 1 になることを、
+段階0 の完了判定にする（§17）。**効いていない lint は、無いより悪い。**
 
 **この5本の lint 規則が、本仕様の安全装置の土台である。**
 `fillText` / `createElement('canvas')` / `createImageBitmap` / `measureText` / `fetch` の
