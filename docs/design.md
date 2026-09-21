@@ -2105,6 +2105,7 @@ function buildVerticalSVG(op: VerticalTextOp, k: number, fontB64: string): strin
 | **第一水準込み 463KB** | **632,360** | **12.34 ms** |
 
 12.34ms は1フレーム（16.7ms）に収まる。**実用に耐える。**
+（この実測は 463KB の和文で測った値。**同梱するのは 442.4KB** なので、わずかに速くなる方向。）
 
 **(2) base64 文字列は1度だけ作ってキャッシュする。** 632KB の文字列を毎回作らない。
 
@@ -3462,6 +3463,8 @@ export async function ensureFont(ref: FontRef): Promise<Entry> {
   const key = `${ref.family}/${ref.weight}`;
   const hit = loaded.get(key);
   if (hit) return hit;
+  // urlFor は public/fonts/manifest.json を引く。ファイル名をコードに直書きしない
+  //   欧文: manifest.latin[key].{regular,bold}.file    和文: manifest.jp.regular.file
   const face = new FontFace(ref.family, `url(${urlFor(ref)}) format('woff2')`,
                             { weight: String(ref.weight) });
   await face.load();                                   // ← 唯一の真実
