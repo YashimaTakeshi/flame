@@ -9,14 +9,14 @@ import { createVerifiedCanvas, release } from '../render/guards';
 import { canvasMeasurer } from '../render/measure';
 import { makeExportTarget } from '../render/target';
 import { BUILD_INFO, shortVersion } from '../build-info';
-import { composeCaption } from './caption';
+import { applyFieldSwitches, collectFacts, gatesFrom } from './caption';
 import { Diagnostics } from './Diagnostics';
 import { Band } from './editor/Band';
 import { OptionRow } from './editor/OptionRow';
 import { TabBar } from './editor/TabBar';
 import { EMPTY_EXIF, readExif, type ExifFacts } from './exif';
 import { fontRefFor, preloadLatinFonts } from './fonts-catalog';
-import { colorOf, SIZE_LU, TRACK_LU } from './panels/constants';
+import { colorOf } from './panels/constants';
 import { ExportSheet } from './sheets/ExportSheet';
 import { InfoSheet } from './sheets/InfoSheet';
 import { DEFAULT_FIELDS, useDoc } from './state/doc';
@@ -86,30 +86,40 @@ export function App(): React.ReactElement {
 
   const sceneInput: SceneInput | null = useMemo(() => {
     if (!loaded || !fontsReady) return null;
+    const facts = collectFacts(loaded.exif, {
+      title: doc.title,
+      artist: doc.artist,
+      fields: doc.fields,
+      overrides: doc.overrides,
+    });
     return {
-      styleId: 'OR1',
+      styleId: doc.styleId,
       photo: { id: 'photo', aspect: loaded.decoded.natural.w / loaded.decoded.natural.h },
-      caption: {
-        text: composeCaption(loaded.exif, {
-          title: doc.title,
-          artist: doc.artist,
-          fields: doc.fields,
-          overrides: doc.overrides,
-        }),
-        font: fontRefFor(doc.fontKey),
-        sizeLu: SIZE_LU[doc.size],
-        letterSpacingLu: TRACK_LU[doc.tracking],
-        align: doc.align,
-      },
+      facts: applyFieldSwitches(facts, doc.fields),
+      gates: gatesFrom(doc.fields),
+      family: fontRefFor(doc.fontKey).family,
+      // 和文サブセットは Regular だけ。Bold を頼むと合成太字になって字形が崩れる
+      hasBold: doc.fontKey !== 'jp',
+      align: doc.align,
+      tracking: doc.tracking,
+      size: doc.size,
       background,
       ink: inkFor(background),
     };
   }, [loaded, fontsReady, doc, background]);
 
-  const scene: Scene | null = useMemo(
-    () => (sceneInput ? buildScene(sceneInput, canvasMeasurer) : null),
-    [sceneInput],
-  );
+  /**
+   * スタイル定義が破綻していると buildScene は投げる。
+   * 画面を白くせず、1つ前に戻せる状態のまま伝える。
+   */
+  const [scene, sceneError]: [Scene | null, string | null] = useMemo(() => {
+    if (!sceneInput) return [null, null];
+    try {
+      return [buildScene(sceneInput, canvasMeasurer), null];
+    } catch (e) {
+      return [null, e instanceof Error ? e.message : '組み立てに失敗しました'];
+    }
+  }, [sceneInput]);
 
   const preview = usePreview(
     canvasRef,
@@ -208,9 +218,9 @@ export function App(): React.ReactElement {
 
       <div className="stage" ref={stageRef}>
         {loaded ? (
-          preview.error ? (
+          preview.error || sceneError ? (
             <div className="stage__e3">
-              <p>{preview.error}</p>
+              <p>{preview.error ?? sceneError}</p>
               {doc.canUndo() && (
                 <button type="button" className="btn--s" onClick={doc.undo}>
                   1つ前に戻す

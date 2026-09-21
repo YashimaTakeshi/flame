@@ -39,6 +39,46 @@ for (const [name, file] of [['組み','u3-layout'],['地色','u4-color'],['書�
   await page.screenshot({ path: `/tmp/${file}.png` });
 }
 
+/*
+ * 「アイコンが切れている」を目で探さない。
+ * オプション行の矩形に、中の部品が縦方向で収まっているかを測る。
+ * 横は横スクロール行なので、はみ出して当たり前（縦だけを見る）。
+ */
+async function clippedIn(tabName) {
+  if (tabName) { await page.getByRole('tab', { name: tabName }).click(); await page.waitForTimeout(250); }
+  return page.evaluate(() => {
+    const row = document.querySelector('.optrow')?.getBoundingClientRect();
+    if (!row) return ['オプション行が無い'];
+    const out = [];
+    for (const el of document.querySelectorAll('.optrow .stylechip, .optrow .sw, .optrow .fcard, .optrow .tg, .optrow .seg, .optrow .btn--s')) {
+      const r = el.getBoundingClientRect();
+      if (r.height === 0) continue;
+      if (r.top < row.top - 0.5 || r.bottom > row.bottom + 0.5) {
+        out.push(`${el.className.split(' ')[0]}「${(el.textContent ?? '').trim().slice(0, 10)}」 ${Math.round(r.top)}〜${Math.round(r.bottom)} が行 ${Math.round(row.top)}〜${Math.round(row.bottom)} からはみ出す`);
+      }
+    }
+    return out;
+  });
+}
+
+const clipped = {};
+for (const t of ['スタイル', '組み', '地色', '書体', '情報']) clipped[t] = await clippedIn(t);
+
+// スタイルタブの6比率を順に開いて、どの比率でもチップが切れないか
+await page.getByRole('tab', { name: 'スタイル' }).click();
+await page.waitForTimeout(250);
+const ratios = await page.evaluate(() =>
+  [...document.querySelectorAll('.p-style .seg__b')].map(b => b.textContent.trim()));
+const perRatio = {};
+for (const r of ratios) {
+  await page.getByRole('radio', { name: r, exact: true }).click();
+  await page.waitForTimeout(250);
+  perRatio[r] = await clippedIn(null);
+  await page.screenshot({ path: `/tmp/u7-style-${r.replace(/[:\/]/g, '-')}.png` });
+}
+console.log('切れている部品:', JSON.stringify(clipped, null, 1));
+console.log('比率ごとのチップ:', JSON.stringify(perRatio, null, 1));
+
 // スクロールが発生していないか
 const scrolls = await page.evaluate(() => ({
   body: document.body.scrollHeight > window.innerHeight,

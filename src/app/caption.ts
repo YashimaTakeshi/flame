@@ -1,4 +1,12 @@
-/** 撮影情報からキャプションの文字列を組み立てる */
+/**
+ * 撮影情報を「項目ごとの文字列」に直す。
+ *
+ * 並べ方・区切り・折り返しは core の仕事（core/caption.ts）。
+ * ここは EXIF の値を人が読む表記に直すだけに徹する。
+ *
+ * **「（不明）」のような文字列は作らない。** 値が無い項目はキーごと入れない。
+ */
+import type { Facts, Gates } from '../core/caption';
 import type { FieldId } from '../core/styles/types';
 import {
   formatAperture,
@@ -22,38 +30,59 @@ export interface CaptionParts {
   };
 }
 
-/**
- * 欠けている項目は詰める。
- * **「（不明）」のような文字列を焼き込むことは絶対にしない。** 空なら行ごと省く。
- */
-export function composeCaption(exif: ExifFacts, parts: CaptionParts): string {
-  const items: string[] = [];
-  const on = (id: FieldId): boolean => parts.fields[id];
+export function collectFacts(exif: ExifFacts, parts: CaptionParts): Facts {
+  const out: Partial<Record<FieldId, string>> = {};
+  const put = (id: FieldId, v: string | null | undefined): void => {
+    if (v && v.trim() !== '') out[id] = v.trim();
+  };
 
-  if (on('title') && parts.title.trim()) items.push(parts.title.trim());
-  if (on('artist') && parts.artist.trim()) items.push(parts.artist.trim());
+  put('title', parts.title);
+  put('artist', parts.artist);
 
   const date = parts.overrides.date ?? exif.dateTaken;
-  if (on('date') && date) items.push(formatDate(date));
+  if (date) put('date', formatDate(date));
 
-  const camera = parts.overrides.camera ?? exif.camera;
-  if (on('camera') && camera) items.push(camera);
+  put('camera', parts.overrides.camera ?? exif.camera);
+  put('lens', parts.overrides.lens ?? exif.lens);
 
-  const lens = parts.overrides.lens ?? exif.lens;
-  if (on('lens') && lens) items.push(lens);
+  const mm = exif.focalLength35 ?? exif.focalLength;
+  if (mm) put('focalLength', formatFocal(mm));
 
-  if (on('focalLength')) {
-    const mm = exif.focalLength35 ?? exif.focalLength;
-    if (mm) items.push(formatFocal(mm));
+  const ex: string[] = [];
+  if (exif.fNumber) ex.push(formatAperture(exif.fNumber));
+  if (exif.exposureTime) ex.push(formatShutter(exif.exposureTime));
+  if (exif.iso) ex.push(formatIso(exif.iso));
+  if (ex.length) put('exposure', ex.join(' '));
+
+  // 撮影地は未実装（段階7）。GPS があっても地名には直せないので入れない
+  return out;
+}
+
+/**
+ * 情報タブのオン／オフを core のゲートに直す。
+ * 「値が無い」（Facts に入っていない）と「利用者が切った」（ゲートが false）は
+ * 別の事象なので、型の上でも分けて渡す。
+ */
+export const gatesFrom = (fields: Readonly<Record<FieldId, boolean>>): Gates => ({
+  exposureEnabled: fields.exposure,
+  focalEnabled: fields.focalLength,
+  placeEnabled: fields.place,
+  artistEnabled: fields.artist,
+});
+
+/**
+ * 情報タブで切られた項目を Facts から落とす。
+ * ゲートを持たない項目（タイトル・日付・カメラ・レンズ）はこちらで落とす。
+ */
+export function applyFieldSwitches(
+  facts: Facts,
+  fields: Readonly<Record<FieldId, boolean>>,
+): Facts {
+  const out: Partial<Record<FieldId, string>> = {};
+  for (const [k, v] of Object.entries(facts)) {
+    if (fields[k as FieldId] && v !== undefined) out[k as FieldId] = v;
   }
-  if (on('exposure')) {
-    const ex: string[] = [];
-    if (exif.fNumber) ex.push(formatAperture(exif.fNumber));
-    if (exif.exposureTime) ex.push(formatShutter(exif.exposureTime));
-    if (exif.iso) ex.push(formatIso(exif.iso));
-    if (ex.length) items.push(ex.join(' '));
-  }
-  return items.join(', ');
+  return out;
 }
 
 /** どの項目が取れなかったか。画面で「手で入れる」導線を出すために使う */

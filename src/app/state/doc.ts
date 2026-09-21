@@ -5,12 +5,9 @@
  * 「1つ前に戻す」で必ず抜け出せるようにするため。
  */
 import { create } from 'zustand';
-import type { FieldId } from '../../core/styles/types';
+import { styleOf } from '../../core/styles/registry';
+import type { Align, FieldId, SizeId, StyleId, TrackingId } from '../../core/styles/types';
 import type { LatinFontKey } from '../fonts-catalog';
-
-export type AlignKey = 'left' | 'center' | 'right';
-export type TrackKey = 'tight' | 'normal' | 'wide' | 'widest';
-export type SizeKey = 'S' | 'M' | 'L';
 
 export interface Overrides {
   readonly camera: string | null;
@@ -19,13 +16,14 @@ export interface Overrides {
 }
 
 export interface DocState {
+  readonly styleId: StyleId;
   readonly title: string;
   readonly artist: string;
   readonly fontKey: LatinFontKey | 'jp';
   readonly colorKey: string;
-  readonly align: AlignKey;
-  readonly tracking: TrackKey;
-  readonly size: SizeKey;
+  readonly align: Align;
+  readonly tracking: TrackingId;
+  readonly size: SizeId;
   readonly fields: Readonly<Record<FieldId, boolean>>;
   readonly overrides: Overrides;
 }
@@ -42,19 +40,21 @@ export const DEFAULT_FIELDS: Record<FieldId, boolean> = {
 };
 
 const INITIAL: DocState = {
+  styleId: 'OR1',
   title: 'Untitled',
   artist: '',
   fontKey: 'helvetica',
   colorKey: 'white',
   align: 'left',
-  tracking: 'normal',
-  size: 'M',
+  tracking: 'Normal',
+  size: 'Small',
   fields: DEFAULT_FIELDS,
   overrides: { camera: null, lens: null, date: null },
 };
 
 interface DocStore extends DocState {
   set<K extends keyof DocState>(key: K, value: DocState[K]): void;
+  setStyle(id: StyleId): void;
   toggleField(id: FieldId): void;
   setOverride<K extends keyof Overrides>(key: K, value: Overrides[K]): void;
   reset(): void;
@@ -65,6 +65,7 @@ interface DocStore extends DocState {
 let previous: DocState | null = null;
 
 const snapshot = (s: DocState): DocState => ({
+  styleId: s.styleId,
   title: s.title,
   artist: s.artist,
   fontKey: s.fontKey,
@@ -82,6 +83,17 @@ export const useDoc = create<DocStore>((set, get) => ({
   set(key, value) {
     previous = snapshot(get());
     set({ [key]: value } as Partial<DocState>);
+  },
+
+  /**
+   * スタイルを変えると、そのスタイルの既定の整列・字間・大きさも一緒に入る。
+   * 16:9 の1行組みと 9:16 のストーリー組みでは、同じ設定が同じようには効かない。
+   * 触ったあとに上書きするのは自由（1段の取り消しも効く）。
+   */
+  setStyle(id) {
+    previous = snapshot(get());
+    const d = styleOf(id).defaults;
+    set({ styleId: id, align: d.align, tracking: d.tracking, size: d.size });
   },
 
   toggleField(id) {

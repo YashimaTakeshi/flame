@@ -23,6 +23,7 @@
  */
 import { buildScene, INK, WHITE, type SceneInput } from '../../src/core/compose';
 import type { Scene } from '../../src/core/scene/scene';
+import { STYLE_IDS } from '../../src/core/styles/registry';
 import { renderScene } from '../../src/render/executor';
 import { createVerifiedCanvas, release, type AnyCanvas } from '../../src/render/guards';
 import { canvasMeasurer } from '../../src/render/measure';
@@ -41,9 +42,14 @@ import { done, expectTrue, test } from './harness';
  *
  * 代わりに次の2つを使う。実測値は下の表のとおり。
  *
- *                        正常系(4件)      壊したもの(3件)
- *   免責領域の外の最大色差    61〜66        154〜205      ← 主
- *   インクの総量の差       0.17〜0.50%   0.70〜21.97%   ← 補
+ *                        正常系(20件)     壊したもの(3件)
+ *   免責領域の外の最大色差    26〜97        208〜214      ← 主
+ *   インクの総量の差       0.47〜4.84%   0.30〜26.08%   ← 補
+ *
+ * 正常系は15スタイル全部を含む（この計測はスタイル登録簿を入れたときに取り直した）。
+ * 「文字の大きさ4%違い」はインクでは 0.30% しか動かないが最大色差が 214 で捕まり、
+ * 「書体違い」は最大色差が 88 のままだがインクが 26% 動いて捕まる。
+ * **2つの指標は別のものを見ている。片方だけでは穴がある。**
  *
  * 「免責領域の外」は文字とグレインを除いた部分。ここに大きな色差が出るのは
  * 写真や枠の位置が動いたときで、レイアウトのずれを直接捕まえる。
@@ -136,18 +142,62 @@ function downscaleTo(src: AnyCanvas, w: number, h: number): ImageData {
 }
 
 /** 免責領域のマスク。true の画素は厳密な一致を求めない */
-function exemptMask(scene: Scene, w: number, h: number): Uint8Array {
-  const mask = new Uint8Array(w * h);
+/**
+ * 写真の**縁だけ**を免責する幅（デバイスピクセル）。中身は免責しない。
+ *
+ * 塗り矩形の縁は、その縁が画素のどこに落ちるかで滲み方が変わる。
+ * 余白 10lu のスタイルは 8.0px / 24.0px と整数に乗るが、26lu のスタイルは
+ * 20.8px / 62.4px と端数に乗る。同じ描画でも縁の1〜2列だけ値が違い、
+ * 実測で正常系の最大色差が 26〜131 とスタイルごとに散った（位置は合っている）。
+ *
+ * 文字の輪郭を免責するのと同じ理由で、**縁の数列も免責する**。
+ * 中身は免責しないので、写真がずれれば中の目印が動いて必ず捕まる
+ * （下の「2論理単位ずれる」で、検出力を毎回証明している）。
+ */
+const PHOTO_EDGE_EXEMPT_PX = 3;
+
+interface Masks {
+  /** インクを数える領域＝文字とグレインだけ。写真は入れない */
+  readonly ink: Uint8Array;
+  /** 最大色差の判定から外す領域＝文字・グレイン ＋ 写真の縁 */
+  readonly skip: Uint8Array;
+}
+
+function exemptMask(scene: Scene, w: number, h: number): Masks {
+  const ink = new Uint8Array(w * h);
+  const skip = new Uint8Array(w * h);
   const sx = w / scene.canvas.widthLu;
   const sy = h / scene.canvas.heightLu;
+  const fill = (m: Uint8Array, x0: number, y0: number, x1: number, y1: number): void => {
+    const ax = Math.max(0, Math.floor(x0));
+    const ay = Math.max(0, Math.floor(y0));
+    const bx = Math.min(w, Math.ceil(x1));
+    const by = Math.min(h, Math.ceil(y1));
+    for (let y = ay; y < by; y++) for (let x = ax; x < bx; x++) m[y * w + x] = 1;
+  };
   for (const r of scene.meta.exactnessExempt) {
-    const x0 = Math.max(0, Math.floor(r.x * sx) - 2);
-    const y0 = Math.max(0, Math.floor(r.y * sy) - 2);
-    const x1 = Math.min(w, Math.ceil((r.x + r.w) * sx) + 2);
-    const y1 = Math.min(h, Math.ceil((r.y + r.h) * sy) + 2);
-    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) mask[y * w + x] = 1;
+    const box = [r.x * sx - 2, r.y * sy - 2, (r.x + r.w) * sx + 2, (r.y + r.h) * sy + 2] as const;
+    fill(ink, ...box);
+    fill(skip, ...box);
   }
-  return mask;
+  /*
+   * 写真の縁は skip にだけ入れる。ink に入れると写真の明るさがインクとして
+   * 数えられ、文字の指標が写真に埋もれる（実測で書体を入れ替えても
+   * インクの差が 1.47% までしか動かず、検出力が消えた）。
+   */
+  const e = PHOTO_EDGE_EXEMPT_PX;
+  for (const op of scene.ops) {
+    if (op.op !== 'photo') continue;
+    const x0 = op.dst.x * sx;
+    const y0 = op.dst.y * sy;
+    const x1 = (op.dst.x + op.dst.w) * sx;
+    const y1 = (op.dst.y + op.dst.h) * sy;
+    fill(skip, x0 - e, y0 - e, x1 + e, y0 + e); // 上辺
+    fill(skip, x0 - e, y1 - e, x1 + e, y1 + e); // 下辺
+    fill(skip, x0 - e, y0 - e, x0 + e, y1 + e); // 左辺
+    fill(skip, x1 - e, y0 - e, x1 + e, y1 + e); // 右辺
+  }
+  return { ink, skip };
 }
 
 interface Diff {
@@ -160,7 +210,7 @@ interface Diff {
   avgOutside: number;
 }
 
-function compare(a: ImageData, b: ImageData, mask: Uint8Array): Diff {
+function compare(a: ImageData, b: ImageData, masks: Masks): Diff {
   const n = a.width * a.height;
   let diff = 0;
   let maxOutside = 0;
@@ -178,14 +228,15 @@ function compare(a: ImageData, b: ImageData, mask: Uint8Array): Diff {
     );
     sum += d;
     if (d > 2) diff++;
-    if (mask[i]) {
-      // 免責領域＝文字やグレイン。個々の画素ではなく「インクの総量」で見る。
+    if (masks.ink[i]) {
+      // 文字やグレイン。個々の画素ではなく「インクの総量」で見る。
       // アンチエイリアスは隣の画素へインクを配り直すだけで、総量は保つ
       const la = a.data[o]! * 0.299 + a.data[o + 1]! * 0.587 + a.data[o + 2]! * 0.114;
       const lb = b.data[o]! * 0.299 + b.data[o + 1]! * 0.587 + b.data[o + 2]! * 0.114;
       inkA += 255 - la;
       inkB += 255 - lb;
-    } else {
+    }
+    if (!masks.skip[i]) {
       countOutside++;
       sumOutside += d;
       if (d > maxOutside) maxOutside = d;
@@ -201,20 +252,32 @@ function compare(a: ImageData, b: ImageData, mask: Uint8Array): Diff {
   };
 }
 
-const CAPTION = 'Untitled, 2026.09.20, FUJIFILM X-M5, SIGMA 18-50mm F2.8 DC DN';
+/** OR1 は1行にこの順で全部並べる。組み上がる文字列は下の CAPTION と同じ */
+const FACTS = {
+  title: 'Untitled',
+  date: '2026.09.20',
+  camera: 'FUJIFILM X-M5',
+  lens: 'SIGMA 18-50mm F2.8 DC DN',
+} as const;
+const GATES = {
+  exposureEnabled: false,
+  focalEnabled: false,
+  placeEnabled: false,
+  artistEnabled: false,
+} as const;
 
 function sceneFor(over: Partial<SceneInput> = {}): Scene {
   return buildScene(
     {
       styleId: 'OR1',
       photo: { id: 'p', aspect: 1.5 },
-      caption: {
-        text: CAPTION,
-        font: { family: 'Arimo', weight: 400 },
-        sizeLu: 16,
-        letterSpacingLu: 0,
-        align: 'left',
-      },
+      facts: FACTS,
+      gates: GATES,
+      family: 'Arimo',
+      hasBold: true,
+      align: 'left',
+      tracking: 'Normal',
+      size: 'Medium',
       background: WHITE,
       ink: INK,
       ...over,
@@ -223,11 +286,23 @@ function sceneFor(over: Partial<SceneInput> = {}): Scene {
   );
 }
 
+/**
+ * わざと壊すための細工。**Scene を直接いじる。**
+ *
+ * 入力の側から壊そうとすると、はしご（縮小・項目落とし）が働いて
+ * 「壊れた入力」が「正しく組まれた別の絵」になってしまい、
+ * 差が大きくなりすぎてテストの感度が分からなくなる。
+ * 4% だけずらしたいのだから、出来上がった命令列を 4% ずらすのが正しい。
+ */
+function withTextOps(scene: Scene, f: (op: Extract<Scene['ops'][number], { op: 'text' }>) => Scene['ops'][number]): Scene {
+  return { ...scene, ops: scene.ops.map((op) => (op.op === 'text' ? f(op) : op)) };
+}
+
 /** プレビューと書き出しを描いて比べる。scene を2つ渡すと「わざと違うもの」を比べられる */
-function parityOf(previewScene: Scene, exportScene: Scene = previewScene): Diff {
+function parityOf(previewScene: Scene, exportScene: Scene = previewScene, ratio = 7.5): Diff {
   const kExport = 6;
   const preview = renderAtWidth(previewScene, 800, kExport, 'preview');
-  const exported = renderAtWidth(exportScene, 6000, kExport, 'export');
+  const exported = renderAtWidth(exportScene, 800 * ratio, kExport, 'export');
   const a = dataOf(preview);
   const b = downscaleTo(exported, preview.width, preview.height);
   const d = compare(a, b, exemptMask(previewScene, a.width, a.height));
@@ -240,6 +315,11 @@ await test('準備: 書体を読み込む', async () => {
   await ensureFont(
     { family: 'Arimo', weight: 400 },
     { kind: 'url', url: '/public/fonts/Arimo-regular.woff2' },
+  );
+  // 3行組みのスタイルは2行目を Bold で置く。台帳に無ければ描画は止まる（黙って代用しない）
+  await ensureFont(
+    { family: 'Arimo', weight: 700 },
+    { kind: 'url', url: '/public/fonts/Arimo-bold.woff2' },
   );
   photo = makePhoto(2400, 1600) as CanvasImageSource;
 });
@@ -294,34 +374,28 @@ await test('縦位置の写真でも一致する', () => {
 });
 
 await test('字間を広げても一致する（letterSpacing がスケールに比例する）', () => {
-  const d = parityOf(
-    sceneFor({
-      caption: {
-        text: 'FUJIFILM X-M5',
-        font: { family: 'Arimo', weight: 400 },
-        sizeLu: 16,
-        letterSpacingLu: 1.8,
-        align: 'left',
-      },
-    }),
-  );
-  expectParity('字間あり', d);
+  expectParity('字間あり', parityOf(sceneFor({ tracking: 'Widest' })));
 });
 
 await test('整列を変えても一致する', () => {
   for (const align of ['center', 'right'] as const) {
-    const d = parityOf(
-      sceneFor({
-        caption: {
-          text: CAPTION,
-          font: { family: 'Arimo', weight: 400 },
-          sizeLu: 16,
-          letterSpacingLu: 0,
-          align,
-        },
-      }),
-    );
-    expectParity(`整列 ${align}`, d);
+    expectParity(`整列 ${align}`, parityOf(sceneFor({ align })));
+  }
+});
+
+/*
+ * 15スタイル全部。
+ *
+ * プレビューは 800px のまま動かさない。免責外の最大色差は写真の縁の
+ * アンチエイリアスで決まるので、プレビューの寸法を変えると床が動いて
+ * 校正した上限が意味を失う（360px に落としたら正常系が 110 まで上がった）。
+ * 代わりに書き出し側の倍率を 7.5 → 3 に落とす。9:16 を 6000px で描くと
+ * 256MB の画素を2枚抱えることになり、端末では確保できない。
+ * 見ているのは「2つの倍率が一致するか」なので、倍率の絶対値は判定に効かない。
+ */
+await test('15スタイルすべてで一致する', () => {
+  for (const id of STYLE_IDS) {
+    expectParity(id, parityOf(sceneFor({ styleId: id }), undefined, 3));
   }
 });
 
@@ -333,24 +407,34 @@ await test('整列を変えても一致する', () => {
  */
 await test('★わざと壊すと検出できる★ 文字の大きさが 4% 違う', () => {
   const good = sceneFor();
-  const bad = sceneFor({
-    caption: {
-      text: CAPTION,
-      font: { family: 'Arimo', weight: 400 },
-      sizeLu: 16.64, // 4% 大きい
-      letterSpacingLu: 0,
-      align: 'left',
-    },
-  });
-  const d = parityOf(good, bad);
-  expectDetected('文字4%違い', d);
+  const bad = withTextOps(good, (op) => ({
+    ...op,
+    sizeLu: (op.sizeLu * 1.04) as typeof op.sizeLu,
+    measuredWidthLu: (op.measuredWidthLu * 1.04) as typeof op.measuredWidthLu,
+  }));
+  expectDetected('文字4%違い', parityOf(good, bad));
 });
 
-await test('★わざと壊すと検出できる★ 写真の位置が 1 論理単位ずれる', () => {
+/*
+ * 写真の矩形を直接ずらす。
+ *
+ * 入力（写真の比）を変える手では**検出できない**ことが実測で分かった。
+ * OR群はキャンバスの高さを写真の比から決めるので、比を 1% 変えると
+ * キャンバスも一緒に伸び、写真がキャンバスに占める割合はほとんど変わらない。
+ * 縮小して重ねると差が消える（免責外の最大色差 93、正常系 88 と区別できない）。
+ * ずれを見るテストなのだから、ずらすのは矩形そのものでなければならない。
+ */
+await test('★わざと壊すと検出できる★ 写真の位置が 2 論理単位ずれる', () => {
   const good = sceneFor();
-  const bad = sceneFor({ photo: { id: 'p', aspect: 1.515 } }); // 比が 1% 違う＝写真の高さがずれる
-  const d = parityOf(good, bad);
-  expectDetected('写真の比1%違い', d);
+  const bad: Scene = {
+    ...good,
+    ops: good.ops.map((op) =>
+      op.op === 'photo'
+        ? { ...op, dst: { ...op.dst, y: (op.dst.y + 2) as typeof op.dst.y } }
+        : op,
+    ),
+  };
+  expectDetected('写真が2lu下', parityOf(good, bad));
 });
 
 await test('★わざと壊すと検出できる★ 書体が違う', async () => {
@@ -359,17 +443,11 @@ await test('★わざと壊すと検出できる★ 書体が違う', async () =
     { kind: 'url', url: '/public/fonts/PlayfairDisplay-regular.woff2' },
   );
   const good = sceneFor();
-  const bad = sceneFor({
-    caption: {
-      text: CAPTION,
-      font: { family: 'PlayfairDisplay', weight: 400 },
-      sizeLu: 16,
-      letterSpacingLu: 0,
-      align: 'left',
-    },
-  });
-  const d = parityOf(good, bad);
-  expectDetected('書体違い', d);
+  const bad = withTextOps(good, (op) => ({
+    ...op,
+    font: { family: 'PlayfairDisplay', weight: 400 },
+  }));
+  expectDetected('書体違い', parityOf(good, bad));
 });
 
 done();

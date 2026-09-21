@@ -50,6 +50,18 @@
   overflow: visible;
 }
 
+/*
+ * スタイルタブだけオプション行を高くする。
+ *
+ * ここが無いまま theme.css のコメントだけが「176px に上書きする」と言っていた。
+ * 実際は 96px のままで、中身（48 + 8 + 96 = 152）が入らず、
+ * スタイルチップの下端が切り落とされていた（実機で報告された「アイコンが切れてる」）。
+ * 高さは中身の合計そのものにする。数えられる値をここに書く。
+ */
+.app[data-tab='style'] {
+  --optionrow-h: 168px; /* 8(上) + 48(比率) + 8 + 96(チップ) + 8(下) */
+}
+
 /* 写真がまだ無いとき。オプション行とタブバーを出さない */
 .app[data-empty='true'] {
   grid-template-rows: calc(var(--header-h) + var(--safe-top)) minmax(0, 1fr) auto;
@@ -351,6 +363,22 @@
   scrollbar-width: none;
 }
 
+/*
+ * 端で項目が断ち切られて見えるのを、影の付いた縁ではなく**淡い消え際**で示す。
+ * 「切れている」ではなく「まだ続く」と読めるようにするため。
+ * 消え際の幅はガターと同じ16pxで、指を置く場所は食わない。
+ */
+.hscroll {
+  --fade: 16px;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--fade),
+    #000 calc(100% - var(--fade)),
+    transparent 100%
+  );
+}
+
 .hscroll > * {
   scroll-snap-align: start;
 }
@@ -425,33 +453,40 @@
 
 /* ───────── パネル（各タブのオプション行） ───────── */
 
-/* スタイル: 比率48 + gap8 + 型チップ96 = 176 の内訳 */
+/* スタイル: 8 + 比率48 + gap8 + 型チップ96 + 8 = 168。--optionrow-h と同じ内訳 */
 .p-style {
   display: grid;
   grid-template-rows: 48px 96px;
   gap: var(--s1);
-  padding: var(--s1) var(--gutter) var(--s2);
+  padding: var(--s1) 0;
+}
+
+.p-style > .seg {
+  margin-inline: var(--gutter);
 }
 
 .p-style__types {
-  display: flex;
   align-items: center;
-  gap: var(--s2);
-  min-width: 0;
+  gap: var(--s1);
 }
 
 .stylechip {
-  flex: 0 0 72px;
-  height: 88px;
+  flex: 0 0 auto;
+  min-width: 76px;
+  max-width: 104px;
+  height: 92px;
   display: grid;
+  grid-template-rows: 1fr auto;
   gap: 4px;
   justify-items: center;
-  align-content: center;
+  align-items: center;
+  padding: 6px 8px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   background: transparent;
   color: var(--ink-2);
   font-size: var(--t1);
+  line-height: var(--t1-lh);
   letter-spacing: var(--t1-ls);
 }
 
@@ -461,29 +496,53 @@
   color: var(--bg);
 }
 
-.stylechip__fig {
-  width: 40px;
-  height: 48px;
-  border: 1px solid currentColor;
-  display: grid;
-  align-content: end;
-  gap: 3px;
-  padding: 3px;
+.stylechip__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
-.stylechip__fig i {
+/*
+ * チップの図。写真とキャプションの位置は core/styles/layout.ts の計算をそのまま
+ * 割合に直したもの（panels/styleFigure.ts）。手で描くと定義を直したとき図だけ古くなる。
+ */
+.sfig {
+  position: relative;
   display: block;
-  height: 2px;
-  background: currentColor;
-  opacity: 0.65;
+  border: 1px solid currentColor;
+  opacity: 0.9;
 }
 
-/* 組み: 2行×2列。各セル44px高、行間8 */
+.sfig__photo {
+  position: absolute;
+  background: currentColor;
+  opacity: 0.34;
+}
+
+.sfig__line {
+  position: absolute;
+  background: currentColor;
+  opacity: 0.85;
+  min-height: 1px;
+}
+
+/* 写真の上に重ねる型は、文字が写真の中にあることが分かるよう縁取る */
+.sfig__line--over {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+/*
+ * 組み: 2行×2列。
+ * 行の高さは 44 ではなく 46。中のセグメントは 44px の当たり判定に上下 1px の枠が付く。
+ * 44 のままだと行が中身より小さいと嘘をつくことになり、
+ * オプション行を 1px 詰めた瞬間に上下が切られる（実際にそうなっていた）。
+ */
 .p-layout {
   height: 100%;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-auto-rows: var(--tap);
+  grid-auto-rows: calc(var(--tap) + 2px);
   gap: var(--s1);
   padding-inline: var(--gutter);
   align-content: center;
@@ -589,9 +648,9 @@
   font-family: var(--ui-font);
 }
 
-/* 情報: 44 + 8 + 44 */
+/* 情報: 46 + 8 + 46。組みと同じ理由で 44 ではなく 46 */
 .p-info {
-  grid-template-rows: var(--tap) var(--tap);
+  grid-template-rows: repeat(2, calc(var(--tap) + 2px));
 }
 
 .p-info__acts {
