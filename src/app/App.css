@@ -218,3 +218,21 @@
   font-family: var(--mono-font);
   font-size: var(--t-xs);
 }
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  border-top: 1px solid var(--line);
+  padding-top: var(--s2);
+}
+
+.result-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  box-shadow: var(--shadow);
+  /* 長押しで保存できるよう、画像の既定の扱いを邪魔しない */
+  -webkit-touch-callout: default;
+  user-select: auto;
+}

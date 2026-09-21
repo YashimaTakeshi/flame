@@ -13,6 +13,21 @@
 
 export type SaveMethod = 'share' | 'download' | 'longpress';
 
+/**
+ * 枠の中（iframe）で動いているか。
+ *
+ * 枠の中では共有もダウンロードもブラウザに遮断される。遮断されたことは
+ * 例外にならず「押しても何も起きない」形で現れるので、先に知っておく必要がある。
+ */
+export function inFrame(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    // クロスオリジンで比較自体が弾かれた＝枠の中にいる
+    return true;
+  }
+}
+
 export interface SaveOutcome {
   readonly method: SaveMethod;
   readonly ok: boolean;
@@ -23,6 +38,7 @@ export interface SaveCapabilities {
   readonly hasShare: boolean;
   readonly canShareFiles: boolean;
   readonly hasDownloadAttribute: boolean;
+  readonly inFrame: boolean;
 }
 
 export function saveCapabilities(): SaveCapabilities {
@@ -42,6 +58,7 @@ export function saveCapabilities(): SaveCapabilities {
     hasShare: typeof nav.share === 'function',
     canShareFiles,
     hasDownloadAttribute: 'download' in document.createElement('a'),
+    inFrame: inFrame(),
   };
 }
 
@@ -53,6 +70,16 @@ export function saveCapabilities(): SaveCapabilities {
 export async function saveImage(blob: Blob, filename: string): Promise<SaveOutcome> {
   const caps = saveCapabilities();
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+
+  // 枠の中では共有もダウンロードも遮断される。押しても何も起きない、という
+  // いちばん分かりにくい失敗になるので、試さずに長押し保存へ案内する
+  if (caps.inFrame) {
+    return {
+      method: 'longpress',
+      ok: false,
+      detail: 'この画面は枠の中で動いているため、自動で保存できません。下の画像を長押しして保存してください',
+    };
+  }
 
   if (caps.canShareFiles) {
     try {

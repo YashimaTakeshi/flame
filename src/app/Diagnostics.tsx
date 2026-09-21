@@ -74,6 +74,13 @@ export function Diagnostics({ onBack }: { onBack: () => void }): React.ReactElem
         label: '設定の保存',
         value: store.mode === 'persistent' ? '使える' : '使えない（この端末では設定が残りません）',
       },
+      caps.inFrame
+        ? {
+            label: '画面の置かれ方',
+            value: '枠の中（iframe）',
+            note: '枠の中では共有もダウンロードもブラウザに遮断されます。保存は画像の長押しだけになります',
+          }
+        : { label: '画面の置かれ方', value: '直接開いている' },
       { label: '共有シート', value: caps.hasShare ? 'ある' : 'ない' },
       {
         label: 'ファイルの共有',

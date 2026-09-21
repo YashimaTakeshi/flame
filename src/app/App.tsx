@@ -3,7 +3,7 @@ import { buildScene, INK, WHITE, type SceneInput } from '../core/compose';
 import type { Scene } from '../core/scene/scene';
 import { rgba, type Rgba } from '../core/scene/ops';
 import { closeDecoded, decode, type DecodedPhoto } from '../platform/decode';
-import { makeFilename, saveImage, type SaveOutcome } from '../platform/save';
+import { inFrame, makeFilename, saveImage, type SaveOutcome } from '../platform/save';
 import { safeStorage } from '../platform/storage';
 import { renderScene } from '../render/executor';
 import { createVerifiedCanvas, release } from '../render/guards';
@@ -81,6 +81,8 @@ export function App(): React.ReactElement {
   const [busy, setBusy] = useState<string | null>(null);
   const [failure, setFailure] = useState<PreviewFailure | null>(null);
   const [outcome, setOutcome] = useState<SaveOutcome | null>(null);
+  /** 書き出した画像。**必ず表示する。** 共有もダウンロードも駄目な環境で、長押し保存が最後の砦になる */
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
 
   const [title, setTitle] = useState('Untitled');
   const [artist, setArtist] = useState('');
@@ -167,10 +169,17 @@ export function App(): React.ReactElement {
     }
   }, []);
 
+  // 画像の URL は使い終わったら手放す。放っておくと書き出すたびに溜まる
+  useEffect(() => {
+    if (!resultUrl) return;
+    return () => URL.revokeObjectURL(resultUrl);
+  }, [resultUrl]);
+
   const save = useCallback(async () => {
     if (!loaded || !scene || !sceneInput) return;
     setBusy('書き出しています');
     setOutcome(null);
+    setResultUrl(null);
     try {
       // 書き出しのときだけ原寸を掴む。終わったらすぐ手放す
       const full = await decode(loaded.file);
@@ -201,6 +210,8 @@ export function App(): React.ReactElement {
         setFailure({ reason: 'unknown', message: '画像を書き出せませんでした' });
         return;
       }
+      // 保存の成否によらず、結果は必ず表示する
+      setResultUrl(URL.createObjectURL(blob));
       setOutcome(await saveImage(blob, makeFilename()));
     } catch (e) {
       setFailure({
@@ -259,7 +270,9 @@ export function App(): React.ReactElement {
               キャプションからは省かれます。
             </p>
           )}
-          {outcome && <p className="note">{outcome.detail}</p>}
+          {outcome && (
+            <p className={outcome.ok ? 'note' : 'note warn'}>{outcome.detail}</p>
+          )}
 
           <div className="field">
             <span className="label">Title</span>
@@ -355,9 +368,20 @@ export function App(): React.ReactElement {
 
           <div className="actions">
             <button className="btn" onClick={() => void save()} disabled={busy !== null}>
-              {busy ?? '写真に保存'}
+              {busy ?? '書き出す'}
             </button>
           </div>
+
+          {resultUrl && (
+            <div className="result">
+              <span className="label">書き出した画像</span>
+              <p className="note">
+                この画像を<strong>長押し</strong>して「写真に保存」を選んでください。
+                {inFrame() && 'この画面は枠の中で動いているため、これが唯一の保存方法です。'}
+              </p>
+              <img src={resultUrl} alt="書き出した画像" className="result-img" />
+            </div>
+          )}
         </div>
       )}
 
