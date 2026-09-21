@@ -20,6 +20,7 @@ import { ExportSheet } from './sheets/ExportSheet';
 import { InfoSheet } from './sheets/InfoSheet';
 import { DEFAULT_FIELDS, useDoc } from './state/doc';
 import { useUi } from './state/ui';
+import { IconPhoto, IconShare } from './ui/icons';
 import { Sheet } from './ui/Sheet';
 import { usePreview } from './usePreview';
 import { useViewportHeight } from './useViewportHeight';
@@ -63,6 +64,7 @@ export function App(): React.ReactElement {
   const sheet = useUi((s) => s.sheet);
   const openSheet = useUi((s) => s.openSheet);
   const closeSheet = useUi((s) => s.closeSheet);
+  const hint = useUi((s) => s.hint);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -117,7 +119,6 @@ export function App(): React.ReactElement {
       align: doc.align,
       tracking: doc.tracking,
       size: doc.size,
-      margin: doc.margin,
       bordered: doc.bordered,
       background,
       ink: inkFor(background),
@@ -206,10 +207,12 @@ export function App(): React.ReactElement {
         {loaded ? (
           <button
             type="button"
-            className="pill pill--ghost hdr__left"
+            className="iconbtn hdr__left"
+            aria-label="写真を変える"
+            title="写真を変える"
             onClick={() => fileRef.current?.click()}
           >
-            写真を変える
+            <IconPhoto />
           </button>
         ) : (
           <span />
@@ -218,11 +221,14 @@ export function App(): React.ReactElement {
         {loaded ? (
           <button
             type="button"
-            className="pill hdr__right"
+            className="iconbtn iconbtn--solid hdr__right"
+            aria-label="書き出す"
+            title="書き出す"
+            aria-busy={busy !== null || undefined}
             disabled={busy !== null}
             onClick={() => openSheet('export')}
           >
-            {busy ?? '書き出す'}
+            <IconShare />
           </button>
         ) : (
           <span />
@@ -260,6 +266,12 @@ export function App(): React.ReactElement {
                 aria-label="枠を付けた写真のプレビュー"
               />
               {preview.slow && <span className="stage__dot" aria-hidden="true" />}
+              {/* 注記は操作の上に重ねない。プレビューの足元に短く出て、自分で消える */}
+              {hint && (
+                <p className="stage__hint" role="status">
+                  {hint}
+                </p>
+              )}
             </>
           )
         ) : (

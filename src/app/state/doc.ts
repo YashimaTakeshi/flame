@@ -5,7 +5,6 @@
  * 「1つ前に戻す」で必ず抜け出せるようにするため。
  */
 import { create } from 'zustand';
-import type { MarginId } from '../../core/styles/layout';
 import { DEFAULT_SPEC, normalize } from '../../core/styles/spec';
 import type { Align, FieldId, SizeId, StyleSpec, TrackingId } from '../../core/styles/types';
 import type { LatinFontKey } from '../fonts-catalog';
@@ -26,8 +25,6 @@ export interface DocState {
   readonly align: Align;
   readonly tracking: TrackingId;
   readonly size: SizeId;
-  /** 余白の広さ。スタイルと直交する軸 */
-  readonly margin: MarginId;
   /** 写真の外側のヘアライン枠。参考アプリの Standard / Bordered */
   readonly bordered: boolean;
   readonly fields: Readonly<Record<FieldId, boolean>>;
@@ -54,7 +51,6 @@ const INITIAL: DocState = {
   align: 'center',
   tracking: 'Normal',
   size: 'Medium',
-  margin: 'normal',
   bordered: false,
   fields: DEFAULT_FIELDS,
   overrides: { camera: null, lens: null, date: null },
@@ -81,7 +77,6 @@ const snapshot = (s: DocState): DocState => ({
   align: s.align,
   tracking: s.tracking,
   size: s.size,
-  margin: s.margin,
   bordered: s.bordered,
   fields: s.fields,
   overrides: s.overrides,
@@ -96,21 +91,32 @@ export const useDoc = create<DocStore>((set, get) => ({
   },
 
   /**
-   * 4軸のうち1つを変える。
+   * 5軸のうち1つを変える。**触った軸が勝つ。**
    *
-   * 「全面」と「重ね」は同じ状態の2つの入口なので、片方を触ったらもう片方も揃える。
-   * 逆に、写真を全面から戻したら文字は「下」へ、文字を重ねから戻したら写真は「中央」へ。
-   * 触った軸が"勝つ"。触っていない軸が勝手に動いて見えるのがいちばん混乱する。
+   * 触っていない軸が勝手に動いて見えるのがいちばん混乱するので、
+   * 揃えるための動きは「いま触った軸に従わせる」方向にだけ起こす。
+   *
+   * - 余白を「なし」にしたら文字は「重ね」。余白を戻したら文字は「下」。
+   * - 文字を「重ね」にしたら余白は「なし」。文字を戻したら余白は「標準」。
+   * - 文字を左右の段にしたら、同じ側に寄せていた写真は「中央」。
+   * - 写真を左右に寄せたら、左右の段にあった文字は「下」。
    */
   setStyle(patch) {
     previous = snapshot(get());
     const cur = get().style;
+    const side = (v: string | undefined): boolean => v === 'left' || v === 'right';
     let next: StyleSpec = { ...cur, ...patch };
-    if (patch.photo !== undefined && patch.photo !== 'bleed' && cur.caption === 'overlay') {
-      next = { ...next, caption: 'below' };
+    if (patch.margin !== undefined) {
+      if (patch.margin === 'none') next = { ...next, caption: 'overlay' };
+      else if (cur.caption === 'overlay') next = { ...next, caption: 'below' };
     }
-    if (patch.caption !== undefined && patch.caption !== 'overlay' && cur.photo === 'bleed') {
-      next = { ...next, photo: 'center' };
+    if (patch.caption !== undefined) {
+      if (patch.caption === 'overlay') next = { ...next, margin: 'none' };
+      else if (cur.margin === 'none') next = { ...next, margin: 'normal' };
+      if (side(patch.caption) && side(cur.photo)) next = { ...next, photo: 'center' };
+    }
+    if (patch.photo !== undefined && side(patch.photo) && side(cur.caption)) {
+      next = { ...next, caption: 'below' };
     }
     set({ style: normalize(next) });
   },

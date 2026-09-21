@@ -7,7 +7,6 @@ import { PlacePanel } from '../panels/PlacePanel';
 
 export function OptionRow(): React.ReactElement {
   const tab = useUi((s) => s.tab);
-  const hint = useUi((s) => s.hint);
 
   return (
     <div className="optrow">
@@ -16,7 +15,6 @@ export function OptionRow(): React.ReactElement {
       {tab === 'color' && <ColorPanel />}
       {tab === 'font' && <FontPanel />}
       {tab === 'info' && <InfoPanel />}
-      {hint && <p className="e1 optrow__hint">{hint}</p>}
     </div>
   );
 }

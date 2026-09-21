@@ -14,20 +14,28 @@ import type { Lu } from '../units';
 /** キャンバスの比率 */
 export type Ratio = 'OR' | 'SQ' | 'TF' | 'FF' | 'NST' | 'STN';
 
-/** 写真をどこに置くか。bleed は余白なしの全面 */
-export type PhotoPlace = 'center' | 'top' | 'bottom' | 'left' | 'right' | 'bleed';
+/**
+ * 写真をどこに寄せるか。
+ * 余白があるときは写真の置き場所、余白が「なし」（全面）のときは**切り取りの寄せ**になる。
+ * 同じ5つの言葉が両方で通じるので、選択肢を増やさずに構図を選べる。
+ */
+export type PhotoPlace = 'center' | 'top' | 'bottom' | 'left' | 'right';
 
-/** 文字をどこに置くか。overlay は写真の上に重ねる（写真が全面のとき） */
-export type CaptionPlace = 'below' | 'above' | 'left' | 'right' | 'overlay';
+/** 文字をどこに置くか。overlay は写真の上に重ねる（余白なしのとき） */
+export type CaptionPlace = 'above' | 'below' | 'left' | 'right' | 'overlay';
 
 export type LineCount = 1 | 2 | 3;
 
-/** 利用者が選ぶ4つ。これが「スタイル」のすべて */
+/** 余白の広さ。none は写真がキャンバスの端まで届く（全面） */
+export type MarginId = 'narrow' | 'normal' | 'wide' | 'none';
+
+/** 利用者が選ぶ5つ。これが「スタイル」のすべて */
 export interface StyleSpec {
   readonly ratio: Ratio;
   readonly photo: PhotoPlace;
   readonly caption: CaptionPlace;
   readonly lines: LineCount;
+  readonly margin: MarginId;
 }
 
 /** キャプションに載りうる項目 */

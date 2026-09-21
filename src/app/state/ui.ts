@@ -23,6 +23,10 @@ interface UiStore {
   setHint(text: string | null): void;
 }
 
+/** 注記が出ている時間。読み終わる長さだけ出して、あとは黙る */
+const HINT_MS = 2500;
+let hintTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const useUi = create<UiStore>((set) => ({
   tab: 'place',
   sheet: null,
@@ -30,5 +34,13 @@ export const useUi = create<UiStore>((set) => ({
   setTab: (tab) => set({ tab, hint: null }),
   openSheet: (sheet) => set({ sheet }),
   closeSheet: () => set({ sheet: null }),
-  setHint: (hint) => set({ hint }),
+  /*
+   * 注記は自分で消える。以前は次にタブを変えるまで残っていて、
+   * レイアウトを変えたあとも古い注記が読めてしまった。
+   */
+  setHint: (hint) => {
+    if (hintTimer) clearTimeout(hintTimer);
+    set({ hint });
+    if (hint) hintTimer = setTimeout(() => set({ hint: null }), HINT_MS);
+  },
 }));

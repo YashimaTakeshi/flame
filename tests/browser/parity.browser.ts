@@ -293,7 +293,7 @@ const GATES = {
 function sceneFor(over: Partial<SceneInput> = {}): Scene {
   return buildScene(
     {
-      style: { ratio: 'OR', photo: 'center', caption: 'below', lines: 1 },
+      style: { ratio: 'OR', photo: 'center', caption: 'below', lines: 1, margin: 'normal' },
       photo: { id: 'p', aspect: 1.5 },
       facts: FACTS,
       gates: GATES,
@@ -303,7 +303,6 @@ function sceneFor(over: Partial<SceneInput> = {}): Scene {
       align: 'left',
       tracking: 'Normal',
       size: 'Medium',
-      margin: 'normal',
       bordered: false,
       background: WHITE,
       ink: INK,

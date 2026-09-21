@@ -20,6 +20,7 @@ import type {
   CaptionLineSpec,
   CaptionPlace,
   LineCount,
+  MarginId,
   PhotoPlace,
   Ratio,
   StyleDef,
@@ -48,9 +49,18 @@ export const RATIOS: Readonly<
 };
 
 export const RATIO_IDS = Object.keys(RATIOS) as readonly Ratio[];
-export const PHOTO_PLACES: readonly PhotoPlace[] = ['center', 'top', 'bottom', 'left', 'right', 'bleed'];
-export const CAPTION_PLACES: readonly CaptionPlace[] = ['below', 'above', 'left', 'right', 'overlay'];
+export const PHOTO_PLACES: readonly PhotoPlace[] = ['center', 'top', 'bottom', 'left', 'right'];
+export const CAPTION_PLACES: readonly CaptionPlace[] = ['above', 'below', 'left', 'right', 'overlay'];
 export const LINE_COUNTS: readonly LineCount[] = [1, 2, 3];
+export const MARGINS: readonly MarginId[] = ['narrow', 'normal', 'wide', 'none'];
+
+/** 余白の倍率。比率ごとの基準（RATIOS.insetLu）に掛ける。none は全面 */
+export const MARGIN_SCALE: Readonly<Record<MarginId, number>> = { narrow: 0.45, normal: 0.7, wide: 1.0, none: 0 };
+
+/** 重ね文字の、キャンバス端からの距離。余白の倍率に**依らない**（余白なしでも文字は端に寄らない） */
+export const OVERLAY_INSET_LU = 34;
+
+const isSide = (p: PhotoPlace | CaptionPlace): boolean => p === 'left' || p === 'right';
 
 /** 左右に置く文字の段の幅。★余白の倍率は掛けない */
 export const SIDE_BAND_LU = 300;
@@ -82,41 +92,41 @@ function linesFor(n: LineCount, side: boolean): readonly CaptionLineSpec[] {
 }
 
 /**
- * 組み合わせの整合。
+ * 組み合わせの整合。ここで揃えるので、UI 側は1つの軸だけ変えて渡してよい。
  *
- * 「全面」と「重ね」は同じ状態の2つの入口である（写真が全面なら文字は重ねるしかなく、
- * 文字を重ねるなら写真は全面）。どちらから来ても同じ形に揃える。
- * ここで揃えるので、UI 側は片方だけ変えて渡してよい。
+ * 1. 「余白なし」と「重ね」は同じ状態の2つの入口である（写真が端まで届くなら文字は
+ *    重ねるしかなく、文字を重ねるなら写真は端まで届く）。どちらから来ても同じ形に揃える。
+ * 2. 文字を左右の段に置くとき、写真も同じ側に寄せる指定は意味を持たない
+ *    （段を差し引いた残りに置くので、寄せる先が無い）。写真は中央に戻す。
  */
 export function normalize(spec: StyleSpec): StyleSpec {
-  if (spec.photo === 'bleed' && spec.caption !== 'overlay') return { ...spec, caption: 'overlay' };
-  if (spec.caption === 'overlay' && spec.photo !== 'bleed') return { ...spec, photo: 'bleed' };
-  return spec;
+  let s = spec;
+  if (s.margin === 'none' && s.caption !== 'overlay') s = { ...s, caption: 'overlay' };
+  if (s.caption === 'overlay' && s.margin !== 'none') s = { ...s, margin: 'none' };
+  if (isSide(s.caption) && isSide(s.photo)) s = { ...s, photo: 'center' };
+  return s;
 }
 
 /** 同じ組み合わせか */
 export const sameSpec = (a: StyleSpec, b: StyleSpec): boolean =>
-  a.ratio === b.ratio && a.photo === b.photo && a.caption === b.caption && a.lines === b.lines;
+  a.ratio === b.ratio && a.photo === b.photo && a.caption === b.caption && a.lines === b.lines && a.margin === b.margin;
 
 export function styleFor(raw: StyleSpec): StyleDef {
   const spec = normalize(raw);
   const r = RATIOS[spec.ratio];
-  const base = r.insetLu;
-  const side = spec.caption === 'left' || spec.caption === 'right';
+  const base = Math.round(r.insetLu * MARGIN_SCALE[spec.margin]);
+  const side = isSide(spec.caption);
   const overlay = spec.caption === 'overlay';
 
   return {
     spec,
     canvas: r.aspect ? { kind: 'fixed', aspect: r.aspect } : { kind: 'derived' },
-    photo: {
-      inset: spec.photo === 'bleed' ? ins(0, 0, 0, 0) : ins(base, base, base, base),
-      place: spec.photo,
-    },
+    photo: { inset: ins(base, base, base, base), place: spec.photo },
     caption: {
       place: spec.caption,
       gapLu: lu(Math.round(base * 0.55)),
-      sideInsetLu: lu(overlay ? Math.max(34, Math.round(base * 0.7)) : base),
-      outerInsetLu: lu(overlay ? Math.max(34, Math.round(base * 0.7)) : Math.round(base * 1.1)),
+      sideInsetLu: lu(overlay ? OVERLAY_INSET_LU : base),
+      outerInsetLu: lu(overlay ? OVERLAY_INSET_LU : Math.round(base * 1.1)),
       bandLu: lu(SIDE_BAND_LU),
       lines: linesFor(spec.lines, side),
       ...(overlay
@@ -134,43 +144,47 @@ export function styleFor(raw: StyleSpec): StyleDef {
  * 参考アプリの15スタイルを、この4軸で言い直したもの。
  * 画面には出さない。テストが「参考アプリの組み合わせが全部成立する」ことを確かめるのに使う。
  */
+const N: MarginId = 'normal';
 export const FRMM_PRESETS: Readonly<Record<string, StyleSpec>> = {
-  OR1: { ratio: 'OR', photo: 'center', caption: 'below', lines: 1 },
-  OR2: { ratio: 'OR', photo: 'center', caption: 'below', lines: 3 },
-  OR3: { ratio: 'OR', photo: 'center', caption: 'below', lines: 2 },
-  SQ1: { ratio: 'SQ', photo: 'center', caption: 'below', lines: 1 },
-  SQ2: { ratio: 'SQ', photo: 'center', caption: 'below', lines: 3 },
-  SQ3: { ratio: 'SQ', photo: 'top', caption: 'below', lines: 2 },
-  SQ4: { ratio: 'SQ', photo: 'bleed', caption: 'overlay', lines: 1 },
-  TF1: { ratio: 'TF', photo: 'center', caption: 'below', lines: 2 },
-  FF1: { ratio: 'FF', photo: 'center', caption: 'below', lines: 1 },
-  FF2: { ratio: 'FF', photo: 'center', caption: 'above', lines: 2 },
-  FF3: { ratio: 'FF', photo: 'center', caption: 'below', lines: 3 },
-  NST1: { ratio: 'NST', photo: 'center', caption: 'below', lines: 2 },
-  STN1: { ratio: 'STN', photo: 'center', caption: 'below', lines: 1 },
-  STN2: { ratio: 'STN', photo: 'center', caption: 'right', lines: 3 },
-  STN3: { ratio: 'STN', photo: 'bleed', caption: 'overlay', lines: 1 },
+  OR1: { ratio: 'OR', photo: 'center', caption: 'below', lines: 1, margin: 'narrow' },
+  OR2: { ratio: 'OR', photo: 'center', caption: 'below', lines: 3, margin: N },
+  OR3: { ratio: 'OR', photo: 'center', caption: 'below', lines: 2, margin: 'wide' },
+  SQ1: { ratio: 'SQ', photo: 'center', caption: 'below', lines: 1, margin: N },
+  SQ2: { ratio: 'SQ', photo: 'center', caption: 'below', lines: 3, margin: N },
+  SQ3: { ratio: 'SQ', photo: 'top', caption: 'below', lines: 2, margin: N },
+  SQ4: { ratio: 'SQ', photo: 'center', caption: 'overlay', lines: 1, margin: 'none' },
+  TF1: { ratio: 'TF', photo: 'center', caption: 'below', lines: 2, margin: N },
+  FF1: { ratio: 'FF', photo: 'center', caption: 'below', lines: 1, margin: N },
+  FF2: { ratio: 'FF', photo: 'center', caption: 'above', lines: 2, margin: N },
+  FF3: { ratio: 'FF', photo: 'center', caption: 'below', lines: 3, margin: N },
+  NST1: { ratio: 'NST', photo: 'center', caption: 'below', lines: 2, margin: N },
+  STN1: { ratio: 'STN', photo: 'center', caption: 'below', lines: 1, margin: N },
+  STN2: { ratio: 'STN', photo: 'center', caption: 'right', lines: 3, margin: N },
+  STN3: { ratio: 'STN', photo: 'center', caption: 'overlay', lines: 1, margin: 'none' },
 };
+
+export const specKey = (s: StyleSpec): string => `${s.ratio}/${s.photo}/${s.caption}/${s.lines}/${s.margin}`;
 
 /** 全組み合わせ（整合後の重複を除く）。テストが総当たりに使う */
 export function allSpecs(): StyleSpec[] {
   const seen = new Set<string>();
   const out: StyleSpec[] = [];
   for (const ratio of RATIO_IDS)
-    for (const photo of PHOTO_PLACES)
-      for (const caption of CAPTION_PLACES)
-        for (const lines of LINE_COUNTS) {
-          const s = normalize({ ratio, photo, caption, lines });
-          const key = `${s.ratio}/${s.photo}/${s.caption}/${s.lines}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          out.push(s);
-        }
+    for (const margin of MARGINS)
+      for (const photo of PHOTO_PLACES)
+        for (const caption of CAPTION_PLACES)
+          for (const lines of LINE_COUNTS) {
+            const s = normalize({ ratio, photo, caption, lines, margin });
+            const key = specKey(s);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(s);
+          }
   return out;
 }
 
 /** 既定。写真を真ん中に、下に1行 */
-export const DEFAULT_SPEC: StyleSpec = { ratio: 'OR', photo: 'center', caption: 'below', lines: 1 };
+export const DEFAULT_SPEC: StyleSpec = { ratio: 'OR', photo: 'center', caption: 'below', lines: 1, margin: 'normal' };
 
 // F は行構成を外から組むときに使う（tokens の再輸出）
 export { F };

@@ -16,7 +16,7 @@ import { typesetCaption, type Facts, type Gates, type TypesetLine } from './capt
 import { SceneBuilder } from './scene/builder';
 import { photoId, rgba, type PhotoId, type Rgba } from './scene/ops';
 import type { Scene, SceneWarning } from './scene/scene';
-import { captionWidthLu, layoutViolations, resolveLayout, type MarginId } from './styles/layout';
+import { captionWidthLu, layoutViolations, resolveLayout } from './styles/layout';
 import { styleFor } from './styles/spec';
 import type { Align, SizeId, StyleSpec, TrackingId } from './styles/types';
 
@@ -39,8 +39,6 @@ export interface SceneInput {
   readonly align: Align;
   readonly tracking: TrackingId;
   readonly size: SizeId;
-  /** 余白の広さ。スタイルの寸法すべてに掛かる */
-  readonly margin: MarginId;
   /**
    * 写真の外側のヘアライン枠。
    * スタイルと直交する軸（参考アプリの Color タブの Standard / Bordered）。
@@ -94,7 +92,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   const warnings: SceneWarning[] = [];
 
   /* 1. 文字を組む。幅は高さを知らなくても決まるので循環しない */
-  const boxW = captionWidthLu(def, input.margin);
+  const boxW = captionWidthLu(def);
   const typeset = typesetCaption(
     def,
     {
@@ -114,7 +112,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   if (typeset.lines.length === 0) warnings.push({ kind: 'caption-empty' });
 
   /* 2. 組み上がった高さで矩形を決める */
-  const layout = resolveLayout(def, input.photo.aspect, typeset.heightLu, input.margin);
+  const layout = resolveLayout(def, input.photo.aspect, typeset.heightLu);
 
   const overlay = def.caption.place === 'overlay';
   const ink = overlay ? OVERLAY_INK : input.ink;
@@ -135,7 +133,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
      * 線はパスの中心に引かれるので、全面ブリードのときは外側の半分が
      * キャンバスの外に落ちて線が半分の太さに見える。その分だけ内側に寄せる。
      */
-    const half = def.photo.place === 'bleed' ? BORDER_LU / 2 : 0;
+    const half = def.spec.margin === 'none' ? BORDER_LU / 2 : 0;
     b.add({
       op: 'strokeRect',
       resolution: 'invariant',
@@ -180,7 +178,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   /* 7. 不変条件。ここで落ちるのはスタイル定義の誤りで、利用者の操作では起きない */
   const bad = layoutViolations(layout, def.caption.place);
   if (bad.length > 0) {
-    const k = `${def.spec.ratio}/${def.spec.photo}/${def.spec.caption}/${def.spec.lines}`;
+    const k = `${def.spec.ratio}/${def.spec.photo}/${def.spec.caption}/${def.spec.lines}/${def.spec.margin}`;
     throw new Error(`${k} のレイアウトが破綻しました: ${bad.join(' / ')}`);
   }
 

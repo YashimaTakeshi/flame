@@ -5,6 +5,7 @@
  * ここに解像度は出てこない（出てきたらそれは設計の誤り）。
  */
 import { CANVAS_WIDTH_LU, rect, size, type RectLu, type SizeLu } from '../units';
+import { MARGIN_SCALE } from './spec';
 import type { CaptionPlace, PhotoPlace, StyleDef } from './types';
 
 export interface SrcNorm {
@@ -22,27 +23,26 @@ export interface ResolvedLayout {
   readonly captionBox: RectLu;
 }
 
-/**
- * 余白の広さ。スタイルが持つ寸法すべてに掛ける倍率。
- *
- * スタイルごとに余白を持ち直すのではなく、**1つの倍率で全部を縮める**。
- * こうするとどの組み合わせでも「狭い」が同じ意味になり、
- * 比率や配置を変えても余白の好みが保たれる。
- */
-export const MARGIN_SCALE = { narrow: 0.45, normal: 0.7, wide: 1.0 } as const;
-export type MarginId = keyof typeof MARGIN_SCALE;
+export { MARGIN_SCALE };
+export type { MarginId } from './types';
 
 const FULL: SrcNorm = { x: 0, y: 0, w: 1, h: 1 };
 
-/** 比 src の画像から、比 target の領域を中央で切り出す正規化矩形 */
-function centerCrop(src: number, target: number): SrcNorm {
+/**
+ * 比 src の画像から、比 target の領域を切り出す正規化矩形。
+ * 余る軸だけが動く。横に余れば左/中央/右、縦に余れば上/中央/下。
+ * 余らない軸の指定（横に余っているのに「上」）は中央として扱う。
+ */
+function anchoredCrop(src: number, target: number, place: PhotoPlace): SrcNorm {
   if (!Number.isFinite(src) || src <= 0 || !Number.isFinite(target) || target <= 0) return FULL;
   if (src > target) {
     const w = target / src;
-    return { x: (1 - w) / 2, y: 0, w, h: 1 };
+    const x = place === 'left' ? 0 : place === 'right' ? 1 - w : (1 - w) / 2;
+    return { x, y: 0, w, h: 1 };
   }
   const h = src / target;
-  return { x: 0, y: (1 - h) / 2, w: 1, h };
+  const y = place === 'top' ? 0 : place === 'bottom' ? 1 - h : (1 - h) / 2;
+  return { x: 0, y, w: 1, h };
 }
 
 /** 比 aspect の矩形を box に収め、place の向きに寄せる */
@@ -62,8 +62,7 @@ function fitInto(box: RectLu, aspect: number, place: PhotoPlace): RectLu {
  * **キャプションの高さを測る前に決まる**ので、
  * 「幅を知るために高さが要る」という循環が起きない。
  */
-export function captionWidthLu(def: StyleDef, margin: MarginId = 'normal'): number {
-  const m = MARGIN_SCALE[margin];
+export function captionWidthLu(def: StyleDef): number {
   const c = def.caption;
   /*
    * ★左右の段は余白ではなく本文の幅。縮めない。★
@@ -72,7 +71,7 @@ export function captionWidthLu(def: StyleDef, margin: MarginId = 'normal'): numb
    * レンズ名と撮影地が消えた）。余白の好みで情報が減るのは筋が違う。
    */
   if (c.place === 'left' || c.place === 'right') return c.bandLu;
-  return CANVAS_WIDTH_LU - c.sideInsetLu * m * 2;
+  return CANVAS_WIDTH_LU - c.sideInsetLu * 2;
 }
 
 export function resolveLayout(
@@ -80,26 +79,18 @@ export function resolveLayout(
   /** ★Orientation 適用後の w/h（platform/decode.ts の契約） */
   photoAspect: number,
   captionHeightLu: number,
-  margin: MarginId = 'normal',
 ): ResolvedLayout {
   const W = CANVAS_WIDTH_LU as number;
-  const m = MARGIN_SCALE[margin];
   const c = def.caption;
   const p = def.photo;
-  const bleed = p.place === 'bleed';
+  // 余白の倍率は styleFor() が寸法に織り込み済み。ここでは掛けない
+  const bleed = def.spec.margin === 'none';
   const aspect = photoAspect > 0 && Number.isFinite(photoAspect) ? photoAspect : 1;
-  const inset = bleed
-    ? { top: 0, right: 0, bottom: 0, left: 0 }
-    : {
-        top: p.inset.top * m,
-        right: p.inset.right * m,
-        bottom: p.inset.bottom * m,
-        left: p.inset.left * m,
-      };
+  const inset = p.inset;
   const hasCaption = captionHeightLu > 0;
-  const gap = hasCaption ? (c.gapLu as number) * m : 0;
-  const side = (c.sideInsetLu as number) * m;
-  const outer = (c.outerInsetLu as number) * m;
+  const gap = hasCaption ? (c.gapLu as number) : 0;
+  const side = c.sideInsetLu as number;
+  const outer = c.outerInsetLu as number;
   const band = c.bandLu as number;
   const place: CaptionPlace = c.place;
   const sideways = (place === 'left' || place === 'right') && hasCaption;
@@ -173,8 +164,9 @@ export function resolveLayout(
   let srcNorm: SrcNorm = FULL;
   let photo: RectLu;
   if (bleed) {
+    // 全面では「写真の位置」が切り取りの寄せになる
     const target = photoBox.h > 0 ? photoBox.w / photoBox.h : 1;
-    srcNorm = centerCrop(aspect, target);
+    srcNorm = anchoredCrop(aspect, target, p.place);
     photo = rect(0, 0, W, canvasH);
   } else {
     photo = fitInto(photoBox, aspect, p.place);

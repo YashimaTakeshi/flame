@@ -1,7 +1,8 @@
-/** 情報。キャプションに載せる項目の取捨と、編集への入口 */
+/** 情報。キャプションに載せる項目の取捨と、初期値・編集への入口 */
 import type { FieldId } from '../../core/styles/types';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
+import { IconEdit, IconReset } from '../ui/icons';
 
 const FIELDS: { id: FieldId; label: string }[] = [
   { id: 'title', label: 'タイトル' },
@@ -35,11 +36,11 @@ export function InfoPanel(): React.ReactElement {
         ))}
       </div>
       <div className="p-info__acts">
-        <button type="button" className="btn--s" onClick={reset}>
-          初期値に戻す
+        <button type="button" className="iconbtn iconbtn--ghost" aria-label="編集" title="編集" onClick={() => openSheet('info')}>
+          <IconEdit />
         </button>
-        <button type="button" className="btn--s" onClick={() => openSheet('info')}>
-          編集…
+        <button type="button" className="iconbtn iconbtn--ghost" aria-label="初期値に戻す" title="初期値に戻す" onClick={reset}>
+          <IconReset />
         </button>
       </div>
     </div>

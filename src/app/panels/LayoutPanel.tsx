@@ -1,13 +1,12 @@
-/** 組み。3行×2列。行数・揃え・字間・大きさ・余白・組み方向 */
+/**
+ * 組み。行数・揃え・字間・大きさ・組み方向。
+ * 升の幅は全部同じ（--cell）。項目は左から詰め、入らなければ次の行へ折り返す。
+ * 項目が増えても崩れない並べ方にしておく。
+ */
 import { Segmented } from '../ui/Segmented';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
-import { ALIGN_OPTIONS, LINE_OPTIONS, MARGIN_OPTIONS, SIZE_OPTIONS, TRACK_OPTIONS } from './constants';
-
-const DIRECTIONS = [
-  { value: 'h', label: '横組み' },
-  { value: 'v', label: '縦組み', disabled: true },
-] as const;
+import { ALIGN_OPTIONS, DIRECTION_OPTIONS, LINE_OPTIONS, SIZE_OPTIONS, TRACK_OPTIONS } from './constants';
 
 function Cell({ label, children }: { label: string; children: React.ReactNode }): React.ReactElement {
   return (
@@ -22,7 +21,6 @@ export function LayoutPanel(): React.ReactElement {
   const align = useDoc((s) => s.align);
   const tracking = useDoc((s) => s.tracking);
   const size = useDoc((s) => s.size);
-  const margin = useDoc((s) => s.margin);
   const lines = useDoc((s) => s.style.lines);
   const fontKey = useDoc((s) => s.fontKey);
   const set = useDoc((s) => s.set);
@@ -43,20 +41,14 @@ export function LayoutPanel(): React.ReactElement {
       <Cell label="文字">
         <Segmented label="文字の大きさ" options={SIZE_OPTIONS} value={size} onChange={(v) => set('size', v)} />
       </Cell>
-      <Cell label="余白">
-        <Segmented label="余白の広さ" options={MARGIN_OPTIONS} value={margin} onChange={(v) => set('margin', v)} />
-      </Cell>
-      <Cell label="組み方向">
+      <Cell label="方向">
+        {/* 縦組みはまだ無い。押されたときだけ、和文の書体が要ることを短く伝える */}
         <Segmented
           label="組み方向"
-          options={DIRECTIONS}
+          options={DIRECTION_OPTIONS}
           value="h"
           onChange={() => {}}
-          onDisabledTap={() =>
-            setHint(
-              fontKey === 'jp' ? '縦組みはまだ使えません' : '縦組みには和文の書体を選んでください',
-            )
-          }
+          onDisabledTap={() => setHint(fontKey === 'jp' ? '縦組みはまだ使えません' : '縦組みには和文の書体を選んでください')}
         />
       </Cell>
     </div>
