@@ -47,6 +47,10 @@
   --mono-font: ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --motion: 160ms;
+
+  /* 画面の端に接しているときだけ効かせる余白。枠の中では JS が 0px に上書きする */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @media (prefers-reduced-motion: reduce) {

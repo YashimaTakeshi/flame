@@ -5,22 +5,50 @@
  * **画面本体は1pxもスクロールさせない。** プレビューだけが伸び縮みする。
  * これを守らないと、設定を触るたびにタブバーが画面外へ逃げる。
  */
+/*
+ * 高さは JS が測った実寸（--app-h）を使う。100dvh は予備。
+ * 枠の中では dvh が見えない部分まで含んだ値を返すことがあり、
+ * タブバーが画面外に出て設定に触れなくなる（実機で起きた）。
+ */
 .app {
-  height: 100dvh;
+  height: var(--app-h, 100dvh);
   display: grid;
   grid-template-rows:
-    calc(var(--header-h) + env(safe-area-inset-top))
+    calc(var(--header-h) + var(--safe-top))
     minmax(0, 1fr)
     auto
     var(--optionrow-h)
-    calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    calc(var(--tabbar-h) + var(--safe-bottom));
   overflow: hidden;
 }
 
 @supports not (height: 100dvh) {
   .app {
-    height: 100vh;
+    height: var(--app-h, 100vh);
   }
+}
+
+/*
+ * 枠の中に置かれたとき。
+ *
+ * 枠が「見えている高さ」より大きいことがあり、そのときタブバーが画面外に出て
+ * 設定に触れなくなる。しかも枠の中からはそれを検知できない
+ * （innerHeight も visualViewport も枠そのものの大きさを返す）。
+ *
+ * だから下に貼り付ける配置をやめ、上から詰める。プレビューの高さに上限を置けば、
+ * 枠がどれだけ大きくても操作するものは上のほうに収まる。
+ * 画面の端に直接置かれたとき（本来の配信先）は、下に貼り付けたままでよい。
+ */
+:root[data-framed='true'] .app {
+  height: auto;
+  min-height: var(--app-h, 100dvh);
+  grid-template-rows:
+    var(--header-h)
+    clamp(160px, 34vh, 360px)
+    auto
+    var(--optionrow-h)
+    var(--tabbar-h);
+  align-content: start;
 }
 
 /* スタイルタブのときだけオプション行が伸び、プレビューが自動で縮む */
@@ -30,7 +58,7 @@
 
 /* 写真がまだ無いとき。オプション行とタブバーを出さない */
 .app[data-empty='true'] {
-  grid-template-rows: calc(var(--header-h) + env(safe-area-inset-top)) minmax(0, 1fr) auto;
+  grid-template-rows: calc(var(--header-h) + var(--safe-top)) minmax(0, 1fr) auto;
 }
 
 /* ───────── ヘッダー ───────── */
@@ -39,7 +67,7 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: var(--s1);
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--safe-top);
   padding-inline: var(--gutter);
 }
 
@@ -233,7 +261,7 @@
   grid-template-columns: repeat(5, 1fr);
   border-top: 1px solid var(--line);
   padding-top: 4px;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--safe-bottom);
   background: var(--bg);
 }
 
@@ -598,18 +626,18 @@
 }
 
 .sheet[data-size='tall'] {
-  height: 88dvh;
+  height: calc(var(--app-h, 100dvh) * 0.88);
 }
 
 .sheet[data-size='auto'] {
-  max-height: 88dvh;
+  max-height: calc(var(--app-h, 100dvh) * 0.88);
 }
 
 .sheet[data-size='full'] {
   top: 0;
-  height: 100dvh;
+  height: var(--app-h, 100dvh);
   border-radius: 0;
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--safe-top);
 }
 
 .sheet__hdr {
@@ -636,7 +664,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding: var(--s2) var(--gutter) calc(var(--s3) + env(safe-area-inset-bottom));
+  padding: var(--s2) var(--gutter) calc(var(--s3) + var(--safe-bottom));
   display: grid;
   gap: var(--s2);
   align-content: start;

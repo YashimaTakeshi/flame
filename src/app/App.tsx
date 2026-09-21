@@ -23,6 +23,7 @@ import { DEFAULT_FIELDS, useDoc } from './state/doc';
 import { useUi } from './state/ui';
 import { Sheet } from './ui/Sheet';
 import { usePreview } from './usePreview';
+import { useViewportHeight } from './useViewportHeight';
 import './theme.css';
 import './editor.css';
 
@@ -67,6 +68,8 @@ export function App(): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  useViewportHeight();
 
   useEffect(() => {
     safeStorage.init();
