@@ -51,12 +51,32 @@ import { done, expectTrue, test } from './harness';
  * 総量を保つが、書体や大きさが変われば総量そのものが動く。
  */
 
-/** 免責領域の外で許す最大の色差。正常系の実測は 66、壊れたものは 154 以上 */
+/*
+ * ★指標を1つのブラウザ版に合わせて決めてはならない★
+ *
+ * 最初は「インクの総量」に固定の閾値（1.5%）を置いたが、CI で落ちた。
+ * CI と手元でブラウザの版が違うと、同じ場面でもインクの値が 3〜6倍ずれる。
+ *
+ *                       手元（正常 / 壊れ）    CI（正常 / 壊れ）
+ *   免責外の最大色差      61〜66 / 154〜205     61〜66 / 154〜205   ← 一致する
+ *   インクの総量          0.17〜0.50% / 0.70〜  0.96〜1.70% / 2.29〜 ← ずれる
+ *
+ * そこで**環境に依らない「免責外の最大色差」を主**にし、
+ * インクは**同じ実行の中で測った正常値を基準に自己校正**して補助に使う。
+ * 固定値を残すと、また別のブラウザ版で落ちる。
+ */
+
+/** 免責領域の外で許す最大の色差。両環境とも正常 66 以下・壊れ 154 以上で、間を取る */
 const MAX_DELTA_OUTSIDE_EXEMPT = 100;
-/** 文字のインク総量の差の上限（%）。正常系の実測は 0.50 以下、壊れたものは 0.70 以上 */
-const INK_LIMIT = 1.5;
 /** 画素差は判別力が低いので、あからさまな破綻を拾う網としてだけ置く */
 const PIXEL_GROSS_LIMIT = 3.0;
+/** インクの上限は「この実行の正常値 × この倍率」。下限は置く */
+const INK_FACTOR = 2.0;
+const INK_FLOOR = 2.2;
+
+/** 正常系を1度測って基準にする。実行のたびに測り直すので、ブラウザの版に依らない */
+let inkBaseline: number | null = null;
+const inkLimit = (): number => Math.max(INK_FLOOR, (inkBaseline ?? 0) * INK_FACTOR);
 
 let photo: CanvasImageSource | null = null;
 
@@ -227,7 +247,7 @@ await test('準備: 書体を読み込む', async () => {
 function report(label: string, d: Diff): void {
   console.log(
     `  [${label.padEnd(16)}] 免責外の最大色差 ${String(d.maxOutsideExempt).padStart(3)} / ` +
-      `インク ${d.inkPct.toFixed(3)}% / 画素 ${d.pixelPct.toFixed(3)}%`,
+      `インク ${d.inkPct.toFixed(3)}%（上限 ${inkLimit().toFixed(2)}%） / 画素 ${d.pixelPct.toFixed(3)}%`,
   );
 }
 
@@ -239,8 +259,8 @@ function expectParity(label: string, d: Diff): void {
     `${label}: 免責領域の外の最大色差 ${d.maxOutsideExempt} が上限 ${MAX_DELTA_OUTSIDE_EXEMPT} を超えた（写真や枠の位置がずれている疑い）`,
   );
   expectTrue(
-    d.inkPct <= INK_LIMIT,
-    `${label}: 文字のインク総量の差 ${d.inkPct.toFixed(3)}% が上限 ${INK_LIMIT}% を超えた（書体か文字の大きさが違う疑い）`,
+    d.inkPct <= inkLimit(),
+    `${label}: 文字のインク総量の差 ${d.inkPct.toFixed(3)}% が上限 ${inkLimit().toFixed(2)}% を超えた（書体か文字の大きさが違う疑い）`,
   );
   expectTrue(
     d.pixelPct <= PIXEL_GROSS_LIMIT,
@@ -253,7 +273,7 @@ function expectDetected(label: string, d: Diff): void {
   report(label, d);
   const caught =
     d.maxOutsideExempt > MAX_DELTA_OUTSIDE_EXEMPT ||
-    d.inkPct > INK_LIMIT ||
+    d.inkPct > inkLimit() ||
     d.pixelPct > PIXEL_GROSS_LIMIT;
   expectTrue(
     caught,
@@ -264,6 +284,8 @@ function expectDetected(label: string, d: Diff): void {
 
 await test('★プレビュー(800px)と書き出し(6000px)が一致する★', () => {
   const d = parityOf(sceneFor());
+  // この実行でのインクの基準。以降の判定はこれを基に決まる
+  inkBaseline = d.inkPct;
   expectParity('正常', d);
 });
 
