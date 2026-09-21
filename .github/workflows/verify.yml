@@ -34,3 +34,11 @@ jobs:
 
       - name: テスト
         run: npm test -- --passWithNoTests
+
+      # 実ブラウザでの回帰テスト。
+      # 「例外を投げずに透明な黒を返す」のような挙動は、模擬では確かめたことにならない。
+      # 模擬ごと間違えていたらここが落ちる。
+      - name: 実ブラウザでの回帰テスト
+        run: npx playwright install --with-deps chromium && npm run test:browser
+        env:
+          FLAME_CHROMIUM: ''

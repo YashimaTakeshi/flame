@@ -14,7 +14,9 @@
     "assets:fonts": "python3 scripts/build-fonts.py",
     "assets:geo": "node scripts/build-geo.mjs",
     "assets:verify": "node scripts/verify-assets.mjs",
-    "verify": "npm run assets:verify && npx depcruise --config .dependency-cruiser.cjs src && npx eslint . && npm run typecheck"
+    "verify": "npm run assets:verify && npx depcruise --config .dependency-cruiser.cjs src && npx eslint . && npm run typecheck",
+    "test:browser": "node tests/browser/runner.mjs",
+    "assets:fixtures": "python3 scripts/build-fixtures.py"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -25,6 +27,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "all-the-cities": "^3.1.0",
     "dependency-cruiser": "^18.4.0",
+    "esbuild": "^0.28.2",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "fast-check": "^4.10.2",

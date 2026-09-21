@@ -143,6 +143,24 @@ def subset(src, dest, *, unicodes=None, text_file=None):
     return dest
 
 
+def write_coverage(path, family, cmap):
+    """収録コードポイントを昇順の [start, end] 区間列にして書き出す。"""
+    cps = sorted(cmap.keys())
+    ranges = []
+    start = prev = cps[0]
+    for cp in cps[1:]:
+        if cp == prev + 1:
+            prev = cp
+            continue
+        ranges.append([start, prev])
+        start = prev = cp
+    ranges.append([start, prev])
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"family": family, "count": len(cps), "ranges": ranges},
+                  f, separators=(",", ":"))
+    return ranges
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(LIC, exist_ok=True)
@@ -202,6 +220,18 @@ def main():
     if missing:
         sys.exit(f"異体字が収録されていません: {''.join(missing)}")
     manifest["jp"]["glyphs"] = len(cmap)
+
+    # 実行時のカバレッジ照合用の表。
+    # 同梱外の文字が入ると fillText は例外を投げずに豆腐（□）を描き、そのまま保存される。
+    # 事前に照合して止めるため、収録コードポイントを区間列で書き出す
+    # （3,476 字を裸の配列で持つと約 25KB。区間列なら数 KB に収まる）。
+    coverage_path = os.path.join(OUT, "coverage-jp.json")
+    write_coverage(coverage_path, JP_FAMILY, cmap)
+    manifest["jp"]["coverage"] = {
+        "file": "fonts/coverage-jp.json",
+        "bytes": os.path.getsize(coverage_path),
+        "sha256": sha256(coverage_path),
+    }
 
     with open(os.path.join(OUT, "manifest.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)

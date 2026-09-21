@@ -81,6 +81,26 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
 
+  // Node で動くもの（テストのランナー、ビルド用のスクリプト）。
+  // src に課している制約はここには掛からない。
+  {
+    files: ['**/*.mjs', 'vite.config.ts', 'tests/browser/runner.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly', console: 'readonly', Buffer: 'readonly', __dirname: 'readonly',
+        // page.evaluate に渡す関数はブラウザ側で動く
+        window: 'readonly',
+      },
+    },
+    rules: { 'no-restricted-globals': 'off', 'no-restricted-syntax': 'off' },
+  },
+
+  // ブラウザで動くテスト（実ブラウザでの回帰テスト）
+  {
+    files: ['tests/browser/**/*.ts'],
+    languageOptions: { globals: { window: 'readonly', console: 'readonly' } },
+  },
+
   {
     files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },

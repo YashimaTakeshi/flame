@@ -121,6 +121,11 @@
       "sha256": "535732eceb1c172e83b448d7e8123e0c94d4635e301e660ce9b49e8b18e8505c"
     },
     "charCount": 3476,
-    "glyphs": 3475
+    "glyphs": 3475,
+    "coverage": {
+      "file": "fonts/coverage-jp.json",
+      "bytes": 33576,
+      "sha256": "d32d885b1b496a9b7f2052c866660ef41b6023a71a936d9c34b131c8e2e4f7ee"
+    }
   }
 }
