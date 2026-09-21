@@ -49,6 +49,8 @@ const BUILD = {
 };
 
 export default defineConfig({
+  // 配信先がドメイン直下とは限らないので、資産は相対参照にする
+  base: './',
   plugins: [react()],
   define: {
     __BUILD__: JSON.stringify(BUILD),

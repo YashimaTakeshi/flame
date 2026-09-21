@@ -1,0 +1,10 @@
+{
+  "name": "flame",
+  "short_name": "flame",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#EDEAE6",
+  "theme_color": "#EDEAE6",
+  "lang": "ja"
+}

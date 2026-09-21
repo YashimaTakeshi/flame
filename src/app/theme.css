@@ -1,0 +1,58 @@
+/*
+ * 無彩色に徹し、アプリ自身は限りなく消える。
+ * アクセント色は持たない。唯一の色はユーザーの写真。
+ * 写真アプリでアクセントカラーを持つと、作品の色と喧嘩する。
+ */
+:root {
+  --bg: #edeae6;
+  --surface: #f6f4f1;
+  --ink: #23211f;
+  --ink-muted: #6f6a64;
+  --line: #d4cfc8;
+  --shadow: 0 2px 12px rgba(35, 33, 31, 0.14);
+
+  --s1: 8px;
+  --s2: 16px;
+  --s3: 24px;
+  --s4: 32px;
+
+  --t-xs: 11px;
+  --t-sm: 13px;
+  --t-md: 16px;
+  --t-lg: 22px;
+
+  --radius: 8px;
+
+  --ui-font: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', 'Noto Sans JP',
+    sans-serif;
+  --mono-font: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--ui-font);
+  font-size: var(--t-md);
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
