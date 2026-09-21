@@ -30,7 +30,7 @@ await page.screenshot({ path: '/tmp/u1-empty.png' });
 await page.setInputFiles('input[type=file]', '/home/user/flame/tests/fixtures/iphone-portrait.jpg');
 await page.waitForSelector('canvas.stage__canvas', { timeout: 15000 });
 await page.waitForTimeout(700);
-await page.screenshot({ path: '/tmp/u2-style.png' });
+await page.screenshot({ path: '/tmp/u2-place.png' });
 
 // タブを順に開く
 for (const [name, file] of [['組み','u3-layout'],['地色','u4-color'],['書体','u5-font'],['情報','u6-info']]) {
@@ -62,22 +62,22 @@ async function clippedIn(tabName) {
 }
 
 const clipped = {};
-for (const t of ['スタイル', '組み', '地色', '書体', '情報']) clipped[t] = await clippedIn(t);
+for (const t of ['配置', '組み', '地色', '書体', '情報']) clipped[t] = await clippedIn(t);
 
-// スタイルタブの6比率を順に開いて、どの比率でもチップが切れないか
-await page.getByRole('tab', { name: 'スタイル' }).click();
+// 配置タブの6比率を順に開いて、どの比率でも行が切れないか
+await page.getByRole('tab', { name: '配置' }).click();
 await page.waitForTimeout(250);
 const ratios = await page.evaluate(() =>
-  [...document.querySelectorAll('.p-style .seg__b')].map(b => b.textContent.trim()));
+  [...document.querySelectorAll('.p-place__row:first-child .seg__b')].map(b => b.textContent.trim()));
 const perRatio = {};
 for (const r of ratios) {
   await page.getByRole('radio', { name: r, exact: true }).click();
   await page.waitForTimeout(250);
   perRatio[r] = await clippedIn(null);
-  await page.screenshot({ path: `/tmp/u7-style-${r.replace(/[:\/]/g, '-')}.png` });
+  await page.screenshot({ path: `/tmp/u7-place-${r.replace(/[:\/]/g, '-')}.png` });
 }
 console.log('切れている部品:', JSON.stringify(clipped, null, 1));
-console.log('比率ごとのチップ:', JSON.stringify(perRatio, null, 1));
+console.log('比率ごとの配置行:', JSON.stringify(perRatio, null, 1));
 
 // スクロールが発生していないか
 const scrolls = await page.evaluate(() => ({

@@ -5,7 +5,7 @@
  * 「プレビューだけ違う描画をする」コードを書けなくしている。
  */
 import type { Lu, RectLu } from '../units';
-import type { FieldId, StyleId } from '../styles/types';
+import type { FieldId, StyleSpec } from '../styles/types';
 import type { DrawOp, FontRef, Rgba } from './ops';
 
 export interface Scene {
@@ -20,7 +20,7 @@ export interface Scene {
 }
 
 export interface SceneMeta {
-  readonly styleId: StyleId;
+  readonly style: StyleSpec;
   /**
    * 厳密な一致を要求しない領域。
    * 文字の輪郭・縦組み・ヘアライン・グレインは、原理的にプレビューと書き出しで

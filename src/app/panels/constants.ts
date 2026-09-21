@@ -1,6 +1,6 @@
 import { rgba, type Rgba } from '../../core/scene/ops';
 import type { MarginId } from '../../core/styles/layout';
-import type { Align, SizeId, TrackingId } from '../../core/styles/types';
+import type { Align, CaptionPlace, LineCount, PhotoPlace, SizeId, TrackingId } from '../../core/styles/types';
 
 /** 背景色。白・Warm White・Ivory は並べると見分けがつかないので、名前を必ず添える */
 export const COLORS: { key: string; label: string; value: Rgba }[] = [
@@ -41,4 +41,27 @@ export const MARGIN_OPTIONS: { value: MarginId; label: string }[] = [
   { value: 'narrow', label: '狭い' },
   { value: 'normal', label: '標準' },
   { value: 'wide', label: '広い' },
+];
+
+export const PHOTO_PLACE_OPTIONS: { value: PhotoPlace; label: string }[] = [
+  { value: 'center', label: '中央' },
+  { value: 'top', label: '上' },
+  { value: 'bottom', label: '下' },
+  { value: 'left', label: '左' },
+  { value: 'right', label: '右' },
+  { value: 'bleed', label: '全面' },
+];
+
+export const CAPTION_PLACE_OPTIONS: { value: CaptionPlace; label: string }[] = [
+  { value: 'below', label: '下' },
+  { value: 'above', label: '上' },
+  { value: 'left', label: '左' },
+  { value: 'right', label: '右' },
+  { value: 'overlay', label: '重ね' },
+];
+
+export const LINE_OPTIONS: { value: LineCount; label: string }[] = [
+  { value: 1, label: '1行' },
+  { value: 2, label: '2行' },
+  { value: 3, label: '3行' },
 ];

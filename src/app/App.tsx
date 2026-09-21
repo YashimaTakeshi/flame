@@ -106,7 +106,7 @@ export function App(): React.ReactElement {
       overrides: doc.overrides,
     });
     return {
-      styleId: doc.styleId,
+      style: doc.style,
       photo: { id: 'photo', aspect: loaded.decoded.natural.w / loaded.decoded.natural.h },
       facts: applyFieldSwitches(facts, doc.fields),
       gates: gatesFrom(doc.fields),

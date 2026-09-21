@@ -1,11 +1,11 @@
 /** 画面の状態。設定そのものとは分けて持つ */
 import { create } from 'zustand';
 
-export type TabId = 'style' | 'layout' | 'color' | 'font' | 'info';
+export type TabId = 'place' | 'layout' | 'color' | 'font' | 'info';
 export type SheetId = 'info' | 'export' | 'diagnostics' | null;
 
 export const TABS: { id: TabId; label: string }[] = [
-  { id: 'style', label: 'スタイル' },
+  { id: 'place', label: '配置' },
   { id: 'layout', label: '組み' },
   { id: 'color', label: '地色' },
   { id: 'font', label: '書体' },
@@ -24,7 +24,7 @@ interface UiStore {
 }
 
 export const useUi = create<UiStore>((set) => ({
-  tab: 'style',
+  tab: 'place',
   sheet: null,
   hint: null,
   setTab: (tab) => set({ tab, hint: null }),

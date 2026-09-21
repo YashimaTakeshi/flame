@@ -3,7 +3,7 @@ import { ColorPanel } from '../panels/ColorPanel';
 import { FontPanel } from '../panels/FontPanel';
 import { InfoPanel } from '../panels/InfoPanel';
 import { LayoutPanel } from '../panels/LayoutPanel';
-import { StylePanel } from '../panels/StylePanel';
+import { PlacePanel } from '../panels/PlacePanel';
 
 export function OptionRow(): React.ReactElement {
   const tab = useUi((s) => s.tab);
@@ -11,12 +11,12 @@ export function OptionRow(): React.ReactElement {
 
   return (
     <div className="optrow">
-      {tab === 'style' && <StylePanel />}
+      {tab === 'place' && <PlacePanel />}
       {tab === 'layout' && <LayoutPanel />}
       {tab === 'color' && <ColorPanel />}
       {tab === 'font' && <FontPanel />}
       {tab === 'info' && <InfoPanel />}
-      {hint && tab !== 'style' && <p className="e1">{hint}</p>}
+      {hint && <p className="e1 optrow__hint">{hint}</p>}
     </div>
   );
 }

@@ -23,7 +23,7 @@
  */
 import { buildScene, INK, WHITE, type SceneInput } from '../../src/core/compose';
 import type { Scene } from '../../src/core/scene/scene';
-import { STYLE_IDS } from '../../src/core/styles/registry';
+import { FRMM_PRESETS } from '../../src/core/styles/spec';
 import { renderScene } from '../../src/render/executor';
 import { createVerifiedCanvas, release, type AnyCanvas } from '../../src/render/guards';
 import { canvasMeasurer } from '../../src/render/measure';
@@ -293,7 +293,7 @@ const GATES = {
 function sceneFor(over: Partial<SceneInput> = {}): Scene {
   return buildScene(
     {
-      styleId: 'OR1',
+      style: { ratio: 'OR', photo: 'center', caption: 'below', lines: 1 },
       photo: { id: 'p', aspect: 1.5 },
       facts: FACTS,
       gates: GATES,
@@ -413,9 +413,9 @@ await test('整列を変えても一致する', () => {
  * 256MB の画素を2枚抱えることになり、端末では確保できない。
  * 見ているのは「2つの倍率が一致するか」なので、倍率の絶対値は判定に効かない。
  */
-await test('15スタイルすべてで一致する', () => {
-  for (const id of STYLE_IDS) {
-    expectParity(id, parityOf(sceneFor({ styleId: id }), undefined, 3));
+await test('参考アプリの15組み合わせすべてで一致する', () => {
+  for (const [name, style] of Object.entries(FRMM_PRESETS)) {
+    expectParity(name, parityOf(sceneFor({ style }), undefined, 3));
   }
 });
 

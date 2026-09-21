@@ -242,8 +242,19 @@
  * その 1px がタブバーと当たり判定を食い合い、少し低く押すとタブが切り替わっていた。
  */
 .optrow {
+  position: relative;
   box-shadow: inset 0 1px 0 var(--line);
   overflow: hidden;
+}
+
+/* 注記は行の高さを変えずに、下端へ重ねて出す */
+.optrow__hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  text-align: center;
+  background: var(--bg);
 }
 
 /* ───────── タブバー ───────── */
@@ -444,84 +455,24 @@
 
 /* ───────── パネル（各タブのオプション行） ───────── */
 
-/* スタイル: 比率46 + gap8 + 型チップ100 = 154 */
-.p-style {
-  display: grid;
-  grid-template-rows: calc(var(--tap) + 2px) 1fr;
-  gap: var(--s1);
-  padding: var(--s1) 0;
-  height: 100%;
-}
-
-.p-style > .seg {
-  margin-inline: var(--gutter);
-}
-
-.p-style__types {
-  align-items: center;
-  gap: var(--s1);
-}
-
-.stylechip {
-  flex: 0 0 auto;
-  min-width: 76px;
-  max-width: 104px;
-  height: 100px;
-  display: grid;
-  grid-template-rows: 1fr auto;
-  gap: 4px;
-  justify-items: center;
-  align-items: center;
-  padding: 6px 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--ink-2);
-  font-size: var(--t1);
-  line-height: var(--t1-lh);
-  letter-spacing: var(--t1-ls);
-}
-
-.stylechip[aria-checked='true'] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
-}
-
-.stylechip__name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
 /*
- * チップの図。写真とキャプションの位置は core/styles/layout.ts の計算をそのまま
- * 割合に直したもの（panels/styleFigure.ts）。手で描くと定義を直したとき図だけ古くなる。
+ * 配置: 比率・写真・文字の3行。各行は「見出し ＋ 1本のセグメント」。
+ * 見出しの幅を揃えて、3本のセグメントの左端を縦に通す。
  */
-.sfig {
-  position: relative;
-  display: block;
-  border: 1px solid currentColor;
-  opacity: 0.9;
+.p-place {
+  height: 100%;
+  display: grid;
+  grid-auto-rows: calc(var(--tap) + 2px);
+  gap: var(--s1);
+  padding: var(--s1) var(--gutter);
+  align-content: center;
 }
 
-.sfig__photo {
-  position: absolute;
-  background: currentColor;
-  opacity: 0.34;
-}
-
-.sfig__line {
-  position: absolute;
-  background: currentColor;
-  opacity: 0.85;
-  min-height: 1px;
-}
-
-/* 写真の上に重ねる型は、文字が写真の中にあることが分かるよう縁取る */
-.sfig__line--over {
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+.p-place__row {
+  display: grid;
+  grid-template-columns: 2.5em minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s1);
 }
 
 /*

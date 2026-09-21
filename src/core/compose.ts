@@ -17,11 +17,12 @@ import { SceneBuilder } from './scene/builder';
 import { photoId, rgba, type PhotoId, type Rgba } from './scene/ops';
 import type { Scene, SceneWarning } from './scene/scene';
 import { captionWidthLu, layoutViolations, resolveLayout, type MarginId } from './styles/layout';
-import { styleOf } from './styles/registry';
-import type { Align, SizeId, StyleId, TrackingId } from './styles/types';
+import { styleFor } from './styles/spec';
+import type { Align, SizeId, StyleSpec, TrackingId } from './styles/types';
 
 export interface SceneInput {
-  readonly styleId: StyleId;
+  /** 比率 × 写真の位置 × 文字の位置 × 行数 */
+  readonly style: StyleSpec;
   readonly photo: {
     readonly id: string;
     /** 幅 / 高さ。**Orientation 適用後**の値（platform/decode.ts の契約） */
@@ -88,7 +89,7 @@ const mix = (a: Rgba, b: Rgba, t: number): Rgba =>
   );
 
 export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
-  const def = styleOf(input.styleId);
+  const def = styleFor(input.style);
   const b = new SceneBuilder();
   const warnings: SceneWarning[] = [];
 
@@ -114,9 +115,8 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
 
   /* 2. 組み上がった高さで矩形を決める */
   const layout = resolveLayout(def, input.photo.aspect, typeset.heightLu, input.margin);
-  if (layout.bandExpanded) warnings.push({ kind: 'band-expanded', ...layout.bandExpanded });
 
-  const overlay = def.caption.place === 'overlay-bottom';
+  const overlay = def.caption.place === 'overlay';
   const ink = overlay ? OVERLAY_INK : input.ink;
   const muted = overlay ? mix(ink, rgba(0, 0, 0), 0.22) : mix(ink, input.background, 0.42);
 
@@ -135,7 +135,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
      * 線はパスの中心に引かれるので、全面ブリードのときは外側の半分が
      * キャンバスの外に落ちて線が半分の太さに見える。その分だけ内側に寄せる。
      */
-    const half = def.photo.bleed ? BORDER_LU / 2 : 0;
+    const half = def.photo.place === 'bleed' ? BORDER_LU / 2 : 0;
     b.add({
       op: 'strokeRect',
       resolution: 'invariant',
@@ -179,7 +179,10 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
 
   /* 7. 不変条件。ここで落ちるのはスタイル定義の誤りで、利用者の操作では起きない */
   const bad = layoutViolations(layout, def.caption.place);
-  if (bad.length > 0) throw new Error(`${def.id} のレイアウトが破綻しました: ${bad.join(' / ')}`);
+  if (bad.length > 0) {
+    const k = `${def.spec.ratio}/${def.spec.photo}/${def.spec.caption}/${def.spec.lines}`;
+    throw new Error(`${k} のレイアウトが破綻しました: ${bad.join(' / ')}`);
+  }
 
   const built = b.build();
   return {
@@ -191,7 +194,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
     },
     ops: built.ops,
     meta: {
-      styleId: input.styleId,
+      style: def.spec,
       exactnessExempt: built.exactnessExempt,
       charsUsed: built.charsUsed,
       fontsUsed: built.fontsUsed,

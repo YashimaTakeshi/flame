@@ -6,8 +6,8 @@
  */
 import { create } from 'zustand';
 import type { MarginId } from '../../core/styles/layout';
-import { styleOf } from '../../core/styles/registry';
-import type { Align, FieldId, SizeId, StyleId, TrackingId } from '../../core/styles/types';
+import { DEFAULT_SPEC, normalize } from '../../core/styles/spec';
+import type { Align, FieldId, SizeId, StyleSpec, TrackingId } from '../../core/styles/types';
 import type { LatinFontKey } from '../fonts-catalog';
 
 export interface Overrides {
@@ -17,7 +17,8 @@ export interface Overrides {
 }
 
 export interface DocState {
-  readonly styleId: StyleId;
+  /** 比率 × 写真の位置 × 文字の位置 × 行数 */
+  readonly style: StyleSpec;
   readonly title: string;
   readonly artist: string;
   readonly fontKey: LatinFontKey | 'jp';
@@ -45,14 +46,14 @@ export const DEFAULT_FIELDS: Record<FieldId, boolean> = {
 };
 
 const INITIAL: DocState = {
-  styleId: 'OR1',
+  style: DEFAULT_SPEC,
   title: 'Untitled',
   artist: '',
   fontKey: 'helvetica',
   colorKey: 'white',
-  align: 'left',
+  align: 'center',
   tracking: 'Normal',
-  size: 'Small',
+  size: 'Medium',
   margin: 'normal',
   bordered: false,
   fields: DEFAULT_FIELDS,
@@ -61,7 +62,7 @@ const INITIAL: DocState = {
 
 interface DocStore extends DocState {
   set<K extends keyof DocState>(key: K, value: DocState[K]): void;
-  setStyle(id: StyleId): void;
+  setStyle(patch: Partial<StyleSpec>): void;
   toggleField(id: FieldId): void;
   setOverride<K extends keyof Overrides>(key: K, value: Overrides[K]): void;
   reset(): void;
@@ -72,7 +73,7 @@ interface DocStore extends DocState {
 let previous: DocState | null = null;
 
 const snapshot = (s: DocState): DocState => ({
-  styleId: s.styleId,
+  style: s.style,
   title: s.title,
   artist: s.artist,
   fontKey: s.fontKey,
@@ -95,14 +96,23 @@ export const useDoc = create<DocStore>((set, get) => ({
   },
 
   /**
-   * スタイルを変えると、そのスタイルの既定の整列・字間・大きさも一緒に入る。
-   * 16:9 の1行組みと 9:16 のストーリー組みでは、同じ設定が同じようには効かない。
-   * 触ったあとに上書きするのは自由（1段の取り消しも効く）。
+   * 4軸のうち1つを変える。
+   *
+   * 「全面」と「重ね」は同じ状態の2つの入口なので、片方を触ったらもう片方も揃える。
+   * 逆に、写真を全面から戻したら文字は「下」へ、文字を重ねから戻したら写真は「中央」へ。
+   * 触った軸が"勝つ"。触っていない軸が勝手に動いて見えるのがいちばん混乱する。
    */
-  setStyle(id) {
+  setStyle(patch) {
     previous = snapshot(get());
-    const d = styleOf(id).defaults;
-    set({ styleId: id, align: d.align, tracking: d.tracking, size: d.size });
+    const cur = get().style;
+    let next: StyleSpec = { ...cur, ...patch };
+    if (patch.photo !== undefined && patch.photo !== 'bleed' && cur.caption === 'overlay') {
+      next = { ...next, caption: 'below' };
+    }
+    if (patch.caption !== undefined && patch.caption !== 'overlay' && cur.photo === 'bleed') {
+      next = { ...next, photo: 'center' };
+    }
+    set({ style: normalize(next) });
   },
 
   toggleField(id) {
