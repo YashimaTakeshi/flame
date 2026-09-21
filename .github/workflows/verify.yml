@@ -1,0 +1,36 @@
+name: verify
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      # 同梱アセットの検査。実測で分かっている「静かに膨らむ」事故を止める。
+      # 可変フォントの wght 固定忘れ（2.3倍）と、異体字の欠落はここで捕まる。
+      - name: 同梱アセットの検査
+        run: npm run assets:verify
+
+      # レイヤーの依存方向。core が他を知らないことを機械的に守る。
+      - name: 依存方向の検査
+        run: npx depcruise --config .dependency-cruiser.cjs src
+
+      # 5つの API を唯一の入口に集約できているか。
+      - name: lint
+        run: npx eslint .
+
+      - name: 型検査
+        run: npm run typecheck
+
+      - name: テスト
+        run: npm test -- --passWithNoTests

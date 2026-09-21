@@ -24,6 +24,7 @@
 | **実測** | PoC で実際に計測した値。レポート名を併記する。**変更するときは再計測が要る** |
 | **観測** | 参考アプリの動画・スクショから読み取った性質（比率・配置・行構成など） |
 | **推定** | 本仕様が置いた値。動画からは読み取れない。**データ1箇所の差し替えで直せる形にしてある** |
+| **同梱実測** | **実際にビルドして同梱したアセットの値**（`docs/assets.md` / `public/fonts/manifest.json` / `public/geo/*.json`）。PoC の試算より新しいので、**食い違ったらこちらが正** |
 
 ### 0.2 破ってはいけない3原則（`requirements.md` §3。3案のどの提案よりも上位）
 
@@ -48,7 +49,7 @@ EXIF 解析・合成・書き出しをすべてブラウザ内で完結させる
 | 順位 | 規則 |
 |---:|---|
 | **0** | `requirements.md` §3 の設計原則3つ |
-| **1** | `docs/poc/*.md` の**実測値**。推測・仮説より上 |
+| **1** | 実測値。`docs/poc/*.md` と、それより新しい**同梱アセットの実測**（`docs/assets.md`）。推測・仮説より上。両者が食い違ったら**同梱実測**を採る |
 | **2** | **利用者が見る・触れるもの**（画面・遷移・文言・タブ構成・モード） |
 | **3** | **データ構造・モジュール境界・描画の仕組み**（型・op・core の純粋性・テスト層） |
 | **4** | **不可逆操作の直前の検査／端末外に出るもの**（Preflight の block 判定・CSP・EXIF再注入・同意） |
@@ -67,8 +68,8 @@ EXIF 解析・合成・書き出しをすべてブラウザ内で完結させる
 | WebP 書き出し | 45MP に 3.1秒（JPEG の12倍。**実測** `report-canvas.md`）。形式選択 UI 自体を作らない。JPEG 1択 |
 | ホイールピッカー | Web の `overflow-y` エミュレートは選択値が中央に残る保証がない。全廃（§9） |
 | IndexedDB | 扱う量 30KB。同期で読めないと初回フレームがちらつく（§13.3） |
-| 和文 Bold | Regular 462.9KB に対し +473.1KB（**実測** `report-jp-subset.md`）。階層は濃淡とサイズで出す（§4.7） |
-| 異体字置換表（髙→高） | lv1p は髙・﨑を**収録済み**（**実測** `report-jp-subset.md`）。同梱字に置換を提案するのは誤り |
+| 和文 Bold | 同梱の Regular は **442.4KB**（同梱実測）。Bold を足すと倍を超える（**実測** `report-jp-subset.md`: 462.9KB + 473.1KB）。階層は濃淡とサイズで出す（§4.7）。**`verify-assets.mjs` が Bold の混入を検査して落とす** |
+| 異体字置換表（髙→高） | 同梱サブセットは髙・﨑を**収録済み**（同梱実測。ビルドが cmap で確認している）。同梱字に置換を提案するのは誤り |
 | グレインの論理セル索き | 細かい粒で一致率 0.29〜0.59（**実測** `report-grain.md`）。**棄却済み** |
 | `BroadcastChannel` による複数タブ同期 | 主戦場は単一タブ PWA。版付きキーで最悪ケースは後勝ち上書きであって破損ではない |
 | はみ出し時の4択ダイアログ | 参考素材のレンズ名（44字）で常時発火する。自動はしご＋注記に置換（§4.5） |
@@ -92,8 +93,8 @@ Preflight・オフライン説明・送信記録・和文取得の同意は、�
 
 | 用途 | 採用 | サイズ | 根拠 |
 |---|---|---:|---|
-| ビルド | Vite 5 + TypeScript 5（strict） | — | — |
-| UI | React 18 | gzip 約45KB | — |
+| ビルド | Vite 8 + TypeScript 7（strict） | — | `package.json` の現物に合わせる |
+| UI | React 19 | gzip 約45KB | `package.json` の現物 |
 | 状態 | zustand + immer | gzip 約3KB | 案C §7.1。React 外から `store.subscribe` で canvas を駆動できる |
 | 検証 | zod | gzip 約13KB | 設定スキーマの検証（§13.4） |
 | EXIF 読み | `exifr/dist/lite.esm.mjs` | **gzip 14.6KB**（実測 `report-exif.md`） | mini は Make/Model 非対応で不可 |
@@ -104,24 +105,37 @@ Preflight・オフライン説明・送信記録・和文取得の同意は、�
 | CI 構造検査 | dependency-cruiser / ESLint | — | §1.3 |
 | 配信 | Cloudflare Workers（Static Assets）+ GitHub Actions | — | §15 |
 
-**同梱アセット**: 欧文8書体 237.3KB（実測 `report-fonts.md`）／和文 lv1p Regular 462.9KB（実測
-`report-jp-subset.md`・**遅延ロード**）／日本の市区町村 centroid gzip 33KB（実測 `report-geo-batch.md`）／
-世界の主要都市 gzip 0.47MB（**同梱せず、要求時に自ドメインから取得**）。
+**同梱アセット（すべて生成済みでリポジトリにコミット済み。同梱実測 `docs/assets.md`）**
+
+| アセット | 実ファイル | サイズ | ロード |
+|---|---|---:|---|
+| 欧文8書体 × {regular, bold} | `public/fonts/<Family>-{regular,bold}.woff2` | **合計 255.3KB** | 初回プリキャッシュ |
+| 和文（JIS第一水準＋異体字 **3,476字**） | `public/fonts/NotoSansJP-regular.woff2` | **442.4KB** | **和文書体を選んだときだけ遅延** |
+| 書体の索引 | `public/fonts/manifest.json` | 2.3KB | 初回 |
+| 日本の市区町村 1,894件 | `public/geo/jp-municipalities.json` | 91.3KB（転送は gzip 約33KB） | 初回プリキャッシュ |
+| 世界の主要都市 24,323件 | `public/geo/world-cities.json` | 986.4KB（転送は gzip 約0.47MB） | **要求時のみ**（§12.1 C5） |
+| ライセンス本文 9件 | `public/licenses/<Family>-OFL.txt` | 各 4.4KB | 初回プリキャッシュ（§16.2） |
+
+**まだ入っていない依存**（段階0〜2 で入れる。`package.json` の現物には無い）:
+`immer` / `zod` / `@playwright/test` / `pixelmatch` / `fast-check` / `dependency-cruiser` / `eslint`。
 
 ### 1.2 ディレクトリ
 
 ```
 flame/
 ├─ docs/                          本仕様・要件・PoC レポート
-├─ scripts/
-│  ├─ build-jp-subset.py          和文サブセット生成（§15.4）
-│  ├─ build-geo.mjs               市区町村 centroid 生成（§7.2）
-│  ├─ build-coverage.mjs          同梱書体の cmap → coverage.json（§11.4）
-│  └─ gen-version.mjs             version.json 生成（§15.2）
+├─ scripts/                       ★ 実在。通常のビルドでは走らない（§15.4）
+│  ├─ build_fonts.py              欧文サブセット＋和文サブセット＋manifest.json
+│  ├─ build-geo.mjs               市区町村 centroid ＋ 世界都市（§7.2）
+│  ├─ verify-assets.mjs           同梱アセットの検査。★npm run build の先頭で必ず走る★
+│  ├─ build-coverage.mjs          （要追加）和文の cmap → coverage-jp.json（§11.4）
+│  └─ gen-version.mjs             （要追加）version.json 生成（§15.2）
 ├─ public/
-│  ├─ _headers                    CSP ほかの HTTP ヘッダ（§15.5）
-│  ├─ licenses/                   OFL 1.1 / CC BY 4.0 の本文（§16.2）
-│  └─ fonts/ geo/ icons/
+│  ├─ _headers                    （要追加）CSP ほかの HTTP ヘッダ（§15.5）
+│  ├─ licenses/                   OFL 1.1 の本文 9件 ＋（要追加）CC BY 4.0 の表示（§16.2）
+│  ├─ fonts/                      woff2 17件 ＋ manifest.json
+│  ├─ geo/                        jp-municipalities.json / world-cities.json
+│  └─ icons/                      （要追加）
 ├─ src/
 │  ├─ core/                     ★ 純 TypeScript。DOM / Canvas / React を一切 import しない
 │  │  ├─ units.ts                 Lu / Px ブランド型、RectLu、ScaledLength
@@ -425,7 +439,8 @@ import type { Lu, Px, RectLu, PointLu } from '../units';
 export interface Rgba { readonly r: number; readonly g: number; readonly b: number; readonly a: number }
 
 export interface FontRef {
-  readonly family: string;          // 'Arimo' | 'Jost' | 'Noto Sans JP' ...
+  /** manifest.json の family 名をそのまま使う。空白は入らない */
+  readonly family: 'Arimo'|'Jost'|'Oswald'|'Cinzel'|'PlayfairDisplay'|'LibreBaskerville'|'PTSerif'|'Tinos'|'NotoSansJP';
   readonly weight: 400 | 700;
   readonly style: 'normal';
 }
@@ -1677,7 +1692,7 @@ export function mutedInk(ink: Rgb, bg: Rgb, t = 0.42, minContrast = 3.0): Rgb {
 
 ### 4.7 emphasis の解決マップ（和文 Bold を持たないための1箇所）
 
-> 審査 §5-5: 和文は Regular のみ同梱（462.9KB）。Bold（473.1KB）は入れない。
+> 審査 §5-5: 和文は Regular のみ同梱（**同梱実測 442.4KB**）。Bold は入れない。
 > **`StyleDef` は一切変えない**（`emphasis:'bold'` のまま）。解決マップ1つで吸収する。
 
 ```ts
@@ -1717,9 +1732,9 @@ export function resolveEmphasis(e: CaptionLineSpec['emphasis'], script: Script):
 4. 和文に Bold を足すと初回の遅延ロードが 463KB → 936KB と2倍を超える。
 
 **戻し方を先に決めておく**（これが「いま入れない」ことの担保）: 実機検証で
-「和文 OR2 の2行目が平板で階層が読めない」と判断されたら、`public/fonts/NotoSansJP-Bold-lv1p.woff2`
+「和文 OR2 の2行目が平板で階層が読めない」と判断されたら、`public/fonts/NotoSansJP-bold.woff2`
 を1つ足し、上のマップの `ja` の分岐を `{ weight: 700, sizeFactor: 1.00, inkMode: 'full' }` に
-変えるだけで戻せる。
+変えるだけで戻せる（`verify-assets.mjs` の「和文 Bold が同梱されています」の検査も同時に外す）。
 
 **濃淡は `mutedInk`（最低コントラスト3.0保証）を使う。**「55%の濃度」のような固定比は
 Gunmetal / Onyx 背景で可読性を割るので使わない。
@@ -2096,9 +2111,9 @@ function buildVerticalSVG(op: VerticalTextOp, k: number, fontB64: string): strin
 ```ts
 let jpFontB64: string | null = null;
 function fontBase64(family: string): string {
-  if (family === 'Noto Sans JP' && jpFontB64) return jpFontB64;
+  if (family === 'NotoSansJP' && jpFontB64) return jpFontB64;
   const b64 = base64(fontBuffer(family));            // 和文は 463KB → base64 約 617KB
-  if (family === 'Noto Sans JP') jpFontB64 = b64;
+  if (family === 'NotoSansJP') jpFontB64 = b64;
   return b64;
 }
 ```
@@ -2200,22 +2215,38 @@ SVG ラスタライズは k ごとに焼き直すため、縮小後の画素一�
 **GPS 座標は一切外部に出さない。** 逆ジオコーディングは同梱データの最近傍探索だけで行う
 （`requirements.md` §7 の確定方針）。オンライン API は使わない。
 
-| 軸 | 実測値 |
-|---|---|
-| 日本の全市区町村 centroid | 1,894件・**gzip 33KB**（`report-geo-batch.md`） |
-| 最近傍探索（Haversine・ブルートフォース） | **0.0898ms/回**（1,000回平均） |
-| 世界の主要都市（人口≥15,000） | 24,323件・**gzip 0.47MB** |
-| 精度 | 検証座標 (34.3853, 132.4553) → 「広島県 広島市中区」距離 0.38km |
+| 軸 | 値 | 出所 |
+|---|---|---|
+| 日本の全市区町村 centroid | **1,894件・91.3KB**（転送は gzip 約33KB） | **同梱実測** `public/geo/jp-municipalities.json` |
+| 世界の主要都市（人口≥15,000） | **24,323件・986.4KB**（転送は gzip 約0.47MB） | **同梱実測** `public/geo/world-cities.json` |
+| 最近傍探索（Haversine・ブルートフォース） | **0.0898ms/回**（1,000回平均） | **実測** `report-geo-batch.md` |
+| 精度 | 検証座標 (34.3853, 132.4553) → 「広島県 広島市中区」距離 0.38km | **実測** 同上 |
+| 自信度の判定（n=5 の検証） | **誤答2件を両方とも低自信度として検出し、正答3件はすべて高自信度** | **同梱実測** `docs/assets.md` |
 
 ### 7.2 データの作り方と配信
 
-- ビルド時に `scripts/build-geo.mjs` が Geolonia 住所データ（CC BY 4.0・277,543件・51.8MB）から
-  市区町村コード単位の centroid を算出して `public/geo/jp.json.gz`（33KB）を生成する。
-  **アプリ実行時にこの前処理は走らない**（ビルド 1,261ms）。
-- 世界データは `public/geo/world.json.gz`（0.47MB）として**自ドメインに置くが、
-  初回ロードには含めない**。日本の矩形（北緯20〜46 / 東経122〜154）の外の座標を検出し、
-  利用者が［取り寄せる］を押したときだけ `import()` で取得する（§12.1 の C5）。
-- 出典表示（CC BY 4.0 の義務）は S8 とライセンス画面に置く（§16.2）。
+- `scripts/build-geo.mjs`（`npm run assets:geo`）が Geolonia 住所データ（CC BY 4.0・277,543件・51.8MB）
+  から市区町村の代表点を算出して `public/geo/jp-municipalities.json` を生成し、
+  `all-the-cities`（GeoNames 由来・CC BY 4.0）から `public/geo/world-cities.json` を生成する。
+  **生成物はコミット済みで、通常のビルドでは走らない**（§15.4）。
+- 形式は行の配列。**出典表示の義務があるので JSON 自身が `attribution` を持つ**:
+
+```jsonc
+{ "source":"Geolonia 住所データ", "license":"CC BY 4.0",
+  "url":"https://github.com/geolonia/japanese-addresses",
+  "attribution":"「Geolonia 住所データ」（Geolonia）を加工して作成",
+  "builtAt":"2026-09-21", "fields":["pref","city","lat","lng"],
+  "rows":[["三重県","いなべ市",35.1435,136.5238], ...] }
+```
+
+  アプリは `attribution` を S8 に**そのまま表示する**（文言をこちらで書き換えない）。
+- 世界データ（986.4KB）は**自ドメインに置くが初回ロードには含めない**。
+  日本の矩形（北緯20〜46 / 東経122〜154）の外の座標を検出し、利用者が［取り寄せる］を
+  押したときだけ取得する（§12.1 の C5）。
+- **元データには座標が空の行がある。** `Number('')` は 0 になるため、弾かずに平均すると
+  代表点が海の彼方へ出る（実際に大分市が北緯30.4度・東経120.6度＝中国大陸の沖に出た）。
+  生成スクリプトは行単位で空欄と範囲外を捨て、**出来上がりに対しても範囲を検査する**。
+  同じ検査を `verify-assets.mjs` がビルドのたびに回す。
 
 ### 7.3 自信度の分類と、粒度の切り上げ
 
@@ -2236,12 +2267,18 @@ export interface GeoHit {
   readonly confidence: GeoConfidence;
 }
 
+/**
+ * ★判定は「差」ではなく「比」で行う（同梱実測 docs/assets.md の n=5 検証に基づく）。
+ * ratio = 2位までの距離 ÷ 1位までの距離。1 に近いほど「どちらとも言えない」。
+ */
 export function classify(d1: number, d2: number): GeoConfidence {
   if (d1 > 50) return 'out-of-range';          // データに無い場所（海上・離島・国外）
-  if (d1 < 2 && d2 - d1 > 3) return 'high';    // 近く、かつ2位を引き離している
-  if (d2 - d1 < 1.5) return 'low';             // 1位と2位が拮抗＝境界付近
+  const ratio = d1 > 0 ? d2 / d1 : Infinity;
+  if (ratio < 1.3) return 'low';               // ★境界付近。市区町村を名乗らない★
+  if (ratio >= 2.0 && d1 < 5) return 'high';
   return 'medium';
 }
+export const GEO_RATIO_LOW = 1.3;              // 実装後に事例を増やして見直す（n=5 の小標本）
 
 /** 粒度の切り上げ。誤りを避けつつ情報を残す唯一の正しい方法 */
 export type GeoGranularity = 'ward' | 'city' | 'pref' | 'none';
@@ -2261,11 +2298,25 @@ export function render(hit: GeoHit, g: GeoGranularity): string | null {
 |---|---|---|
 | `high` | そのまま採用して提案 | `ward` |
 | `medium` | 採用するが、S4 の撮影地行に候補リスト（2位以下）を出せるようにする | `ward` |
-| `low` | **自動採用しない。** 2択を聞く | 聞くまで `none` |
+| `low` | **市区町村を名乗らない。既定で県に切り上げる**（誤りにならない）。そのうえで S4 で2択を聞ける | `pref` |
 | `out-of-range` | **採用しない。** 空欄にして手入力を促す | `none` |
 
 > **不確実性への誠実な対処は「曖昧に書く」ことではなく「粒度を上げる」こと。**
 > 「広島市中区」に確信が持てないなら「広島市」「広島県」と上げれば**誤りではなくなる。**
+
+**閾値 1.3 の根拠（同梱実測 `docs/assets.md`・n=5）**
+
+| 地点 | 引けた地名 | 2位/1位 | 判定 | 正誤 |
+|---|---|---:|---|---|
+| 宮島（厳島神社） | 広島県 廿日市市 | 2.56 | 高 | ○ |
+| 大分市役所 | 大分県 大分市 | 3.57 | 高 | ○ |
+| 札幌時計台 | 北海道 札幌市中央区 | 2.43 | 高 | ○ |
+| 東京駅 | 東京都 中央区 | 1.24 | **低→県に上げる** | ×（正解は千代田区） |
+| 那覇空港 | 沖縄県 豊見城市 | 1.24 | **低→県に上げる** | ×（正解は那覇市） |
+
+**誤答2件を両方とも低自信度として検出し、正答3件はすべて高自信度だった。**
+ただし n=5 の小標本である。事例を増やして閾値を見直すときは、
+上の5件を回帰テスト（`tests/unit/geo/confidence.test.ts`）として固定したまま行う。
 
 ### 7.4 画面に出す文面（そのまま）
 
@@ -2560,6 +2611,9 @@ for (const item of queue) {
   操作可能な要素の枠は `--line-strong` に統一する。
 
 ```css
+/* ★UI の書体。ここで参照する "Noto Sans JP"（空白あり）は OS にある書体であって、
+   同梱サブセット NotoSansJP（空白なし・§1.1）ではない。混同しないこと。
+   同梱書体はキャプションの描画にだけ使い、UI には使わない（UI に 442KB を待たせない）★ */
 font-family: "Roboto Mono", ui-monospace, SFMono-Regular, "Hiragino Sans", "Noto Sans JP", sans-serif;
 font-feature-settings: "tnum" 1;   /* 設定値一覧の桁揃え */
 ```
@@ -2744,8 +2798,9 @@ function Sheet(props: Dismissible & { children: ReactNode }) { /* … */ }
 
 **「書体」タブのオプション行（96px）**
 横スクロールカード（各 120×80）。カードには「Aa 書体名」をその書体自身でレンダリング。
-**欧文8書体は初回にプリキャッシュ済み**（237KB。§12.1 C2）なので、遅延ロードもスケルトンも要らない
-（審査 §5-7(1)）。**和文だけは遅延**で、選んだ瞬間にカード内に `…` を出して 462.9KB を取得する。
+**欧文8書体は初回にプリキャッシュ済み**（**同梱実測 255.3KB**。§12.1 C2）なので、遅延ロードも
+スケルトンも要らない（審査 §5-7(1)）。**和文だけは遅延**で、選んだ瞬間にカード内に `…` を出して
+**442.4KB** を取得する。
 
 **プレビューの駆動**
 
@@ -3448,10 +3503,10 @@ export function verifyFontIdentity(ctx: Ctx, ref: FontRef): 'ok' | 'fallback-sus
 > 申告している）。**曖昧な判定で書き出しを止めてはならない。**
 > ビルド時幅は自己診断のレポートにだけ記録する。
 
-**欧文8書体（237KB）は初回にまとめてプリキャッシュする**（審査 §5-7(1)）。
+**欧文8書体（同梱実測 255.3KB）は初回にまとめてプリキャッシュする**（審査 §5-7(1)）。
 遅延ロードにすると、オフラインや低速回線で書体を切り替えた瞬間にこの罠が生じ、
 **趣味の選択に過ぎない操作のためにブロッキングの確認を出す**羽目になる。
-遅延ロードするのは **和文（462.9KB）・`heic2any`（330KB）・世界地名（0.47MB）だけ。**
+遅延ロードするのは **和文（442.4KB）・`heic2any`（330KB）・世界地名（986.4KB）だけ。**
 
 ### 11.4 カバレッジ検査（豆腐の焼き込みへの対処）
 
@@ -3459,8 +3514,14 @@ export function verifyFontIdentity(ctx: Ctx, ref: FontRef): 'ok' | 'fallback-sus
 `fillText` は例外を投げずに豆腐（□）を描き、そのまま保存される。
 
 ```ts
-// ビルド時: scripts/build-coverage.mjs がサブセットの cmap を抽出して coverage.json を生成
-// { "NotoSansJP/400": [12354, 12355, ...] }
+// ビルド時: scripts/build-coverage.mjs（★要追加★）が和文サブセットの cmap を抽出して
+// public/fonts/coverage-jp.json を生成する。形式はコードポイントの昇順の [start, end] 区間列
+// （3,476字を裸の配列で持つと 25KB になるが、区間列なら数KB に収まる）
+// { "family": "NotoSansJP", "ranges": [[32,126],[12353,12435], ...], "count": 3476 }
+//
+// ※ 現物の public/fonts/manifest.json は charCount(3476) と glyphs(3475) しか持たないので、
+//    実行時の照合には足りない。build_fonts.py が既に cmap を読んでいる（NAME_VARIANTS の
+//    収録確認をしている）ので、そこから区間列を書き出すのが最も安い。
 
 // 実行時（core/caption/coverage.ts。CoverageOracle ポート経由）
 export function uncovered(text: string, cov: CoverageOracle): string[] {
@@ -3474,8 +3535,9 @@ export function uncovered(text: string, cov: CoverageOracle): string[] {
 ```
 
 **重要: 異体字置換表（髙→高、﨑→崎）は作らない。**
-`report-jp-subset.md` の実測で lv1p は **髙(U+9AD9)・﨑(U+FA11)・德・濵・齋・邊 を
-明示的に収録している**（「姓として頻出するため実害が大きい」）。
+**実測で同梱サブセットは 髙(U+9AD9)・﨑(U+FA11)・德・濵・齋・邊 を明示的に収録している**
+（`report-jp-subset.md`。姓として頻出するため実害が大きい。
+`build_fonts.py` はビルドの最後に cmap を見てこれらの収録を確認している）。
 **同梱している字に「高に置き換えますか」と聞くのは端的に誤りで、
 しかも人の名前の字を変える提案は最も失礼な誤りになる。**
 
@@ -3856,10 +3918,10 @@ function scrub(d: Record<string, any>) {
 | # | 何が | どこへ | いつ | 写真・位置情報を含むか | 同意 |
 |---|---|---|---|---|---|
 | **C1** | アプリ本体（HTML/JS/CSS）約 250KB | 自ドメイン（Cloudflare） | 初回アクセス時・更新時のみ | 含まない | 不要 |
-| **C2** | 欧文書体 8種（woff2 計 **237.3KB** 実測） | 自ドメイン（同梱） | C1 と同時（プリキャッシュ） | 含まない | 不要 |
-| **C3** | **和文 lv1p Regular（woff2 462.9KB 実測）** | 自ドメイン（同梱） | **和文書体を選んだときだけ（遅延）** | 含まない | 不要 |
-| **C4** | 日本の市区町村データ（gzip 33KB 実測） | 自ドメイン（同梱） | C1 と同時 | 含まない | 不要 |
-| **C5** | 世界の主要都市データ（gzip 0.47MB 実測） | 自ドメイン | 日本国外の GPS を検出し、利用者が［取り寄せる］を押したときだけ | 含まない（座標は送らない。データを受け取るだけ） | **事前同意** |
+| **C2** | 欧文書体 8種 × {regular,bold}（woff2 計 **255.3KB** 同梱実測） | 自ドメイン（同梱） | C1 と同時（プリキャッシュ） | 含まない | 不要 |
+| **C3** | **和文 Regular 3,476字（woff2 442.4KB 同梱実測）** | 自ドメイン（同梱） | **和文書体を選んだときだけ（遅延）** | 含まない | 不要 |
+| **C4** | 日本の市区町村データ（91.3KB／転送 gzip 約33KB） | 自ドメイン（同梱） | C1 と同時 | 含まない | 不要 |
+| **C5** | 世界の主要都市データ（986.4KB／転送 gzip 約0.47MB） | 自ドメイン | 日本国外の GPS を検出し、利用者が［取り寄せる］を押したときだけ | 含まない（座標は送らない。データを受け取るだけ） | **事前同意** |
 | **C6** | PWA マニフェスト・アイコン | 自ドメイン | 初回・ホーム画面追加時 | 含まない | 不要 |
 | **C7** | `version.json`（版番号の確認・数百バイト） | 自ドメイン | 起動時＋6時間ごと（開いている間のみ） | 含まない | 不要 |
 | **C8** | `sw.js` の更新確認 | 自ドメイン | ブラウザが自動で＋C7 を受けて明示的に | 含まない | 不要 |
@@ -4052,10 +4114,10 @@ function needFetch(text: string) { return uncovered(text, localCoverage); }
 > | 受け取るもの | 大きさ |
 > |---|---|
 > | アプリ本体 | 約 250KB |
-> | 欧文の書体 8種類 | 約 237KB |
-> | 日本の市区町村の位置データ | 約 33KB |
+> | 欧文の書体 8種類 | 約 255KB |
+> | 日本の市区町村の位置データ | 約 33KB（圧縮した状態） |
 >
-> 日本語の書体（約 463KB）は、**日本語の書体を選んだときにだけ**受け取ります。
+> 日本語の書体（約 442KB）は、**日本語の書体を選んだときにだけ**受け取ります。
 > 欧文だけで使う方には 1KB も転送しません。
 >
 > 一度受け取れば端末に保存されるので、**2回目からは通信なしで開けます**（飛行機の中でも使えます）。
@@ -4075,7 +4137,7 @@ function needFetch(text: string) { return uncovered(text, localCoverage); }
 > **ここだけは、あなたが入力した文字が外部に送られます。** 正直に書きます。
 >
 > このアプリには、よく使う日本語の文字（ひらがな・カタカナ・第一水準の漢字・記号・
-> 人名でよく使う異体字）を 3,481字 あらかじめ入れてあります。
+> 人名でよく使う異体字）を 3,476字 あらかじめ入れてあります。
 > でも、それに入りきらない珍しい字もあります（全部入れると 5MB になり、開くのが
 > 遅くなってしまいます）。
 >
@@ -4140,7 +4202,7 @@ function needFetch(text: string) { return uncovered(text, localCoverage); }
 | 写真の選択・EXIF 読み取り | **できる** |
 | 15種すべてのスタイル / 組み / 地色 | **できる** |
 | 欧文8書体 | **できる**（同梱・プリキャッシュ） |
-| 和文（同梱 lv1p 内の文字） | **できる**（一度ロードしていれば） |
+| 和文（同梱サブセット 3,476字 内の文字） | **できる**（一度ロードしていれば） |
 | 和文（同梱外の文字） | できない |
 | 縦書き | **できる**（同梱サブセット内の文字なら） |
 | グレイン・質感 | **できる** |
@@ -4226,7 +4288,7 @@ Context だとツリー全体が再レンダーされる。gzip 約1KB でバン
 |---|---|---|
 | モード / 既定値 / lastUsed / プリセット(≤50) / 能力測定結果 / 同意設定 / 通信ログ(100件) / エラーログ(20件) | **localStorage**（`safeStorage` 経由） | 合計約 30KB |
 | アプリ本体・欧文8書体・日本の地名データ・アイコン | **Cache Storage**（SW でプリキャッシュ） | 約 1MB |
-| 和文 lv1p / 世界地名データ / 取り寄せた和文サブセット / heic2any | **Cache Storage**（ランタイム） | 462.9KB / 0.47MB / 約10KB ずつ / 330KB |
+| 和文 Regular / 世界地名データ / 取り寄せた和文サブセット / heic2any | **Cache Storage**（ランタイム） | 442.4KB / 986.4KB / 約10KB ずつ / 330KB |
 | **写真そのもの・書き出した画像** | **保存しない** | — |
 
 **IndexedDB は使わない。** 決定打は**同期性**である。localStorage は起動時に同期で読めるので
@@ -4438,14 +4500,14 @@ for (const styleId of ALL_STYLE_IDS) {
 | 右下だけ確保されないケース | 同上 | `probe(w-1,h-1)` を無効化したモックで `reason:'verify'` になること |
 | フォント待ちの取りこぼし | `report-fonts.md` §4 | `renderScene` が `LoadedFontSet` なしで呼べないこと（`@ts-expect-error` の型テスト）＋ `loadFonts` 前後で `measureText` の幅が変わることを実測して記録 |
 | **縦書き SVG のフォント欠落** | `report-svg-font.md` | `font-family` を外した版と画素が**一致しない**こと（`diff > 0.01`）。一致したら失敗。**これが `report-svg-font.md` の A vs C（相違0画素）の裏返し** |
-| **和文サブセットのサイズ膨張** | `report-jp-subset.md` | ビルド生成物が **400KB < size < 520KB** であること（§15.4）。`wght` 固定を忘れると 1,043KB になる |
+| **和文サブセットのサイズ膨張** | `report-jp-subset.md` | `verify-assets.mjs` が和文 Regular **≤ 700KB**（実測 442.4KB）で落とすこと。`wght` 固定を忘れると 1,043KB になる（§15.4） |
 | **グレインの解像度依存** | `report-grain.md` | L4 の強度比 0.90〜1.10。加えて `GrainOp` に `cellPx` のような物理px フィールドが存在しないことを型で保証 |
 | `buildScene` が k を取らない | 本仕様 §2.1 | `buildScene` の引数型に `RenderTarget` / `k` / `dpr` が現れないことの型テスト |
 | フル解像度の同時保持 | `report-geo-batch.md` B-1 | 一括処理10枚を回し、`PhotoStore` の live handle 数が常に **≤ 2** であること |
 | 連続 `<a download>` のブロック | 同 B-4 | 一括保存が `<a download>` を**11回以上呼ばない**こと（`platform/save.ts` のモック） |
 | letterSpacing の比例 | `report-canvas.md` | k=0.8 と k=6 で `measuredWidthLu` が同一であること（core が測り直さないので自明だが、退行検知として置く） |
 | Orientation の一致 | `report-exif.md` §4 | `decode(file, {resizeWidth:800})` と `decode(file)` の**アスペクト比が一致**すること（Orientation=6 の画像で） |
-| 豆腐の焼き込み | `report-jp-subset.md` | `uncovered('彅', bundledCoverage)` が `['彅']`、`uncovered('髙﨑德濵齋邊', ...)` が **`[]`** であること（同梱済みの確認） |
+| 豆腐の焼き込み | `report-jp-subset.md` ／ 同梱実測 | `uncovered('彅', bundledCoverage)` が `['彅']`、`uncovered('髙﨑德濵齋邊', ...)` が **`[]`** であること（同梱済みの確認） |
 | EXIF 再注入の読み戻し | `report-canvas.md` Part3 | 注入後に `piexif.load` で Model が一致すること。GPS が**含まれない**こと |
 
 ### 14.6 テスト用フィクスチャ
@@ -4569,8 +4631,8 @@ export async function safeImport<T>(loader: () => Promise<T>, label: string): Pr
 
 | 区分 | 内容 | 戦略 |
 |---|---|---|
-| プリキャッシュ（install 時） | `index.html` / JS・CSS チャンク（版付きURL）/ 欧文8書体 / 日本の地名データ / アイコン / manifest（計 約1MB） | Cache First |
-| ランタイムキャッシュ | 和文 lv1p / 世界の地名データ / 取り寄せた和文サブセット / `heic2any` | Cache First（取得時に明示的に put） |
+| プリキャッシュ（install 時） | `index.html` / JS・CSS チャンク（版付きURL）/ 欧文8書体 255.3KB / `fonts/manifest.json` / `coverage-jp.json` / 日本の地名データ 91.3KB / `licenses/*.txt` / アイコン / manifest（計 約1MB） | Cache First |
+| ランタイムキャッシュ | 和文 Regular / 世界の地名データ / 取り寄せた和文サブセット / `heic2any` | Cache First（取得時に明示的に put） |
 | ナビゲーション要求 | `index.html` | Network First（3秒タイムアウト → Cache） |
 | キャッシュしない | `version.json` | Network Only（`Cache-Control: no-store`） |
 | SW が触らない | `fonts.googleapis.com` / `fonts.gstatic.com` | fetch ハンドラで素通し。取得結果はアプリ側が明示的に put（SW が握ると同意の記録と実際の通信がずれる） |
@@ -4597,65 +4659,73 @@ SW が壊れている疑い（`version.json` だけが新しい）:
 > ※［アプリを入れ直す］を押すと、保存された部品をすべて削除して取り直します。
 > 　**設定とプリセットは消えません。** 少し通信します（約1MB）。
 
-### 15.4 和文サブセットのビルド手順とサイズ assert（審査 §6-4 の欠落への回答）
+### 15.4 同梱アセットのビルドと検査（審査 §6-4 の欠落への回答）
 
-**決定: 生成物（woff2）をリポジトリにコミットする。CI では生成しない。**
+**決定: 生成物（woff2 と JSON）をリポジトリにコミットする。CI では生成しない。
+ただし「サイズが正しいこと」は `npm run build` の先頭で必ず検査する。**
 
-理由: 生成には Python 3.11 + fonttools 4.65 + brotli が要り、CI に Python 環境を足すと
-ビルド時間と失敗経路が増える。生成物は 462.9KB で、変更頻度は年に1回あるかどうか。
-**ただし「再生成できること」と「サイズが正しいこと」は CI で必ず確かめる。**
+理由: フォント生成には Python 3 + fonttools + brotli が要り、地名生成には 52MB の取得が要る。
+CI にこれを足すとビルド時間と失敗経路が増える。生成物は合計約1.8MB で、変更頻度は
+年に1回あるかどうか。**現物は既にコミット済みである**（`public/fonts` / `public/geo` /
+`public/licenses`、および `docs/assets.md`）。
 
 ```bash
-# scripts/build-jp-subset.sh（開発者が手元で1回だけ実行し、生成物をコミットする）
-set -euo pipefail
-python3 scripts/jis_sets.py > build/lv1p.txt        # JIS X 0208 の区点から lv1p（3,481字）を生成
-                                                     # ★ネットワーク不要・完全に再現可能★
-# ★★★ 必ず wght を固定してからサブセットする ★★★
-python3 -m fontTools.varLib.instancer \
-  vendor/NotoSansJP-VariableFont_wght.ttf wght=400 \
-  -o build/NotoSansJP-400.ttf
-pyftsubset build/NotoSansJP-400.ttf \
-  --text-file=build/lv1p.txt \
-  --layout-features='ccmp,locl,liga,kern,vert,vrt2,vkrn,palt,halt' \
-  --flavor=woff2 \
-  --output-file=public/fonts/NotoSansJP-400-lv1p.woff2
-node scripts/build-coverage.mjs                      # cmap → public/fonts/coverage.json
+npm run assets:fonts    # scripts/build_fonts.py   Python 3 ＋ pip install fonttools brotli
+npm run assets:geo      # scripts/build-geo.mjs    Node のみ（52MB を取得する）
+npm run assets:verify   # scripts/verify-assets.mjs ★npm run build の先頭で必ず走る★
 ```
 
-**`vert` / `vrt2` / `vkrn` を残すのは縦書き（§6）に要るため。**
+**フォント生成が機械的に潰している2つの罠**（`docs/assets.md`）
 
-**サイズ assert（CI で毎回回す）**
+1. **可変フォントのまま `pyftsubset` にかけると全ウェイトのデータが残る。**
+   和文で 442KB → 1,043KB（**2.3倍**。実測 `report-jp-subset.md`）。動作はするので気づけない。
+   `fontTools.varLib.instancer` で `wght` を固定してからサブセットする。
+2. **「山﨑」「髙橋」の 﨑・髙 は JIS X 0208 の外**にあり、素直にサブセットすると欠落する。
+   姓として頻出するので異体字を明示的に足し、**ビルドの最後に cmap を見て収録を確認する。**
+
+縦書き（§6）に要る OpenType feature（`vert` / `vrt2` / `vkrn`）を落とさないこと。
+
+**検査（`scripts/verify-assets.mjs`。現物の実装に合わせる）**
+
+| 検査 | 上限・条件 | 何を防ぐか |
+|---|---|---|
+| 1書体1ウェイト | ≤ 60KB | サブセットが効いていない |
+| 欧文8書体 合計 | ≤ 400KB（実測 255.3KB） | 同上 |
+| 和文 Regular | ≤ 700KB（実測 442.4KB） | **`wght` 固定忘れ（1,043KB になる）** |
+| 和文の収録文字数 | ≥ 3,400字（実測 3,476字） | 第一水準が入っていない |
+| **和文 Bold の不在** | `manifest.jp.bold` が無いこと | §4.7 の決定が静かに覆るのを防ぐ |
+| manifest とファイルサイズの一致 | 完全一致 | 生成と manifest のずれ |
+| 地名（日本 / 世界） | ≤ 120KB / ≤ 2,400KB（実測 91.3KB / 986.4KB） | 桁の取り違え |
+| ライセンス本文 9件 | 存在し ≥ 1,000 バイト | OFL の再配布条件（§16.2） |
+
+**この検査に追加するもの（実装時）**
 
 ```ts
-// tests/unit/build/jp-subset-size.test.ts
-import { statSync } from 'node:fs';
-
-test('和文サブセットのサイズが実測値の範囲内にある', () => {
-  const bytes = statSync('public/fonts/NotoSansJP-400-lv1p.woff2').size;
-  // report-jp-subset.md の実測: 462.9KB。可変のままサブセットすると 1,043KB（2.3倍）
-  expect(bytes).toBeGreaterThan(400 * 1024);   // 小さすぎる＝文字が足りない
-  expect(bytes).toBeLessThan(520 * 1024);      // ★大きすぎる＝wght 固定を忘れている★
-});
-
-test('lv1p の収録文字', async () => {
-  const cov = JSON.parse(readFileSync('public/fonts/coverage.json', 'utf8'));
-  const has = (s: string) => [...s].every(c => cov['NotoSansJP/400'].includes(c.codePointAt(0)));
+// ① 和文のカバレッジ区間列（§11.4 が実行時に使う。現物の manifest には無い）
+//    build_fonts.py の cmap 読み出しから public/fonts/coverage-jp.json を書き出し、
+//    verify-assets.mjs で「manifest.jp.charCount と ranges の総数が一致すること」を検査する。
+// ② 収録の回帰テスト（tests/unit/build/jp-coverage.test.ts）
+test('同梱サブセットの収録文字', () => {
+  const cov = loadCoverage('public/fonts/coverage-jp.json');
+  const has = (t: string) => [...t].every(c => cov.has(c.codePointAt(0)!));
   expect(has('夕焼けの街並みにて撮影')).toBe(true);
   expect(has('富士フイルム')).toBe(true);
   expect(has('広島県廿日市市')).toBe(true);
   expect(has('2026年9月20日')).toBe(true);
-  expect(has('髙﨑德濵齋邊')).toBe(true);     // ★人名の異体字38字★
+  expect(has('髙﨑德濵齋邊')).toBe(true);       // ★人名の異体字★
   expect(has('々〆〇')).toBe(true);
-  expect(cov['NotoSansJP/400'].length).toBeGreaterThanOrEqual(3480);
+  expect(cov.count).toBeGreaterThanOrEqual(3400);
 });
 ```
 
-**再現性の担保**: `scripts/jis_sets.py` は **JIS X 0208 の区点を ISO-2022-JP でデコードして**
-文字集合を構成する（外部データもネットワークも不要）。同じスクリプトを回せば必ず同じ
-3,481字が出る。原本フォントは `vendor/` にバージョン付きで置き、
-`fontSetVersion`（例 `fontset-2026.09`）に反映する。
+**再現性の担保**: 文字集合は **JIS X 0208 の区点を ISO-2022-JP でデコードして**起こす
+（外部の漢字リストもネットワークも不要）。同じスクリプトを回せば必ず同じ 3,476字が出る。
+原本フォントの取得元と版は `fontSetVersion`（例 `fontset-2026.09`）に反映する。
 
-**Bold は入れない**（§4.7）。`public/fonts/` に Bold の woff2 が存在しないことも assert する。
+**既知の不整合（実装初日に直すこと）**: `package.json` の `assets:fonts` は
+`node scripts/build-fonts.mjs` を指しているが、実体は `scripts/build_fonts.py` である。
+`python3 scripts/build_fonts.py` に直す。**`npm run assets:verify` は正しく動く**ので、
+検査そのものは機能している。
 
 ### 15.5 CSP の配信方法（審査 §6-3 の未決事項への回答）
 
@@ -4814,24 +4884,17 @@ export function exportFileName(shot: WallClock | null, used: Set<string>): strin
 ### 16.2 ライセンス本文の配置と配信形態、Tinos の扱い（欠落2）
 
 **配置**: `public/licenses/` に**本文そのもの**を置き、ビルド成果物に含める（オフラインでも読める）。
+**フォント9件は既にコミット済み**（各 4.4KB。`verify-assets.mjs` が存在と長さを検査している）。
 
 ```
 public/licenses/
-├─ index.html              ← S8 の［出典とライセンス］から開く。全部の目次
-├─ OFL-1.1.txt             ← SIL Open Font License 1.1 の全文
-├─ fonts/
-│  ├─ Arimo-OFL.txt              （google/fonts の ofl/arimo/OFL.txt をそのまま）
-│  ├─ Jost-OFL.txt
-│  ├─ Oswald-OFL.txt
-│  ├─ Cinzel-OFL.txt
-│  ├─ PlayfairDisplay-OFL.txt
-│  ├─ PTSerif-OFL.txt
-│  ├─ LibreBaskerville-OFL.txt
-│  └─ NotoSansJP-OFL.txt
-├─ geo/
-│  ├─ geolonia-CC-BY-4.0.txt     ＋ 出典表示「© Geolonia 住所データ（CC BY 4.0）」
-│  └─ geonames-CC-BY-4.0.txt     ＋ 出典表示「© GeoNames（CC BY 4.0）」
-└─ libs.txt                ← exifr / piexifjs / fflate / zustand / React ほかの MIT 表記
+├─ Arimo-OFL.txt  Jost-OFL.txt  Oswald-OFL.txt  Cinzel-OFL.txt        ← 実在
+│  PlayfairDisplay-OFL.txt  LibreBaskerville-OFL.txt  PTSerif-OFL.txt
+│  Tinos-OFL.txt  NotoSansJP-OFL.txt
+├─ index.html              ★要追加★ S8 の［出典とライセンス］から開く目次
+├─ geo.txt                 ★要追加★ Geolonia / GeoNames の CC BY 4.0 表示。
+│                                   本文は各 JSON の attribution をそのまま引く
+└─ libs.txt                ★要追加★ exifr / piexifjs / fflate / zustand / React ほかの MIT 表記
 ```
 
 - **OFL 1.1 はフォントファイルとライセンス本文を一緒に配布することを要求する。**
@@ -4841,33 +4904,31 @@ public/licenses/
   1行で出す（リンクだけにしない）。
 - Service Worker のプリキャッシュに `licenses/` を含める（**オフラインで読めること**が要件）。
 
-**Tinos の扱い（`report-fonts.md` が未確認と警告している）**
+**Tinos の扱い — 解決済み（`report-fonts.md` の警告への回答）**
 
 > `report-fonts.md`: Tinos は METADATA.pb に `license: "OFL"` と明記されているが、
 > `ofl/tinos/` 配下に OFL.txt 本体が見当たらず**本文の直接確認は未検証**。
 
-**決定（公開前の門として扱う）**
+**アセットのビルドで決着した（同梱実測 `docs/assets.md`）。**
+`google/fonts` の `ofl/tinos/OFL.txt` は **404 を実測**で確認し、
+**本家 `googlefonts/tinos` から本文を取得して `public/licenses/Tinos-OFL.txt` に同梱した**（4.4KB）。
+よって **Tinos は出荷する。欧文は8書体のまま。**（外して7書体にする案は不要になった。）
 
-1. リリース前に `google/fonts` リポジトリの `ofl/tinos/` を再確認し、OFL.txt を取得できたら
-   `public/licenses/fonts/Tinos-OFL.txt` に置いて**そのまま同梱する**。
-2. **取得できなかった場合は Tinos を外し、欧文を7書体で出す。**
-   代替は立てない（Times New Roman 系は PT Serif と Libre Baskerville で近似できる）。
-3. どちらにするかは**リリースの前に決める**。`scripts/check-licenses.mjs` が
-   `public/fonts/*.woff2` それぞれに対応する `public/licenses/fonts/*-OFL.txt` の存在を
-   assert し、**欠けていたらビルドを落とす。**
+**「ライセンス本文が無い書体は出荷しない」は `verify-assets.mjs` が機械で守っている**:
 
 ```js
-// scripts/check-licenses.mjs（CI の verify ジョブで実行）
-const fonts = readdirSync('public/fonts').filter(f => f.endsWith('.woff2'));
-for (const f of fonts) {
-  const fam = f.split('-')[0];
-  if (!existsSync(`public/licenses/fonts/${fam}-OFL.txt`)) {
-    throw new Error(`${fam} のライセンス本文が同梱されていない。同梱するか、書体を外すこと`);
+// scripts/verify-assets.mjs（現物。npm run build の先頭で走る）
+const licenses = ['Arimo', 'Jost', 'Oswald', 'Cinzel', 'PlayfairDisplay',
+                  'LibreBaskerville', 'PTSerif', 'Tinos', 'NotoSansJP'];
+for (const f of licenses) {
+  const p = resolve(root, `public/licenses/${f}-OFL.txt`);
+  if (!existsSync(p) || statSync(p).size < 1000) {
+    errors.push(`public/licenses/${f}-OFL.txt がないか、短すぎます`);
   }
 }
 ```
 
-**「ライセンス本文が無い書体は出荷しない」を機械で守る。**
+書体を足すときは、この配列と `public/licenses/` の両方に足さなければビルドが落ちる。
 
 ### 16.3 CI/CD の具体（欠落3）
 
@@ -4884,12 +4945,14 @@ for (const f of fonts) {
 
 §15.4 で回答済み。要点:
 
-- **生成物（woff2）をコミットする。CI では生成しない。**
-- ただし **サイズ assert（400KB < size < 520KB）を CI で毎回回す。**
-  `wght` 固定を忘れると 1,043KB に静かに膨らむ（**実測 2.3倍**）ので、これが唯一の防波堤。
-- 収録文字の assert（`髙﨑德濵齋邊` を含む3,480グリフ以上）も併せて回す。
-- `scripts/jis_sets.py` は JIS X 0208 の区点から**ネットワーク無しで**集合を作るので、
-  誰が何度回しても同じ 3,481字になる。
+- **生成物（woff2・JSON）をコミットする。CI では生成しない。現物は既にコミット済み。**
+- ただし **`npm run assets:verify` を `npm run build` の先頭で必ず走らせる。**
+  和文 Regular ≤ 700KB（実測 442.4KB）が `wght` 固定忘れ（1,043KB・**実測2.3倍**）の防波堤。
+- 収録文字の assert（`髙﨑德濵齋邊` を含む 3,400字以上）も併せて回す。
+- 文字集合は JIS X 0208 の区点から**ネットワーク無しで**起こすので、
+  誰が何度回しても同じ 3,476字になる。
+- **実行時のカバレッジ照合（§11.4）に要る `coverage-jp.json` はまだ無い。
+  `build_fonts.py` の cmap 読み出しから書き出すのが最も安い**（§15.4 の追加分）。
 
 ### 16.5 Orientation とクロップの相互作用（欠落5。最重要）
 
@@ -5117,7 +5180,7 @@ buildTimeWidths : Arimo/400 +0.4%, Jost/400 -1.1%  (参考値)
 
 | 段階 | 入れるもの | 完了判定 |
 |---|---|---|
-| **0** | リポジトリの骨組み: Vite + TS strict、`src/{core,render,worker,platform,app}` の空ディレクトリ、`.dependency-cruiser.cjs`、**§1.3 の ESLint 5規則**、GitHub Actions の verify ジョブ | **空のコードで構造検査が緑になる。** 意図的に `src/core` から `document` を触るコミットを作り、**CI が赤くなることを確認する** |
+| **0** | リポジトリの骨組み: Vite + TS strict、`src/{core,render,worker,platform,app}` の空ディレクトリ、`.dependency-cruiser.cjs`、**§1.3 の ESLint 5規則**、GitHub Actions の verify ジョブ。**`package.json` の `assets:fonts` のパス誤りを直す**（§15.4） | **空のコードで構造検査が緑になり、`npm run build` が `assets:verify` を通る。** 意図的に `src/core` から `document` を触るコミットを作り、**CI が赤くなることを確認する** |
 | **1** | `platform/storage.ts`（safeStorage）／`build-info.ts`／`platform/error-log.ts`／`platform/net.ts` | プライベートモードのエミュレーションで起動できる |
 | **2** | `render/guards.ts`（createVerifiedCanvas）／`render/resources/fonts.ts`（FontRegistry + LoadedFontSet）／`release()`／`platform/decode.ts`（Orientation 契約） | §14.5 の罠テスト（面積上限・フォント待ち・Orientation）が通る |
 | **3** | `core/units` / `core/scene/ops` / `core/scene/builder` / `render/executor` / `render/measure`。**写真＋背景＋1行テキストだけ** | **L4 パリティテストが1スタイル（SQ1）で通る。ここが最重要マイルストーン** |
@@ -5136,7 +5199,7 @@ buildTimeWidths : Arimo/400 +0.4%, Jost/400 -1.1%  (参考値)
 | **16** | 撮影地 D4（centroid・自信度・粒度の切り上げ） | 境界付近で2択が出る。範囲外で採用しない |
 | **17** | 2モード（S1 / 対照表 / 上限3つ）／S7 初期値設定／レシピ URL | お手軽で6スタイル・4色・2質感になる。**block 4種は両モードで同一**であることをテストで固定 |
 | **18** | **自己診断（SD）** ＋ `platform/caps.ts`（二分探索・grain 一致度の計測） | **利用者の iPhone で §16.10 の10項目が測れる** |
-| **19** | S8（通信の説明・送信記録・オフライン・ライセンス・不具合報告）／`licenses/` の同梱と `check-licenses.mjs` | **Tinos の判断（§16.2）をここで確定させる** |
+| **19** | S8（通信の説明・送信記録・オフライン・ライセンス・不具合報告）／`licenses/index.html` と `geo.txt` / `libs.txt` の追加 | S8 から OFL 本文と CC BY 表示に到達でき、オフラインでも読めること（Tinos は §16.2 で解決済み） |
 | **20** | **iOS 実機検証**（§16.10 の10項目）→ 事前に決めた分岐を適用 | HEIC 不要なら削除。上限が低ければ既定を下げる。**再設計にはならない** |
 | **21** | 参考アプリと並べた15スタイルの寸法詰め（`confidence: estimated` の解消） | `registry.ts` のデータ差し替えのみで完結すること（コードを触らない） |
 
