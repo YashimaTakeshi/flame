@@ -31,29 +31,23 @@
 /*
  * 枠の中に置かれたとき。
  *
- * 枠が「見えている高さ」より大きいことがあり、そのときタブバーが画面外に出て
- * 設定に触れなくなる。しかも枠の中からはそれを検知できない
- * （innerHeight も visualViewport も枠そのものの大きさを返す）。
+ * 枠が「見えている高さ」より大きいことがあり、そのとき下端のタブバーが
+ * 画面外に出る。枠の中からはそれを検知できない（innerHeight も visualViewport も
+ * 枠そのものの大きさを返す）。
  *
- * だから下に貼り付ける配置をやめ、上から詰める。プレビューの高さに上限を置けば、
- * 枠がどれだけ大きくても操作するものは上のほうに収まる。
- * 画面の端に直接置かれたとき（本来の配信先）は、下に貼り付けたままでよい。
+ * 上から詰める対処も試したが、今度は設定が写真の直下に寄りすぎ、
+ * 下に大きな空白ができた。どちらも良くない。
+ *
+ * そこで配置は変えず（設定は下のまま）、**届かないぶんをスクロールで拾えるようにする**。
+ * 枠の中は本来の配信先ではない検証用の置き場なので、ここでの最善は
+ * 「見た目を崩さず、必ず届く」こと。
  */
-:root[data-framed='true'] .app {
-  height: auto;
-  min-height: var(--app-h, 100dvh);
-  grid-template-rows:
-    var(--header-h)
-    clamp(160px, 34vh, 360px)
-    auto
-    var(--optionrow-h)
-    var(--tabbar-h);
-  align-content: start;
+:root[data-framed='true'] {
+  overflow: auto;
 }
 
-/* スタイルタブのときだけオプション行が伸び、プレビューが自動で縮む */
-.app[data-tab='style'] {
-  --optionrow-h: 176px;
+:root[data-framed='true'] body {
+  overflow: visible;
 }
 
 /* 写真がまだ無いとき。オプション行とタブバーを出さない */
@@ -341,7 +335,11 @@
   color: var(--ink-3);
 }
 
-/* 横スクロール行。端から16px離し、iOS の端スワイプと取り合わない */
+/*
+ * 横スクロール行。
+ * 指を離したときに項目が端で切れて見えないよう、項目の左端に吸い付かせる。
+ * 端から16px離すのは、iOS の端スワイプ（戻る）と取り合わないため。
+ */
 .hscroll {
   display: flex;
   gap: var(--s1);
@@ -349,7 +347,12 @@
   overscroll-behavior-x: contain;
   padding-inline: var(--gutter);
   scroll-padding-inline: var(--gutter);
+  scroll-snap-type: x proximity;
   scrollbar-width: none;
+}
+
+.hscroll > * {
+  scroll-snap-align: start;
 }
 
 .hscroll::-webkit-scrollbar {

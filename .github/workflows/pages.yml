@@ -1,0 +1,49 @@
+# GitHub Pages に公開する。
+# 実ブラウザで確認するための置き場。本番は Cloudflare に移す予定。
+name: pages
+
+on:
+  push:
+    branches: ['claude/mobile-photo-frame-app-2rx12i', 'main']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 公開は1度に1つだけ。走っているものは止めずに終わらせる
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      # 同梱アセットの検査。サイズ上限と指紋の照合
+      - run: npm run assets:verify
+
+      - name: ビルド
+        run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
