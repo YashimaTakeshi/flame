@@ -33,6 +33,8 @@ export interface CaptionInput {
   readonly tracking: TrackingId;
   readonly align: Align;
   readonly family: string;
+  /** 地の太さ。Bold の書体を選んでいればこれが 700 になる */
+  readonly weight: 400 | 700;
   /** その書体が Bold を持っているか。和文サブセットは Regular だけ（§4.7） */
   readonly hasBold: boolean;
 }
@@ -104,7 +106,9 @@ export function typesetCaption(
     const parts = collectParts(spec, input);
     if (parts.length === 0) return; // 空の行は行ごと省く
 
-    const weight: 400 | 700 = spec.emphasis === 'bold' && input.hasBold ? 700 : 400;
+    // 地がすでに Bold なら、強調しても 700 のまま（それ以上は無い）
+    const weight: 400 | 700 =
+      spec.emphasis === 'bold' && input.hasBold ? 700 : input.weight;
     const font: FontRef = { family: input.family, weight };
     const sep = SEPARATORS[spec.separator];
     const nominal = baseSize * spec.relSize;

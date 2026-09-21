@@ -1319,6 +1319,34 @@ export function resolveLayout(
 | SQ4 の暗幕 | `heightLu:240, alpha:0.42` | `heightLu:320, alpha:0.58` | **計算で落ちた。** キャプションはキャンバス下端から 40lu の位置にあり、仕様の直線勾配ではそこでの濃さが 0.33 にしかならない。真っ白な写真（空・雪）の上でコントラストが **2.0:1** となり読めない。4.5:1 を満たす最小の濃さが 0.58（→ 4.76:1）。立ち上がりを smoothstep にして下半分を平らにし、キャプションが必ず最大の濃さの上に載るようにした |
 | STN3 の暗幕 | `heightLu:170, alpha:0.40` | `heightLu:230, alpha:0.58` | 同上 |
 
+#### 追記（2026-09-21・実機フィードバック後）
+
+`border` を型ごと落としたのは**誤りだった**。上の表で「15スタイルのどれも枠線を
+描くとは言っていない」と書いたが、枠線はスタイルの属性ではなく
+**Color タブの Standard / Bordered という直交軸**である
+（`reference-frmm.md` の「## Color タブ」に記録されている）。
+スタイル側だけを見て判断したため、軸を1本まるごと落としていた。
+`SceneInput.bordered` として戻した（15スタイル × 2 = 30通り）。
+
+同じ見落としが書体にもあった。動画には
+`Helvetica / Helvetica Bold / Futura / Futura Bold / DIN / Copperplate /
+Copperplate Bold / Didot / Georgia Bold / TimesNewRoman / TimesNewRoman Bold /
+Baskerville / Baskerville SemiBold` の**13項目**が並んでいるのに、
+同梱していた8ファミリの Regular だけを出していた。Bold は「太字にする設定」ではなく
+独立した書体として並べる（和文を足して14項目）。フォントファイルは既に
+Regular と Bold の両方を同梱済みだったので、増えたのは目録だけである。
+
+| 追加した軸 | 値 | 備考 |
+|---|---|---|
+| 余白の広さ | `narrow 0.45 / normal 0.7 / wide 1.0` | スタイルの寸法すべてに掛ける1つの倍率。`wide` が以前の見た目。既定は `normal` |
+| 枠線 | `bordered: boolean` | 写真の外周のヘアライン（1.2lu・下限1px）。全面ブリードでは線の外半分がキャンバス外に落ちるので、その分だけ内側へ寄せる |
+| 書体 | 14項目（Bold 6 + Regular 7 + 和文） | 地の太さは `SceneInput.weight`。地が既に 700 なら強調しても 700 のまま |
+
+**余白の倍率を右の帯（STN2）に掛けてはいけない。** 下の帯（ポラロイド）は余白そのものだが、
+右の帯は**本文が流れる段の幅**である。実測で `narrow` にすると 300→135lu になり、
+はしごが降りてレンズ名と撮影地が落ちた。余白の好みで情報が減るのは筋が違うので、
+`right-of-photo` だけ倍率を掛けない。
+
 判定は `tests/unit/styles.test.ts` の「重ね文字のコントラスト」で固定した。
 Small / Medium / Large の3段すべてで、キャプションの**上端**（暗幕がいちばん薄い点）を測っている。
 

@@ -1,4 +1,5 @@
 import { rgba, type Rgba } from '../../core/scene/ops';
+import type { MarginId } from '../../core/styles/layout';
 import type { Align, SizeId, TrackingId } from '../../core/styles/types';
 
 /** 背景色。白・Warm White・Ivory は並べると見分けがつかないので、名前を必ず添える */
@@ -35,3 +36,9 @@ export const SIZE_OPTIONS: { value: SizeId; label: string }[] = [
 
 export const colorOf = (key: string): Rgba =>
   COLORS.find((c) => c.key === key)?.value ?? COLORS[0]!.value;
+
+export const MARGIN_OPTIONS: { value: MarginId; label: string }[] = [
+  { value: 'narrow', label: '狭い' },
+  { value: 'normal', label: '標準' },
+  { value: 'wide', label: '広い' },
+];

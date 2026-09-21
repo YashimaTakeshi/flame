@@ -50,14 +50,26 @@ function fitInto(box: RectLu, aspect: number, anchor: 'top' | 'center' | 'bottom
 }
 
 /**
+ * 余白の広さ。スタイルが持つ寸法すべてに掛ける倍率。
+ *
+ * スタイルごとに余白を持ち直すのではなく、**1つの倍率で全部を縮める**。
+ * こうすると15スタイルのどれでも「狭い」が同じ意味になり、
+ * スタイルを変えても余白の好みが保たれる。
+ */
+export const MARGIN_SCALE = { narrow: 0.45, normal: 0.7, wide: 1.0 } as const;
+export type MarginId = keyof typeof MARGIN_SCALE;
+
+/**
  * キャプションを流し込める横幅。
  * **キャプションの高さを測る前に決まる**ので、
  * 「幅を知るために高さが要る」という循環が起きない。
  */
-export function captionWidthLu(def: StyleDef): number {
+export function captionWidthLu(def: StyleDef, margin: MarginId = 'normal'): number {
+  const m = MARGIN_SCALE[margin];
   const c = def.caption;
+  // ★右の帯は余白ではなく本文の幅。縮めない（理由は resolveLayout の中）
   if (c.place === 'right-of-photo') return c.bandLu ?? 300;
-  return CANVAS_WIDTH_LU - c.sideInsetLu * 2;
+  return CANVAS_WIDTH_LU - c.sideInsetLu * m * 2;
 }
 
 export function resolveLayout(
@@ -65,13 +77,18 @@ export function resolveLayout(
   /** ★Orientation 適用後の w/h（platform/decode.ts の契約） */
   photoAspect: number,
   captionHeightLu: number,
+  margin: MarginId = 'normal',
 ): ResolvedLayout {
   const W = CANVAS_WIDTH_LU as number;
+  const m = MARGIN_SCALE[margin];
   const c = def.caption;
   const p = def.photo;
-  const inset = p.bleed ? { top: 0, right: 0, bottom: 0, left: 0 } : p.inset;
+  const raw = p.inset;
+  const inset = p.bleed
+    ? { top: 0, right: 0, bottom: 0, left: 0 }
+    : { top: raw.top * m, right: raw.right * m, bottom: raw.bottom * m, left: raw.left * m };
   const hasCaption = captionHeightLu > 0;
-  const gap = hasCaption ? (c.gapLu as number) : 0;
+  const gap = hasCaption ? (c.gapLu as number) * m : 0;
 
   let bandExpanded: ResolvedLayout['bandExpanded'] = null;
 
@@ -93,8 +110,8 @@ export function resolveLayout(
   let photoBox = content;
   let captionBox: RectLu;
   let vAlign: ResolvedLayout['captionVAlign'] = 'start';
-  const side = c.sideInsetLu as number;
-  const outer = c.outerInsetLu as number;
+  const side = (c.sideInsetLu as number) * m;
+  const outer = (c.outerInsetLu as number) * m;
 
   const place: CaptionPlace = c.place;
   switch (place) {
@@ -111,7 +128,7 @@ export function resolveLayout(
       break;
     }
     case 'bottom-band': {
-      const declared = (c.bandLu ?? 0) as number;
+      const declared = ((c.bandLu ?? 0) as number) * m;
       // キャプションが帯に入りきらないときは帯を広げる。切るより広げるほうが必ず良い
       const band = Math.max(declared, captionHeightLu + side);
       if (band > declared) bandExpanded = { fromLu: declared, toLu: band };
@@ -125,6 +142,14 @@ export function resolveLayout(
       break;
     }
     case 'right-of-photo': {
+      /*
+       * ★この帯だけは余白の倍率を掛けない。★
+       *
+       * 下の帯（ポラロイド）は余白そのものなので縮めてよいが、
+       * 右の帯は**本文が流れる段の幅**である。縮めると字が入らなくなり、
+       * はしごを降りて項目が落ちる（実測: 余白「狭い」で 300→135lu になり、
+       * レンズ名と撮影地が消えた）。余白の好みで情報が減るのは筋が違う。
+       */
       const band = (c.bandLu ?? 300) as number;
       const x = W - outer - band;
       const avail = canvasH - inset.top - inset.bottom;

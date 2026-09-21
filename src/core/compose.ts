@@ -10,13 +10,13 @@
  * この不変条件を壊す変更は許可しない。k を渡したくなったら、
  * それは RenderTarget に置くべき値である。
  */
-import { lu, point, rect, type Lu } from './units';
+import { hairline, lu, point, px, rect, type Lu } from './units';
 import type { TextMeasurer } from './ports';
 import { typesetCaption, type Facts, type Gates, type TypesetLine } from './caption';
 import { SceneBuilder } from './scene/builder';
 import { photoId, rgba, type PhotoId, type Rgba } from './scene/ops';
 import type { Scene, SceneWarning } from './scene/scene';
-import { captionWidthLu, layoutViolations, resolveLayout } from './styles/layout';
+import { captionWidthLu, layoutViolations, resolveLayout, type MarginId } from './styles/layout';
 import { styleOf } from './styles/registry';
 import type { Align, SizeId, StyleId, TrackingId } from './styles/types';
 
@@ -32,13 +32,25 @@ export interface SceneInput {
   /** 利用者が情報タブで切った項目 */
   readonly gates: Gates;
   readonly family: string;
+  /** 地の太さ。参考アプリは Bold の書体を別の選択肢として並べている */
+  readonly weight: 400 | 700;
   readonly hasBold: boolean;
   readonly align: Align;
   readonly tracking: TrackingId;
   readonly size: SizeId;
+  /** 余白の広さ。スタイルの寸法すべてに掛かる */
+  readonly margin: MarginId;
+  /**
+   * 写真の外側のヘアライン枠。
+   * スタイルと直交する軸（参考アプリの Color タブの Standard / Bordered）。
+   */
+  readonly bordered: boolean;
   readonly background: Rgba;
   readonly ink: Rgba;
 }
+
+/** 枠線の太さ。プレビューで消えないよう下限1pxを持つ */
+const BORDER_LU = 1.2;
 
 /** 写真の上に重ねるときの文字色。暗幕の上なので地色によらず明色で置く */
 export const OVERLAY_INK: Rgba = rgba(244, 242, 239, 1);
@@ -81,7 +93,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   const warnings: SceneWarning[] = [];
 
   /* 1. 文字を組む。幅は高さを知らなくても決まるので循環しない */
-  const boxW = captionWidthLu(def);
+  const boxW = captionWidthLu(def, input.margin);
   const typeset = typesetCaption(
     def,
     {
@@ -91,6 +103,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
       tracking: input.tracking,
       align: input.align,
       family: input.family,
+      weight: input.weight,
       hasBold: input.hasBold,
     },
     boxW,
@@ -100,7 +113,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   if (typeset.lines.length === 0) warnings.push({ kind: 'caption-empty' });
 
   /* 2. 組み上がった高さで矩形を決める */
-  const layout = resolveLayout(def, input.photo.aspect, typeset.heightLu);
+  const layout = resolveLayout(def, input.photo.aspect, typeset.heightLu, input.margin);
   if (layout.bandExpanded) warnings.push({ kind: 'band-expanded', ...layout.bandExpanded });
 
   const overlay = def.caption.place === 'overlay-bottom';
@@ -116,7 +129,29 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
     dst: layout.photo,
   });
 
-  /* 4. 暗幕（重ね文字のときだけ） */
+  /* 4. 枠線（Bordered）。写真の外周をヘアラインでなぞる */
+  if (input.bordered) {
+    /*
+     * 線はパスの中心に引かれるので、全面ブリードのときは外側の半分が
+     * キャンバスの外に落ちて線が半分の太さに見える。その分だけ内側に寄せる。
+     */
+    const half = def.photo.bleed ? BORDER_LU / 2 : 0;
+    b.add({
+      op: 'strokeRect',
+      resolution: 'invariant',
+      rect: rect(
+        (layout.photo.x as number) + half,
+        (layout.photo.y as number) + half,
+        (layout.photo.w as number) - half * 2,
+        (layout.photo.h as number) - half * 2,
+      ),
+      color: overlay ? OVERLAY_INK : input.ink,
+      width: hairline(lu(BORDER_LU), px(1)),
+      snap: 'device-pixel-when-preview',
+    });
+  }
+
+  /* 5. 暗幕（重ね文字のときだけ） */
   const scrim = def.caption.scrim;
   if (overlay && scrim) {
     const h = scrim.heightLu as number;
@@ -135,14 +170,14 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
     });
   }
 
-  /* 5. キャプション */
+  /* 6. キャプション */
   let y = layout.captionBox.y as number;
   for (const line of typeset.lines) {
     b.add(textOpFor(line, layout.captionBox.x, layout.captionBox.w, y, colorFor(line, ink, muted)));
     y += line.lineHeight;
   }
 
-  /* 6. 不変条件。ここで落ちるのはスタイル定義の誤りで、利用者の操作では起きない */
+  /* 7. 不変条件。ここで落ちるのはスタイル定義の誤りで、利用者の操作では起きない */
   const bad = layoutViolations(layout, def.caption.place);
   if (bad.length > 0) throw new Error(`${def.id} のレイアウトが破綻しました: ${bad.join(' / ')}`);
 

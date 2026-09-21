@@ -10,7 +10,13 @@ import { describe, expect, it } from 'vitest';
 import { buildScene, INK, OVERLAY_INK, scrimAlphaAt, WHITE } from '../../src/core/compose';
 import { typesetCaption } from '../../src/core/caption';
 import type { TextMeasurer } from '../../src/core/ports';
-import { captionWidthLu, layoutViolations, resolveLayout } from '../../src/core/styles/layout';
+import {
+  captionWidthLu,
+  layoutViolations,
+  MARGIN_SCALE,
+  resolveLayout,
+  type MarginId,
+} from '../../src/core/styles/layout';
 import { GROUPS, STYLES, STYLE_IDS } from '../../src/core/styles/registry';
 import type { Gates } from '../../src/core/caption';
 
@@ -62,7 +68,10 @@ const inputFor = (over: Partial<Parameters<typeof buildScene>[0]> = {}): Paramet
   facts: REFERENCE,
   gates: ALL_ON,
   family: 'Arimo',
+  weight: 400,
   hasBold: true,
+  margin: 'normal',
+  bordered: false,
   align: 'left',
   tracking: 'Normal',
   size: 'Medium',
@@ -100,21 +109,41 @@ describe('登録簿', () => {
 const ASPECTS = [0.5, 0.75, 1, 4 / 3, 1.5, 16 / 9, 3];
 
 describe('レイアウトが破綻しない', () => {
-  it.each(STYLE_IDS)('%s は どの写真比でも不変条件を満たす', (id) => {
+  const MARGINS = Object.keys(MARGIN_SCALE) as MarginId[];
+
+  it.each(STYLE_IDS)('%s は どの写真比・どの余白でも不変条件を満たす', (id) => {
     const def = STYLES[id];
     for (const aspect of ASPECTS) {
-      const t = typesetCaption(
-        def,
-        { facts: REFERENCE, gates: ALL_ON, size: 'Medium', tracking: 'Normal', align: 'left', family: 'Arimo', hasBold: true },
-        captionWidthLu(def),
-        measurer,
-      );
-      const l = resolveLayout(def, aspect, t.heightLu);
-      expect(layoutViolations(l, def.caption.place), `${id} @ ${aspect.toFixed(2)}`).toEqual([]);
-      expect(l.canvas.h).toBeGreaterThan(0);
-      expect(l.photo.w).toBeGreaterThan(0);
-      expect(l.photo.h).toBeGreaterThan(0);
+      for (const margin of MARGINS) {
+        const t = typesetCaption(
+          def,
+          { facts: REFERENCE, gates: ALL_ON, size: 'Medium', tracking: 'Normal', align: 'left', family: 'Arimo', weight: 400, hasBold: true },
+          captionWidthLu(def, margin),
+          measurer,
+        );
+        const l = resolveLayout(def, aspect, t.heightLu, margin);
+        const where = `${id} @ ${aspect.toFixed(2)} / 余白${margin}`;
+        expect(layoutViolations(l, def.caption.place), where).toEqual([]);
+        expect(l.canvas.h, where).toBeGreaterThan(0);
+        expect(l.photo.w, where).toBeGreaterThan(0);
+        expect(l.photo.h, where).toBeGreaterThan(0);
+      }
     }
+  });
+
+  it('余白を狭めると写真が大きくなる（比を固定したスタイル）', () => {
+    for (const id of STYLE_IDS) {
+      const def = STYLES[id];
+      if (def.photo.bleed) continue; // 全面ブリードは余白を持たない
+      const wide = resolveLayout(def, 1.5, 40, 'wide').photo;
+      const narrow = resolveLayout(def, 1.5, 40, 'narrow').photo;
+      expect(narrow.w * narrow.h, id).toBeGreaterThan(wide.w * wide.h);
+    }
+  });
+
+  it('キャプションの帯も余白と一緒に伸び縮みする', () => {
+    const def = STYLES.OR1;
+    expect(captionWidthLu(def, 'narrow')).toBeGreaterThan(captionWidthLu(def, 'wide'));
   });
 
   it('比を固定したスタイルは写真比によらず同じキャンバスになる', () => {
@@ -157,7 +186,7 @@ describe('キャプションが枠を越えない', () => {
       for (const tracking of ['Tight', 'Normal', 'Wide', 'Widest'] as const) {
         const t = typesetCaption(
           def,
-          { facts: REFERENCE, gates: ALL_ON, size, tracking, align: 'left', family: 'Arimo', hasBold: true },
+          { facts: REFERENCE, gates: ALL_ON, size, tracking, align: 'left', family: 'Arimo', weight: 400, hasBold: true },
           boxW,
           measurer,
         );
@@ -177,7 +206,7 @@ describe('欠損の扱い', () => {
   const ts = (facts: Record<string, string>, gates: Gates = ALL_ON) =>
     typesetCaption(
       def,
-      { facts, gates, size: 'Medium', tracking: 'Normal', align: 'left', family: 'Arimo', hasBold: true },
+      { facts, gates, size: 'Medium', tracking: 'Normal', align: 'left', family: 'Arimo', weight: 400, hasBold: true },
       box,
       measurer,
     );
@@ -217,7 +246,7 @@ describe('はみ出したときのはしご', () => {
   it('長すぎる行は黙って溢れず、必ず枠に収まる', () => {
     const t = typesetCaption(
       def,
-      { facts: { title: long }, gates: ALL_ON, size: 'Large', tracking: 'Widest', align: 'left', family: 'Arimo', hasBold: true },
+      { facts: { title: long }, gates: ALL_ON, size: 'Large', tracking: 'Widest', align: 'left', family: 'Arimo', weight: 400, hasBold: true },
       box,
       measurer,
     );
@@ -227,7 +256,7 @@ describe('はみ出したときのはしご', () => {
   it('降りた段は警告に残る。黙って縮めない', () => {
     const t = typesetCaption(
       def,
-      { facts: { title: long }, gates: ALL_ON, size: 'Large', tracking: 'Widest', align: 'left', family: 'Arimo', hasBold: true },
+      { facts: { title: long }, gates: ALL_ON, size: 'Large', tracking: 'Widest', align: 'left', family: 'Arimo', weight: 400, hasBold: true },
       box,
       measurer,
     );
@@ -244,6 +273,7 @@ describe('はみ出したときのはしご', () => {
         tracking: 'Widest',
         align: 'left',
         family: 'Arimo',
+        weight: 400,
         hasBold: true,
       },
       captionWidthLu(STYLES.OR2),
@@ -265,13 +295,15 @@ describe('STN2 の右帯に参考素材が収まる', () => {
   const box = captionWidthLu(def);
   const t = typesetCaption(
     def,
-    { facts: REFERENCE, gates: ALL_ON, size: 'Medium', tracking: 'Normal', align: 'left', family: 'Arimo', hasBold: true },
+    { facts: REFERENCE, gates: ALL_ON, size: 'Medium', tracking: 'Normal', align: 'left', family: 'Arimo', weight: 400, hasBold: true },
     box,
     measurer,
   );
 
-  it('帯の幅は 300lu', () => {
+  it('帯の幅は 300lu。余白の設定では変わらない（本文の段であって余白ではない）', () => {
     expect(box).toBe(300);
+    expect(captionWidthLu(def, 'narrow')).toBe(300);
+    expect(captionWidthLu(def, 'wide')).toBe(300);
   });
 
   it('切り詰め（…）まで落ちていない', () => {
@@ -298,6 +330,35 @@ describe('Scene の組み立て', () => {
     expect(scene.ops.filter((o) => o.op === 'text').length).toBeGreaterThan(0);
     expect(scene.meta.styleId).toBe(id);
     expect(scene.canvas.widthLu).toBe(1000);
+  });
+
+  it('枠あり（Bordered）にすると写真の外周にヘアラインが1本出る', () => {
+    for (const id of STYLE_IDS) {
+      const off = buildScene(inputFor({ styleId: id }), measurer);
+      const on = buildScene(inputFor({ styleId: id, bordered: true }), measurer);
+      expect(off.ops.filter((o) => o.op === 'strokeRect'), id).toHaveLength(0);
+      const strokes = on.ops.filter((o) => o.op === 'strokeRect');
+      expect(strokes, id).toHaveLength(1);
+      // プレビューで消えないよう下限を持つ引き方でなければならない
+      expect(strokes[0]?.op === 'strokeRect' && strokes[0].width.mode).toBe('hairline');
+    }
+  });
+
+  it('全面ブリードの枠線はキャンバスの内側に収まる', () => {
+    for (const id of ['SQ4', 'STN3'] as const) {
+      const scene = buildScene(inputFor({ styleId: id, bordered: true }), measurer);
+      const r = scene.ops.find((o) => o.op === 'strokeRect');
+      expect(r?.op === 'strokeRect' && r.rect.x, id).toBeGreaterThan(0);
+      expect(r?.op === 'strokeRect' && r.rect.y, id).toBeGreaterThan(0);
+    }
+  });
+
+  it('地がすでに Bold の書体なら、強調しても 700 を超えない', () => {
+    const scene = buildScene(inputFor({ styleId: 'OR2', weight: 700 }), measurer);
+    const weights = new Set(
+      scene.ops.filter((o) => o.op === 'text').map((o) => (o.op === 'text' ? o.font.weight : 0)),
+    );
+    expect([...weights]).toEqual([700]);
   });
 
   it('重ね文字のスタイルだけ暗幕を敷く', () => {
@@ -352,7 +413,7 @@ describe('重ね文字のコントラスト', () => {
     for (const size of ['Small', 'Medium', 'Large'] as const) {
       const t = typesetCaption(
         def,
-        { facts: REFERENCE, gates: ALL_ON, size, tracking: 'Normal', align: 'left', family: 'Arimo', hasBold: true },
+        { facts: REFERENCE, gates: ALL_ON, size, tracking: 'Normal', align: 'left', family: 'Arimo', weight: 400, hasBold: true },
         captionWidthLu(def),
         measurer,
       );

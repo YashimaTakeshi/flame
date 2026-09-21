@@ -1,6 +1,8 @@
 /**
  * 書体。見本を「その書体自身」で描く。名前だけ並べても選べない。
- * 欧文8書体は起動時に読み込み済みなので待ちは無い。和文だけ押した瞬間に取りに行く。
+ *
+ * Bold は「太字にする設定」ではなく独立した書体として並べる（参考アプリと同じ）。
+ * 3列×3行の升目で14書体を出す。横スクロールにすると端で切れて見える。
  */
 import { useState } from 'react';
 import { useDoc } from '../state/doc';
@@ -11,6 +13,11 @@ export function FontPanel(): React.ReactElement {
   const set = useDoc((s) => s.set);
   const [loadingJa, setLoadingJa] = useState(false);
   const [jaError, setJaError] = useState(false);
+
+  const pickedLabel =
+    fontKey === 'jp'
+      ? '日本語 — Noto Sans JP'
+      : (LATIN_FONTS.find((f) => f.key === fontKey)?.label ?? '');
 
   const pickJapanese = async (): Promise<void> => {
     setJaError(false);
@@ -28,19 +35,20 @@ export function FontPanel(): React.ReactElement {
 
   return (
     <div className="p-font">
-      <div className="hscroll" role="radiogroup" aria-label="書体">
+      <p className="picked">{pickedLabel}</p>
+      <div className="p-font__grid" role="radiogroup" aria-label="書体">
         {LATIN_FONTS.map((f) => (
           <button
             key={f.key}
             type="button"
             role="radio"
             aria-checked={fontKey === f.key}
+            aria-label={f.label}
             className="fcard"
-            style={{ fontFamily: `"${f.family}", serif` }}
+            style={{ fontFamily: `"${f.family}", serif`, fontWeight: f.weight }}
             onClick={() => set('fontKey', f.key)}
           >
             <span className="fcard__aa">Aa</span>
-            <span className="fcard__name">{f.label}</span>
           </button>
         ))}
         <button
@@ -48,12 +56,12 @@ export function FontPanel(): React.ReactElement {
           role="radio"
           aria-checked={fontKey === 'jp'}
           aria-busy={loadingJa}
+          aria-label="日本語"
           className="fcard"
           style={{ fontFamily: '"NotoSansJP", sans-serif' }}
           onClick={() => void pickJapanese()}
         >
-          <span className="fcard__aa">{loadingJa ? '…' : 'あА'}</span>
-          <span className="fcard__name">日本語</span>
+          <span className="fcard__aa">{loadingJa ? '…' : 'あ'}</span>
         </button>
       </div>
       {jaError && (

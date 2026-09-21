@@ -50,18 +50,6 @@
   overflow: visible;
 }
 
-/*
- * スタイルタブだけオプション行を高くする。
- *
- * ここが無いまま theme.css のコメントだけが「176px に上書きする」と言っていた。
- * 実際は 96px のままで、中身（48 + 8 + 96 = 152）が入らず、
- * スタイルチップの下端が切り落とされていた（実機で報告された「アイコンが切れてる」）。
- * 高さは中身の合計そのものにする。数えられる値をここに書く。
- */
-.app[data-tab='style'] {
-  --optionrow-h: 168px; /* 8(上) + 48(比率) + 8 + 96(チップ) + 8(下) */
-}
-
 /* 写真がまだ無いとき。オプション行とタブバーを出さない */
 .app[data-empty='true'] {
   grid-template-rows: calc(var(--header-h) + var(--safe-top)) minmax(0, 1fr) auto;
@@ -187,28 +175,30 @@
   }
 }
 
-.stage__empty {
-  text-align: center;
-  color: var(--ink-2);
-  max-width: 28ch;
+/*
+ * 空の画面。**説明の文章を置かない。**
+ *
+ * 枠を作るアプリで、枠の中に＋がある。押せば写真が入る。
+ * それ以上の説明は、読まれないか、読ませる時点で負けている。
+ */
+.opener {
+  border: 0;
+  background: none;
+  padding: var(--s3);
   display: grid;
-  gap: var(--s2);
-  justify-items: center;
+  place-items: center;
+  color: var(--ink-2);
 }
 
-.stage__empty h1 {
-  font-size: var(--t4);
-  line-height: var(--t4-lh);
-  letter-spacing: var(--t4-ls);
-  font-weight: 600;
+.opener__mark {
+  width: min(40vw, 148px);
+  height: auto;
+  stroke: currentColor;
+  fill: none;
+}
+
+.opener:active .opener__mark {
   color: var(--ink);
-  margin: 0;
-}
-
-.stage__empty p {
-  font-size: var(--t2);
-  line-height: var(--t2-lh);
-  margin: 0;
 }
 
 .stage__e3 {
@@ -352,6 +342,7 @@
  * 指を離したときに項目が端で切れて見えないよう、項目の左端に吸い付かせる。
  * 端から16px離すのは、iOS の端スワイプ（戻る）と取り合わないため。
  */
+/* 横スクロールが残るのはスタイルのチップ列だけ（比率ごとに最大4つ） */
 .hscroll {
   display: flex;
   gap: var(--s1);
@@ -453,12 +444,13 @@
 
 /* ───────── パネル（各タブのオプション行） ───────── */
 
-/* スタイル: 8 + 比率48 + gap8 + 型チップ96 + 8 = 168。--optionrow-h と同じ内訳 */
+/* スタイル: 比率46 + gap8 + 型チップ100 = 154 */
 .p-style {
   display: grid;
-  grid-template-rows: 48px 96px;
+  grid-template-rows: calc(var(--tap) + 2px) 1fr;
   gap: var(--s1);
   padding: var(--s1) 0;
+  height: 100%;
 }
 
 .p-style > .seg {
@@ -474,7 +466,7 @@
   flex: 0 0 auto;
   min-width: 76px;
   max-width: 104px;
-  height: 92px;
+  height: 100px;
   display: grid;
   grid-template-rows: 1fr auto;
   gap: 4px;
@@ -533,10 +525,9 @@
 }
 
 /*
- * 組み: 2行×2列。
+ * 組み: 3行×2列。ここがいちばん背が高く、オプション行の高さを決めている。
  * 行の高さは 44 ではなく 46。中のセグメントは 44px の当たり判定に上下 1px の枠が付く。
- * 44 のままだと行が中身より小さいと嘘をつくことになり、
- * オプション行を 1px 詰めた瞬間に上下が切られる（実際にそうなっていた）。
+ * 44 のままだと行が中身より小さいと嘘をつくことになり、上下が切られる。
  */
 .p-layout {
   height: 100%;
@@ -544,7 +535,7 @@
   grid-template-columns: 1fr 1fr;
   grid-auto-rows: calc(var(--tap) + 2px);
   gap: var(--s1);
-  padding-inline: var(--gutter);
+  padding: var(--s1) var(--gutter);
   align-content: center;
 }
 
@@ -563,7 +554,6 @@
   white-space: nowrap;
 }
 
-/* 地色: 32φ の円 + 4 + 色名16 = 52 を 96 の中で上下中央 */
 /*
  * 高さは親いっぱいに取る。--optionrow-h を直に書くと、
  * .optrow の 1px の上罫のぶんだけはみ出し、下端のボタンが 1px 切れる。
@@ -576,15 +566,42 @@
   display: grid;
   align-content: center;
   gap: var(--s1);
+  padding: var(--s1) var(--gutter);
+}
+
+/*
+ * 地色: 9色を5列×2段で**全部見せる**。横スクロールにしない。
+ * 端で丸や名前が切れていると「まだ続く」ではなく「壊れている」に見える。
+ */
+.p-color__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--s1);
+  justify-items: center;
+}
+
+.p-color__foot {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--s2);
+  min-height: calc(var(--tap) + 2px);
+}
+
+.p-color__foot .seg {
+  width: 168px;
+}
+
+.p-font {
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: center;
 }
 
 .sw {
-  flex: 0 0 72px;
-  min-height: 52px;
+  width: 100%;
+  min-height: var(--tap);
   display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 4px;
+  place-content: center;
   border: 0;
   padding: 0;
   background: none;
@@ -606,25 +623,28 @@
   border-radius: 50%;
 }
 
-.sw__name {
-  font-size: var(--t1);
-  line-height: var(--t1-lh);
-  letter-spacing: var(--t1-ls);
-  color: var(--ink-2);
-  white-space: nowrap;
+
+
+/*
+ * 書体: 5列×3段の升目に14書体。**スクロールさせない**ので何も切れない。
+ *
+ * 札には見本の「Aa」だけを置き、名前は**選んでいる1つぶん**を下に出す。
+ * 14個ぶんの名前を並べると1枠 65px に「Baskerville SemiBold」が入らず、
+ * 省略記号だらけになる。見本はその書体自身で描かれているので、
+ * 名前が要るのは「いま選んでいるものが何か」を確かめるときだけである。
+ */
+.p-font__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-auto-rows: var(--tap);
+  gap: var(--s1);
 }
 
-.sw[aria-checked='true'] .sw__name {
-  color: var(--ink);
-}
-
-/* 書体: 120×80 のカード。見本はその書体自身で描く */
 .fcard {
-  flex: 0 0 120px;
-  height: 80px;
+  min-height: var(--tap);
   display: grid;
   place-content: center;
-  gap: 4px;
+  padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   background: var(--surface);
@@ -638,8 +658,21 @@
 }
 
 .fcard__aa {
-  font-size: var(--t4);
-  line-height: 1;
+  font-size: var(--t3);
+  line-height: 1.1;
+}
+
+/* 選んでいる書体・地色の名前。1行だけ出す */
+.picked {
+  font-size: var(--t1);
+  line-height: var(--t1-lh);
+  letter-spacing: var(--t1-ls);
+  color: var(--ink);
+  margin: 0;
+  min-height: var(--t1-lh);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fcard__name {
@@ -656,7 +689,6 @@
 .p-info__acts {
   display: flex;
   gap: var(--s1);
-  padding-inline: var(--gutter);
 }
 
 .p-info__acts > * {

@@ -8,7 +8,6 @@ import { renderScene } from '../render/executor';
 import { createVerifiedCanvas, release } from '../render/guards';
 import { canvasMeasurer } from '../render/measure';
 import { makeExportTarget } from '../render/target';
-import { BUILD_INFO, shortVersion } from '../build-info';
 import { applyFieldSwitches, collectFacts, gatesFrom } from './caption';
 import { Diagnostics } from './Diagnostics';
 import { Band } from './editor/Band';
@@ -71,6 +70,19 @@ export function App(): React.ReactElement {
 
   useViewportHeight();
 
+  /*
+   * 自己診断は画面から入口を外した（利用者には意味が分からない）。
+   * ただし実機で困ったときに要るので、URL の末尾に #diag を足すと開く。
+   */
+  useEffect(() => {
+    const check = (): void => {
+      if (window.location.hash === '#diag') openSheet('diagnostics');
+    };
+    check();
+    window.addEventListener('hashchange', check);
+    return () => window.removeEventListener('hashchange', check);
+  }, [openSheet]);
+
   useEffect(() => {
     safeStorage.init();
     preloadLatinFonts()
@@ -86,6 +98,7 @@ export function App(): React.ReactElement {
 
   const sceneInput: SceneInput | null = useMemo(() => {
     if (!loaded || !fontsReady) return null;
+    const font = fontRefFor(doc.fontKey);
     const facts = collectFacts(loaded.exif, {
       title: doc.title,
       artist: doc.artist,
@@ -97,12 +110,15 @@ export function App(): React.ReactElement {
       photo: { id: 'photo', aspect: loaded.decoded.natural.w / loaded.decoded.natural.h },
       facts: applyFieldSwitches(facts, doc.fields),
       gates: gatesFrom(doc.fields),
-      family: fontRefFor(doc.fontKey).family,
+      family: font.family,
+      weight: font.weight,
       // 和文サブセットは Regular だけ。Bold を頼むと合成太字になって字形が崩れる
       hasBold: doc.fontKey !== 'jp',
       align: doc.align,
       tracking: doc.tracking,
       size: doc.size,
+      margin: doc.margin,
+      bordered: doc.bordered,
       background,
       ink: inkFor(background),
     };
@@ -187,22 +203,30 @@ export function App(): React.ReactElement {
   return (
     <div className="app" data-tab={tab} data-empty={loaded ? undefined : 'true'}>
       <header className="hdr">
-        <button
-          type="button"
-          className="pill pill--ghost hdr__left"
-          onClick={() => fileRef.current?.click()}
-        >
-          {loaded ? '写真を変える' : '写真を選ぶ'}
-        </button>
+        {loaded ? (
+          <button
+            type="button"
+            className="pill pill--ghost hdr__left"
+            onClick={() => fileRef.current?.click()}
+          >
+            写真を変える
+          </button>
+        ) : (
+          <span />
+        )}
         <span className="hdr__title">flame</span>
-        <button
-          type="button"
-          className="pill hdr__right"
-          disabled={!loaded || busy !== null}
-          onClick={() => openSheet('export')}
-        >
-          {busy ?? '書き出す'}
-        </button>
+        {loaded ? (
+          <button
+            type="button"
+            className="pill hdr__right"
+            disabled={busy !== null}
+            onClick={() => openSheet('export')}
+          >
+            {busy ?? '書き出す'}
+          </button>
+        ) : (
+          <span />
+        )}
         <input
           ref={fileRef}
           type="file"
@@ -239,15 +263,14 @@ export function App(): React.ReactElement {
             </>
           )
         ) : (
-          <div className="stage__empty">
-            <h1>写真に、撮影情報を添えた枠を</h1>
-            <p>
-              写真はこの端末から出ません。読み取りも合成も書き出しも、すべてブラウザの中で終わります。
-            </p>
-            <button type="button" className="btn--s" onClick={() => fileRef.current?.click()}>
-              写真を選ぶ
-            </button>
-          </div>
+          <button
+            type="button"
+            className="opener"
+            aria-label="写真を選ぶ"
+            onClick={() => fileRef.current?.click()}
+          >
+            <FrameMark />
+          </button>
         )}
       </div>
 
@@ -291,16 +314,22 @@ export function App(): React.ReactElement {
         </Sheet>
       )}
 
-      {!loaded && (
-        <footer className="hdr" style={{ justifyContent: 'space-between' }}>
-          <span className="hdr__title">
-            {shortVersion()} · {BUILD_INFO.commit}
-          </span>
-          <button type="button" className="btn--txt" onClick={() => openSheet('diagnostics')}>
-            この端末を調べる
-          </button>
-        </footer>
-      )}
     </div>
+  );
+}
+
+/**
+ * 空の画面に置く印。**枠の中に＋**。
+ *
+ * 文章で説明しない。枠を作るアプリで、枠に＋が入っていれば、
+ * 押せば写真が入ることは見れば分かる。
+ */
+function FrameMark(): React.ReactElement {
+  return (
+    <svg className="opener__mark" viewBox="0 0 120 120" aria-hidden="true">
+      <rect x="6" y="6" width="108" height="108" rx="4" fill="none" strokeWidth="2" />
+      <rect x="20" y="20" width="80" height="66" fill="none" strokeWidth="1.5" opacity="0.5" />
+      <path d="M60 39v28M46 53h28" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
   );
 }
