@@ -7,25 +7,52 @@
   --bg: #edeae6;
   --surface: #f6f4f1;
   --ink: #23211f;
-  --ink-muted: #6f6a64;
-  --line: #d4cfc8;
-  --shadow: 0 2px 12px rgba(35, 33, 31, 0.14);
+  --ink-2: #6e6a65; /* 副次情報・単位・プレースホルダ */
+  --ink-3: #a4a09a; /* 無効状態 */
+  --line: #d4cfc8; /* 装飾の罫だけ */
+  --line-strong: #8e8880; /* 操作できる要素の枠は必ずこちら */
+  --shadow: 0 2px 12px rgba(35, 33, 31, 0.14); /* プレビューの外側にのみ */
+  --scrim: rgba(35, 33, 31, 0.32);
 
+  /* px でなく rem で持つ。端末の文字サイズ設定に従う */
+  --t1: 0.6875rem;
+  --t1-lh: 1rem;
+  --t1-ls: 0.08em;
+  --t2: 0.8125rem;
+  --t2-lh: 1.25rem;
+  --t2-ls: 0.02em;
+  --t3: 1rem;
+  --t3-lh: 1.5rem;
+  --t4: 1.375rem;
+  --t4-lh: 1.75rem;
+  --t4-ls: 0.04em;
+
+  /* 余白は8の倍数のみ */
   --s1: 8px;
   --s2: 16px;
   --s3: 24px;
   --s4: 32px;
+  --gutter: 16px;
 
-  --t-xs: 11px;
-  --t-sm: 13px;
-  --t-md: 16px;
-  --t-lg: 22px;
+  --header-h: 48px;
+  --tabbar-h: 56px;
+  --optionrow-h: 96px; /* スタイルタブだけ 176px に上書きする */
+  --tap: 44px; /* 指で狙える最小の大きさ */
 
-  --radius: 8px;
+  --radius: 12px;
+  --radius-pill: 9999px;
 
   --ui-font: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', 'Noto Sans JP',
     sans-serif;
   --mono-font: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --motion: 160ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0ms;
+  }
 }
 
 * {
@@ -34,25 +61,47 @@
 
 html,
 body {
+  height: 100%;
   margin: 0;
   padding: 0;
+  /* 画面本体はスクロールさせない。スクロールするのはシートの中だけ */
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--ui-font);
-  font-size: var(--t-md);
-  line-height: 1.6;
+  font-size: var(--t3);
+  line-height: var(--t3-lh);
+  /* 設定値の桁を揃える */
+  font-variant-numeric: tabular-nums;
   -webkit-text-size-adjust: 100%;
-  overscroll-behavior-y: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
 }
 
 button {
-  font: inherit;
-  color: inherit;
   cursor: pointer;
 }
 
-input,
-select {
-  font: inherit;
-  color: inherit;
+/* 選択は塗りの反転、フォーカスは破線。2つを直交させる */
+:where(button, a, input, textarea, [role='radio'], [role='tab']):focus-visible {
+  outline: 2px dashed var(--ink);
+  outline-offset: 2px;
+}
+
+.t1 {
+  font-size: var(--t1);
+  line-height: var(--t1-lh);
+  letter-spacing: var(--t1-ls);
+}
+.t2 {
+  font-size: var(--t2);
+  line-height: var(--t2-lh);
+  letter-spacing: var(--t2-ls);
 }

@@ -22,27 +22,57 @@ const ctx = await b.newContext({ ...devices['iPhone 13'] });
 const page = await ctx.newPage();
 const errs = [];
 page.on('pageerror', e => errs.push(String(e)));
-page.on('console', m => { if (m.type()==='error') errs.push('[console] '+m.text()); });
+page.on('console', m => { if (m.type()==='error' && !m.text().includes('404')) errs.push('[console] '+m.text()); });
 
 await page.goto(origin, { waitUntil: 'networkidle' });
-await page.screenshot({ path: '/tmp/s1-empty.png' });
+await page.screenshot({ path: '/tmp/u1-empty.png' });
 
-// 写真を選ぶ
-await page.setInputFiles('input[type=file]', '/home/user/flame/tests/fixtures/mirrorless-landscape.jpg');
-await page.waitForSelector('canvas.preview', { timeout: 15000 });
-await page.waitForTimeout(600);
-await page.screenshot({ path: '/tmp/s2-loaded.png' });
+await page.setInputFiles('input[type=file]', '/home/user/flame/tests/fixtures/iphone-portrait.jpg');
+await page.waitForSelector('canvas.stage__canvas', { timeout: 15000 });
+await page.waitForTimeout(700);
+await page.screenshot({ path: '/tmp/u2-style.png' });
 
-// 書体と地色を変える
-await page.getByRole('button', { name: 'Didot' }).click();
-await page.getByRole('button', { name: 'Onyx' }).click();
-await page.waitForTimeout(400);
-await page.screenshot({ path: '/tmp/s3-styled.png' });
+// タブを順に開く
+for (const [name, file] of [['組み','u3-layout'],['地色','u4-color'],['書体','u5-font'],['情報','u6-info']]) {
+  await page.getByRole('tab', { name }).click();
+  await page.waitForTimeout(350);
+  await page.screenshot({ path: `/tmp/${file}.png` });
+}
 
-// 自己診断
-await page.getByRole('button', { name: 'この端末を調べる' }).click();
-await page.waitForTimeout(300);
-await page.screenshot({ path: '/tmp/s4-diag.png', fullPage: true });
-
+// スクロールが発生していないか
+const scrolls = await page.evaluate(() => ({
+  body: document.body.scrollHeight > window.innerHeight,
+  scrollY: window.scrollY,
+  appH: document.querySelector('.app')?.getBoundingClientRect().height,
+  winH: window.innerHeight,
+  tabbarVisible: (() => { const r = document.querySelector('.tabbar')?.getBoundingClientRect();
+    return r ? r.bottom <= window.innerHeight + 1 && r.top >= 0 : false; })(),
+  canvasFits: (() => { const c = document.querySelector('canvas.stage__canvas')?.getBoundingClientRect();
+    const s = document.querySelector('.stage')?.getBoundingClientRect();
+    return c && s ? (c.height <= s.height + 1 && c.width <= s.width + 1) : false; })(),
+  // 指で狙えるか。見た目の高さではなく、実際に中心から±21px の位置で
+  // そのボタンに当たるかを見る（当たり判定を疑似要素で広げている箇所があるため）
+  smallTargets: [...document.querySelectorAll('button')].map(el => {
+    const r = el.getBoundingClientRect();
+    if (r.height === 0 || r.width === 0) return null;
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    // 画面の外にある要素（横スクロール行の続き）は測れないので飛ばす
+    if (cx < 0 || cx > window.innerWidth || cy < 0 || cy > window.innerHeight) return null;
+    const hits = (y) => {
+      if (y < 0 || y > window.innerHeight) return false;
+      const h = document.elementFromPoint(cx, y);
+      return h === el || el.contains(h) || (h && h.contains(el));
+    };
+    const reach = hits(cy - 21) && hits(cy + 21);
+    return reach ? null : {
+      t: el.textContent?.trim().slice(0, 14),
+      h: Math.round(r.height),
+      topHit: (() => { const h = document.elementFromPoint(cx, cy - 21); return h ? h.className || h.tagName : 'なし'; })(),
+      botHit: (() => { const h = document.elementFromPoint(cx, cy + 21); return h ? h.className || h.tagName : 'なし'; })(),
+    };
+  }).filter(Boolean),
+}));
+console.log('レイアウト検査:', JSON.stringify(scrolls, null, 1));
 console.log('ページ内のエラー:', errs.length ? errs.join('\n') : 'なし');
 await b.close(); server.close();

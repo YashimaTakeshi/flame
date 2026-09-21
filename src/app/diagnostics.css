@@ -1,0 +1,61 @@
+.diag {
+  display: grid;
+  gap: var(--s1);
+  align-content: start;
+}
+
+.diag h2 {
+  font-size: var(--t3);
+  margin: var(--s2) 0 0;
+}
+
+.diag table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t2);
+}
+
+.diag td,
+.diag th {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 4px;
+  text-align: left;
+  vertical-align: top;
+  font-weight: 400;
+}
+
+.diag th {
+  color: var(--ink-2);
+}
+
+.diag td {
+  text-align: right;
+  font-family: var(--mono-font);
+  font-size: var(--t1);
+  word-break: break-all;
+}
+
+.diag textarea {
+  width: 100%;
+  min-height: 12rem;
+  font-family: var(--mono-font);
+  font-size: var(--t1);
+  line-height: 1.5;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: var(--s1);
+}
+
+.diag input[type='file'] {
+  font-size: var(--t2);
+}
+
+.diag .note {
+  font-size: var(--t2);
+  line-height: var(--t2-lh);
+  color: var(--ink-2);
+  border-left: 2px solid var(--line);
+  padding-left: var(--s1);
+  margin: 0;
+}

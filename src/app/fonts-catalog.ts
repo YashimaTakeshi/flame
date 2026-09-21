@@ -61,7 +61,19 @@ export async function preloadLatinFonts(): Promise<void> {
   );
 }
 
-export function fontRefFor(key: LatinFontKey, weight: 400 | 700 = 400): FontRef {
+export const JP_FAMILY = 'NotoSansJP';
+
+/**
+ * 和文書体。442KB あるので初回ロードには含めず、選ばれた時点で取りに行く。
+ * 欧文だけで使う人には1バイトも転送しない。
+ */
+export async function ensureJapaneseFont(): Promise<void> {
+  const m = await loadManifest();
+  await ensureFont({ family: JP_FAMILY, weight: 400 }, { kind: 'url', url: m.jp.regular.file });
+}
+
+export function fontRefFor(key: LatinFontKey | 'jp', weight: 400 | 700 = 400): FontRef {
+  if (key === 'jp') return { family: JP_FAMILY, weight: 400 };
   const f = LATIN_FONTS.find((x) => x.key === key) ?? LATIN_FONTS[0];
   return { family: f.family, weight };
 }

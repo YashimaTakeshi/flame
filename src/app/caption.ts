@@ -1,4 +1,5 @@
 /** 撮影情報からキャプションの文字列を組み立てる */
+import type { FieldId } from '../core/styles/types';
 import {
   formatAperture,
   formatDate,
@@ -11,24 +12,41 @@ import {
 export interface CaptionParts {
   readonly title: string;
   readonly artist: string;
-  readonly showExposure: boolean;
-  readonly showFocal: boolean;
+  /** キャプションに載せる項目。利用者が情報タブで決める */
+  readonly fields: Readonly<Record<FieldId, boolean>>;
+  /** 写真に無かった情報の手入力。写真の値より優先する */
+  readonly overrides: {
+    readonly camera: string | null;
+    readonly lens: string | null;
+    readonly date: Date | null;
+  };
 }
 
-/** 欠けている項目は詰める。EXIF が無い写真でも空白だらけにならないように */
+/**
+ * 欠けている項目は詰める。
+ * **「（不明）」のような文字列を焼き込むことは絶対にしない。** 空なら行ごと省く。
+ */
 export function composeCaption(exif: ExifFacts, parts: CaptionParts): string {
   const items: string[] = [];
-  if (parts.title.trim()) items.push(parts.title.trim());
-  if (parts.artist.trim()) items.push(parts.artist.trim());
-  if (exif.dateTaken) items.push(formatDate(exif.dateTaken));
-  if (exif.camera) items.push(exif.camera);
-  if (exif.lens) items.push(exif.lens);
+  const on = (id: FieldId): boolean => parts.fields[id];
 
-  if (parts.showFocal) {
+  if (on('title') && parts.title.trim()) items.push(parts.title.trim());
+  if (on('artist') && parts.artist.trim()) items.push(parts.artist.trim());
+
+  const date = parts.overrides.date ?? exif.dateTaken;
+  if (on('date') && date) items.push(formatDate(date));
+
+  const camera = parts.overrides.camera ?? exif.camera;
+  if (on('camera') && camera) items.push(camera);
+
+  const lens = parts.overrides.lens ?? exif.lens;
+  if (on('lens') && lens) items.push(lens);
+
+  if (on('focalLength')) {
     const mm = exif.focalLength35 ?? exif.focalLength;
     if (mm) items.push(formatFocal(mm));
   }
-  if (parts.showExposure) {
+  if (on('exposure')) {
     const ex: string[] = [];
     if (exif.fNumber) ex.push(formatAperture(exif.fNumber));
     if (exif.exposureTime) ex.push(formatShutter(exif.exposureTime));

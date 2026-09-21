@@ -16,7 +16,8 @@ import { KEYS, safeStorage } from '../platform/storage';
 import { readNetLog } from '../platform/net';
 import { createVerifiedCanvas, currentLimits, release } from '../render/guards';
 import './theme.css';
-import './App.css';
+import './editor.css';
+import './diagnostics.css';
 
 interface Row {
   readonly label: string;
@@ -53,7 +54,7 @@ function measureCanvasArea(): { area: number; side: number } {
   return { area: lo * lo, side: slo };
 }
 
-export function Diagnostics({ onBack }: { onBack: () => void }): React.ReactElement {
+export function Diagnostics(): React.ReactElement {
   const [measured, setMeasured] = useState<Row | null>(null);
   const [measuring, setMeasuring] = useState(false);
   const [heic, setHeic] = useState<string>('未確認');
@@ -145,10 +146,6 @@ export function Diagnostics({ onBack }: { onBack: () => void }): React.ReactElem
 
   return (
     <div className="diag">
-      <button className="chip" onClick={onBack}>
-        ← もどる
-      </button>
-
       <h2>この端末について</h2>
       <table>
         <tbody>

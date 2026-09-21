@@ -1,11 +1,15 @@
 /**
  * プレビューを描く。
  *
- * 設定を変えるたびに原寸で描き直してはならない。画像1枚で約100MB を掴み、
- * 実機では落ちる（docs/poc/report-geo-batch.md）。
- * プレビューは縮小版を使い、書き出しのときだけ原寸を掴む。
+ * 気をつけること:
+ * 1. **canvas に width:100% を当てない。** 縦位置の写真が横いっぱいに引き伸ばされて
+ *    縦にはみ出す。CSS の max-width/max-height に任せ、比率は置換要素の性質で保つ。
+ * 2. **設定を変えるたびに原寸で描き直さない。** 画像1枚で約100MBを掴む。
+ *    プレビューは縮小版、原寸は書き出しのときだけ。
+ * 3. **連打しても1フレームに1回しか描かない。** rAF で合流させる。
+ * 4. 入れ物の大きさが変わったら描き直す（タブを切り替えるとプレビュー領域が伸縮する）。
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Scene } from '../core/scene/scene';
 import { renderScene } from '../render/executor';
 import { createVerifiedCanvas, release, type AnyCanvas, type Ctx } from '../render/guards';
@@ -13,65 +17,92 @@ import { grainTileFor } from '../render/resources/grainTiles';
 import type { RenderResources } from '../render/resources/types';
 import { makePreviewTarget } from '../render/target';
 
-export interface PreviewFailure {
-  readonly reason: 'canvas' | 'font' | 'unknown';
-  readonly message: string;
+export interface PreviewState {
+  /** 描けなかったときの理由。画面に出す文面そのまま */
+  readonly error: string | null;
+  /** 100ms を超えて描いているか。超えたときだけ印を出す */
+  readonly slow: boolean;
 }
 
 export function usePreview(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  hostRef: React.RefObject<HTMLElement | null>,
   scene: Scene | null,
   photo: CanvasImageSource | null,
   exportLongEdge: number,
-  onFail: (f: PreviewFailure | null) => void,
-): void {
+): PreviewState {
+  const [error, setError] = useState<string | null>(null);
+  const [slow, setSlow] = useState(false);
   const patternHost = useRef<{ canvas: AnyCanvas; ctx: Ctx } | null>(null);
+  const raf = useRef(0);
 
   useEffect(() => {
-    const el = canvasRef.current;
-    if (!el || !scene) return;
+    const canvas = canvasRef.current;
+    const host = hostRef.current;
+    if (!canvas || !host || !scene) return;
 
-    const cssWidth = el.parentElement?.clientWidth ?? 360;
-    const target = makePreviewTarget(scene, cssWidth, window.devicePixelRatio || 1, exportLongEdge);
+    const draw = (): void => {
+      raf.current = 0;
+      const slowTimer = setTimeout(() => setSlow(true), 100);
+      try {
+        // 入れ物の内寸から決める。padding のぶんを引いた実寸
+        const style = getComputedStyle(host);
+        const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+        const cssWidth = Math.max(80, host.clientWidth - padX);
 
-    el.width = target.widthPx;
-    el.height = target.heightPx;
-    el.style.width = '100%';
-    el.style.height = 'auto';
+        const target = makePreviewTarget(scene, cssWidth, window.devicePixelRatio || 1, exportLongEdge);
+        if (canvas.width !== target.widthPx) canvas.width = target.widthPx;
+        if (canvas.height !== target.heightPx) canvas.height = target.heightPx;
 
-    const ctx = el.getContext('2d');
-    if (!ctx) {
-      onFail({ reason: 'canvas', message: 'この端末では画像を描けませんでした' });
-      return;
-    }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          setError('この端末では画像を描けませんでした');
+          return;
+        }
 
-    if (!patternHost.current) {
-      const r = createVerifiedCanvas(1, 1);
-      if (r.ok) patternHost.current = { canvas: r.canvas, ctx: r.ctx };
-    }
+        if (!patternHost.current) {
+          const r = createVerifiedCanvas(1, 1);
+          if (r.ok) patternHost.current = { canvas: r.canvas, ctx: r.ctx };
+        }
 
-    const resources: RenderResources = {
-      photo: () => photo,
-      grainTile: (op, t) => {
-        const tile = grainTileFor(op, t);
-        const host = patternHost.current;
-        if (!tile || !host) return null;
-        return host.ctx.createPattern(tile as CanvasImageSource, 'repeat');
-      },
-      verticalText: () => null,
+        const resources: RenderResources = {
+          photo: () => photo,
+          grainTile: (op, t) => {
+            const tile = grainTileFor(op, t);
+            const hostCtx = patternHost.current;
+            if (!tile || !hostCtx) return null;
+            return hostCtx.ctx.createPattern(tile as CanvasImageSource, 'repeat');
+          },
+          verticalText: () => null,
+        };
+
+        renderScene(scene, ctx, target, resources);
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'この設定では描けませんでした');
+      } finally {
+        clearTimeout(slowTimer);
+        setSlow(false);
+      }
     };
 
-    try {
-      renderScene(scene, ctx, target, resources);
-      onFail(null);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      onFail({
-        reason: message.includes('書体') ? 'font' : 'unknown',
-        message,
-      });
-    }
-  }, [canvasRef, scene, photo, exportLongEdge, onFail]);
+    const request = (): void => {
+      if (raf.current) return; // すでに次のフレームで描く予定がある
+      raf.current = requestAnimationFrame(draw);
+    };
+
+    request();
+
+    // タブを切り替えるとプレビュー領域の高さが変わる。追従する
+    const ro = new ResizeObserver(request);
+    ro.observe(host);
+
+    return () => {
+      ro.disconnect();
+      if (raf.current) cancelAnimationFrame(raf.current);
+      raf.current = 0;
+    };
+  }, [canvasRef, hostRef, scene, photo, exportLongEdge]);
 
   useEffect(
     () => () => {
@@ -80,4 +111,6 @@ export function usePreview(
     },
     [],
   );
+
+  return { error, slow };
 }
