@@ -1,77 +1,49 @@
 /**
- * 書体。見本を「その書体自身」で描く。名前だけ並べても選べない。
- *
- * Bold は「太字にする設定」ではなく独立した書体として並べる（参考アプリと同じ）。
- * 3列×3行の升目で14書体を出す。横スクロールにすると端で切れて見える。
+ * 書体。名前を**その書体自身**で描いた行を縦に回す（参考アプリの Font タブと同じ形）。
+ * 欧文13書体は起動時に読み込み済み。和文だけ選ばれた瞬間に取りに行き、読めなければ元の書体に戻す。
  */
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useDoc } from '../state/doc';
-import { ensureJapaneseFont, LATIN_FONTS } from '../fonts-catalog';
+import { useUi } from '../state/ui';
+import { ensureJapaneseFont, JP_FAMILY, LATIN_FONTS, type LatinFontKey } from '../fonts-catalog';
+import { Wheel } from '../ui/Wheel';
+
+type Key = LatinFontKey | 'jp';
+
+const OPTIONS: { value: Key; label: string; style: React.CSSProperties }[] = [
+  ...LATIN_FONTS.map((f) => ({
+    value: f.key as Key,
+    label: f.label,
+    style: { fontFamily: `"${f.family}", serif`, fontWeight: f.weight } as React.CSSProperties,
+  })),
+  { value: 'jp', label: '日本語', style: { fontFamily: `"${JP_FAMILY}", sans-serif` } },
+];
 
 export function FontPanel(): React.ReactElement {
   const fontKey = useDoc((s) => s.fontKey);
   const set = useDoc((s) => s.set);
-  const [loadingJa, setLoadingJa] = useState(false);
-  const [jaError, setJaError] = useState(false);
+  const setHint = useUi((s) => s.setHint);
+  const [loading, setLoading] = useState(false);
 
-  const pickedLabel =
-    fontKey === 'jp'
-      ? '日本語 — Noto Sans JP'
-      : (LATIN_FONTS.find((f) => f.key === fontKey)?.label ?? '');
-
-  const pickJapanese = async (): Promise<void> => {
-    setJaError(false);
-    setLoadingJa(true);
-    try {
-      await ensureJapaneseFont();
-      set('fontKey', 'jp');
-    } catch {
-      // 黙ってフォールバックしない。読めなかったことを告げ、書体は変えない
-      setJaError(true);
-    } finally {
-      setLoadingJa(false);
-    }
-  };
+  const pick = useCallback(
+    (key: Key): void => {
+      if (key !== 'jp') {
+        set('fontKey', key);
+        return;
+      }
+      setLoading(true);
+      void ensureJapaneseFont()
+        .then(() => set('fontKey', 'jp'))
+        // 黙ってフォールバックしない。読めなかったことを告げ、書体は変えない（ホイールは元の行へ戻る）
+        .catch(() => setHint('和文の書体を読み込めませんでした'))
+        .finally(() => setLoading(false));
+    },
+    [set, setHint],
+  );
 
   return (
-    <div className="p-font">
-      <p className="picked">{pickedLabel}</p>
-      <div className="p-font__grid" role="radiogroup" aria-label="書体">
-        {LATIN_FONTS.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            role="radio"
-            aria-checked={fontKey === f.key}
-            aria-label={f.label}
-            className="fcard"
-            style={{ fontFamily: `"${f.family}", serif`, fontWeight: f.weight }}
-            onClick={() => set('fontKey', f.key)}
-          >
-            <span className="fcard__aa">Aa</span>
-          </button>
-        ))}
-        <button
-          type="button"
-          role="radio"
-          aria-checked={fontKey === 'jp'}
-          aria-busy={loadingJa}
-          aria-label="日本語"
-          className="fcard"
-          style={{ fontFamily: '"NotoSansJP", sans-serif' }}
-          onClick={() => void pickJapanese()}
-        >
-          <span className="fcard__aa">{loadingJa ? '…' : 'あ'}</span>
-        </button>
-      </div>
-      {jaError && (
-        <p className="e1">
-          書体「Noto Sans JP」を読み込めませんでした{' '}
-          <button type="button" className="btn--txt" onClick={() => void pickJapanese()}>
-            もう一度読み込む
-          </button>
-        </p>
-      )}
+    <div className="wheels" aria-busy={loading || undefined}>
+      <Wheel label="書体" options={OPTIONS} value={fontKey} onChange={pick} wide />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 /**
- * タブバー。印だけで並べ、**選んでいるタブにだけ名前を添える**。
- * 5つ全部に名前を書くと文字が増えるが、全部を印だけにすると「配置」と「組み」の区別が付かない。
- * いま開いている場所の名前だけが見えていれば、残りは押せば分かる。
+ * タブバー。印の下に名前。5つとも。
+ *
+ * 一度「選んでいるタブにだけ名前」を試したが、配置と組みはどちらもレイアウトの印になり、
+ * 押すまで区別が付かなかった。2文字の名前は文字数として無視できる。全部に添える。
  */
 import { TABS, useUi, type TabId } from '../state/ui';
 import { useDoc } from '../state/doc';
@@ -22,23 +23,23 @@ export function TabBar(): React.ReactElement {
   const jaPicked = useDoc((s) => s.fontKey === 'jp');
 
   return (
-    <nav className="tabbar" role="tablist" aria-label="設定">
-      {TABS.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          role="tab"
-          aria-selected={tab === t.id}
-          aria-label={t.label}
-          className={`tab${t.id === 'layout' && jaPicked ? ' tab__badge' : ''}`}
-          onClick={() => setTab(t.id)}
-        >
-          <span className="tab__pill">
+    <nav className="tabbar" aria-label="設定">
+      <div className="tabbar__pill" role="tablist">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            aria-label={t.label}
+            className={`tab${t.id === 'layout' && jaPicked ? ' tab__badge' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
             {ICONS[t.id]}
             <span className="tab__label">{t.label}</span>
-          </span>
-        </button>
-      ))}
+          </button>
+        ))}
+      </div>
     </nav>
   );
 }

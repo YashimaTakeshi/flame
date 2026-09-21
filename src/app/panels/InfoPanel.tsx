@@ -1,4 +1,7 @@
-/** 情報。キャプションに載せる項目の取捨と、初期値・編集への入口 */
+/**
+ * 情報。キャプションに載せる項目のオン／オフを縦の一覧で。右に編集と初期値の印。
+ * 選ぶのではなく切り替えるので、ホイールではなく一覧にする。行の高さはホイールと同じ。
+ */
 import type { FieldId } from '../../core/styles/types';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
@@ -22,16 +25,13 @@ export function InfoPanel(): React.ReactElement {
 
   return (
     <div className="p-info">
-      <div className="hscroll" aria-label="キャプションに載せる項目">
+      <div className="checklist" role="group" aria-label="キャプションに載せる項目">
         {FIELDS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            className="tg"
-            aria-pressed={fields[f.id]}
-            onClick={() => toggleField(f.id)}
-          >
-            {f.label}
+          <button key={f.id} type="button" className="check" aria-pressed={fields[f.id]} onClick={() => toggleField(f.id)}>
+            <span>{f.label}</span>
+            <span className="check__mark" aria-hidden="true">
+              {fields[f.id] ? '✓' : ''}
+            </span>
           </button>
         ))}
       </div>

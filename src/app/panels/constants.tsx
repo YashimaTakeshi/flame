@@ -31,10 +31,10 @@ export const COLORS: { key: string; label: string; value: Rgba }[] = [
   { key: 'sunny', label: 'Sunny Yellow', value: rgba(245, 224, 138) },
 ];
 
-export const ALIGN_OPTIONS: { value: Align; label: string; icon: React.ReactNode }[] = [
-  { value: 'left', label: '左揃え', icon: <IconAlignLeft /> },
-  { value: 'center', label: '中央揃え', icon: <IconAlignCenter /> },
-  { value: 'right', label: '右揃え', icon: <IconAlignRight /> },
+export const ALIGN_OPTIONS: { value: Align; label: string; node: React.ReactNode }[] = [
+  { value: 'left', label: '左揃え', node: <IconAlignLeft /> },
+  { value: 'center', label: '中央揃え', node: <IconAlignCenter /> },
+  { value: 'right', label: '右揃え', node: <IconAlignRight /> },
 ];
 
 export const TRACK_OPTIONS: { value: TrackingId; label: string }[] = [
@@ -82,13 +82,13 @@ export const LINE_OPTIONS: { value: LineCount; label: string }[] = [
 ];
 
 export const DIRECTION_OPTIONS = [
-  { value: 'h', label: '横組み', icon: <IconHorizontal /> },
-  { value: 'v', label: '縦組み', icon: <IconVertical />, disabled: true },
+  { value: 'h', label: '横組み', node: <IconHorizontal /> },
+  { value: 'v', label: '縦組み', node: <IconVertical />, disabled: true },
 ] as const;
 
 export const BORDER_OPTIONS = [
-  { value: 'off', label: '枠なし', icon: <IconBorderOff /> },
-  { value: 'on', label: '枠あり', icon: <IconBorderOn /> },
+  { value: 'off', label: '枠なし', node: <IconBorderOff /> },
+  { value: 'on', label: '枠あり', node: <IconBorderOn /> },
 ] as const;
 
 export const colorOf = (key: string): Rgba =>

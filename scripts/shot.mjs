@@ -50,7 +50,7 @@ async function clippedIn(tabName) {
     const row = document.querySelector('.optrow')?.getBoundingClientRect();
     if (!row) return ['オプション行が無い'];
     const out = [];
-    for (const el of document.querySelectorAll('.optrow .stylechip, .optrow .sw, .optrow .fcard, .optrow .tg, .optrow .seg, .optrow .btn--s')) {
+    for (const el of document.querySelectorAll('.optrow .wheel__frame, .optrow .wheel__cap, .optrow .checklist, .optrow .iconbtn')) {
       const r = el.getBoundingClientRect();
       if (r.height === 0) continue;
       if (r.top < row.top - 0.5 || r.bottom > row.bottom + 0.5) {
@@ -64,15 +64,15 @@ async function clippedIn(tabName) {
 const clipped = {};
 for (const t of ['配置', '組み', '地色', '書体', '情報']) clipped[t] = await clippedIn(t);
 
-// 配置タブの6比率を順に開いて、どの比率でも行が切れないか
+// 配置タブの6比率を順に選んで、どの比率でも列が切れないか
 await page.getByRole('tab', { name: '配置' }).click();
 await page.waitForTimeout(250);
-const ratios = await page.evaluate(() =>
-  [...document.querySelectorAll('.p-place__row:first-child .seg__b')].map(b => b.textContent.trim()));
+const ratioWheel = page.locator('.wheel').first();
+const ratios = await ratioWheel.locator('.wheel__item').allTextContents();
 const perRatio = {};
 for (const r of ratios) {
-  await page.getByRole('radio', { name: r, exact: true }).click();
-  await page.waitForTimeout(250);
+  await ratioWheel.getByRole('radio', { name: r, exact: true }).click();
+  await page.waitForTimeout(450);
   perRatio[r] = await clippedIn(null);
   await page.screenshot({ path: `/tmp/u7-place-${r.replace(/[:\/]/g, '-')}.png` });
 }
@@ -99,6 +99,9 @@ const scrolls = await page.evaluate(() => ({
     const cy = r.top + r.height / 2;
     // 画面の外にある要素（横スクロール行の続き）は測れないので飛ばす
     if (cx < 0 || cx > window.innerWidth || cy < 0 || cy > window.innerHeight) return null;
+    // ホイールの中で上下に送られて見えていない行も飛ばす。そこは指が届かなくて正しい
+    const atCenter = document.elementFromPoint(cx, cy);
+    if (!(atCenter === el || el.contains(atCenter))) return null;
     const hits = (y) => {
       if (y < 0 || y > window.innerHeight) return false;
       const h = document.elementFromPoint(cx, y);

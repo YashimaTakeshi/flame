@@ -294,178 +294,73 @@
 
 /* ───────── タブバー ───────── */
 /*
- * タブバー。上に 4px の遊びを作る。
- * これが無いと、オプション行の下端のボタンとタブが隙間なく接し、
- * 少し低く押しただけでタブが切り替わる（実測で当たり判定が食い合っていた）。
+ * 印の下に名前、5つとも。丸い帯に収める。
+ * 帯とオプション行のあいだに 6px の遊びを置く。これが無いとホイールの下端とタブが
+ * 隙間なく接し、少し低く押しただけでタブが切り替わる。
  */
 .tabbar {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  border-top: 1px solid var(--line);
-  padding-top: 4px;
-  padding-bottom: var(--safe-bottom);
+  place-items: center;
+  padding: 6px var(--gutter) calc(6px + var(--safe-bottom));
   background: var(--bg);
 }
 
-.tab {
-  height: calc(var(--tabbar-h) - 4px);
+.tabbar__pill {
+  width: 100%;
+  max-width: 420px;
+  height: 52px;
   display: grid;
-  place-items: center;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: 0 1px 4px rgba(35, 33, 31, 0.08);
+}
+
+.tab {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 1px;
   border: 0;
+  border-radius: var(--radius-pill);
   background: none;
   color: var(--ink-2);
-  font-size: var(--t1);
-  line-height: var(--t1-lh);
-  letter-spacing: var(--t1-ls);
-  position: relative;
+  padding: 0;
 }
 
-.tab__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 32px;
-  padding: 0 8px;
-  border-radius: var(--radius-pill);
+.tab svg {
+  width: 20px;
+  height: 20px;
 }
 
-/*
- * 名前は選んでいるタブにだけ出す。
- * 1タブの幅は画面の 1/5（78px）しか無い。印22 + 隙間4 + 名前2文字 + 余白16 で 76px。
- * 折り返すと「配／置」と縦に割れて読めなくなるので、必ず1行に留める。
- */
 .tab__label {
-  display: none;
+  font-size: 0.625rem;
+  line-height: 0.875rem;
+  letter-spacing: 0.04em;
   white-space: nowrap;
-  letter-spacing: 0.02em;
 }
 
 .tab[aria-selected='true'] {
-  color: var(--bg);
-}
-
-.tab[aria-selected='true'] .tab__pill {
   background: var(--ink);
-}
-
-.tab[aria-selected='true'] .tab__label {
-  display: inline;
+  color: var(--bg);
 }
 
 /* 新しい選択肢が出たことを知らせる唯一の合図 */
 .tab__badge::after {
-  content: '・';
+  content: '';
   position: absolute;
   top: 6px;
   right: 50%;
-  translate: 14px 0;
-  color: var(--ink);
+  translate: 16px 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 /* ───────── 共通部品 ───────── */
-
-/*
- * セグメント。隣り合わせて隙間を作らない＝指が外れても必ずどれかに当たる。
- * **升の幅は --cell で固定。** 行の幅いっぱいに引き伸ばさない。
- * 引き伸ばすと 6択の行と 3択の行で升の幅が変わり、揃って見えない。
- */
-.seg {
-  display: inline-flex;
-  width: max-content;
-  min-height: var(--tap);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-pill);
-  overflow: hidden;
-}
-
-.seg__b {
-  flex: 0 0 var(--cell);
-  width: var(--cell);
-  display: grid;
-  place-items: center;
-  min-height: var(--tap);
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: var(--ink-2);
-  font-size: var(--t1);
-  letter-spacing: var(--t1-ls);
-  white-space: nowrap;
-}
-
-.seg__b + .seg__b {
-  border-left: 1px solid var(--line-strong);
-}
-
-.seg__b[aria-checked='true'] {
-  background: var(--ink);
-  color: var(--bg);
-}
-
-.seg__b[aria-disabled='true'] {
-  color: var(--ink-3);
-  cursor: default;
-}
-
-/*
- * 横スクロール行。
- * 指を離したときに項目が端で切れて見えないよう、項目の左端に吸い付かせる。
- * 端から16px離すのは、iOS の端スワイプ（戻る）と取り合わないため。
- */
-/* 横スクロールが残るのはスタイルのチップ列だけ（比率ごとに最大4つ） */
-.hscroll {
-  display: flex;
-  gap: var(--s1);
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  padding-inline: var(--gutter);
-  scroll-padding-inline: var(--gutter);
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-}
-
-/*
- * 端で項目が断ち切られて見えるのを、影の付いた縁ではなく**淡い消え際**で示す。
- * 「切れている」ではなく「まだ続く」と読めるようにするため。
- * 消え際の幅はガターと同じ16pxで、指を置く場所は食わない。
- */
-.hscroll {
-  --fade: 16px;
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    #000 var(--fade),
-    #000 calc(100% - var(--fade)),
-    transparent 100%
-  );
-}
-
-.hscroll > * {
-  scroll-snap-align: start;
-}
-
-.hscroll::-webkit-scrollbar {
-  display: none;
-}
-
-.tg {
-  flex: 0 0 auto;
-  min-height: var(--tap);
-  padding: 0 var(--s2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--ink-2);
-  font-size: var(--t1);
-  letter-spacing: var(--t1-ls);
-  white-space: nowrap;
-}
-
-.tg[aria-pressed='true'] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
-}
 
 .btn {
   width: 100%;
@@ -512,195 +407,206 @@
   padding-inline: var(--gutter);
 }
 
-/* ───────── パネル（各タブのオプション行） ───────── */
+/* ───────── ホイール ───────── */
 
-/*
- * 配置: 比率・写真・文字の3行。各行は「見出し ＋ 1本のセグメント」。
- * 見出しの幅を揃えて、3本のセグメントの左端を縦に通す。
- */
-.p-place {
-  height: 100%;
-  display: grid;
-  grid-auto-rows: calc(var(--tap) + 2px);
-  gap: 6px;
-  padding: 6px var(--gutter);
-  align-content: center;
-}
-
-/* 見出しの幅を揃えて、4本のセグメントの左端を縦に通す */
-.p-place__row {
-  display: grid;
-  grid-template-columns: 2.5em max-content;
-  align-items: center;
-  gap: var(--s1);
-}
-
-/*
- * 組み: 項目を左から詰め、入らなければ折り返す。
- * 升の幅は --cell で共通なので、項目が増えても行が増えるだけで崩れない。
- */
-.p-layout {
+/* 列を横に並べる。幅は列の数で等分。--wide の列だけ2倍取る */
+.wheels {
   height: 100%;
   display: flex;
-  flex-wrap: wrap;
-  align-content: center;
-  gap: 6px var(--s2);
-  padding: 6px var(--gutter);
-}
-
-.p-layout__cell {
-  display: flex;
   align-items: center;
-  gap: var(--s1);
-}
-
-.p-layout__lbl {
-  font-size: var(--t1);
-  letter-spacing: var(--t1-ls);
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-
-/*
- * 高さは親いっぱいに取る。--optionrow-h を直に書くと、
- * .optrow の 1px の上罫のぶんだけはみ出し、下端のボタンが 1px 切れる。
- * その 1px でタブバーと当たり判定を食い合う。
- */
-.p-color,
-.p-font,
-.p-info {
-  height: 100%;
-  display: grid;
-  align-content: center;
   gap: var(--s1);
   padding: var(--s1) var(--gutter);
 }
 
-/*
- * 地色: 9色を5列×2段で**全部見せる**。横スクロールにしない。
- * 端で丸や名前が切れていると「まだ続く」ではなく「壊れている」に見える。
- */
-.p-color__grid {
+.wheel {
+  flex: 1 1 0;
+  min-width: 0;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--s1);
-  justify-items: center;
+  gap: 4px;
+  justify-items: stretch;
 }
 
-/* 余白なし（全面）では地が見えない。押せないことを薄さで示す */
-.p-color__grid[aria-disabled='true'] {
-  opacity: 0.3;
+.wheel--wide {
+  flex: 2 1 0;
 }
 
-.p-color__foot {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: var(--s2);
-  min-height: calc(var(--tap) + 2px);
-}
-
-.p-info__acts {
-  display: flex;
-  gap: var(--s1);
-  justify-content: flex-end;
-}
-
-.p-font {
-  grid-template-rows: auto minmax(0, 1fr);
-  align-content: center;
-}
-
-.sw {
-  width: 100%;
-  min-height: var(--tap);
-  display: grid;
-  place-content: center;
-  border: 0;
-  padding: 0;
-  background: none;
-}
-
-.sw__dot {
-  position: relative;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-}
-
-.sw[aria-checked='true'] .sw__dot::after {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  border: 2px solid var(--line-strong);
-  border-radius: 50%;
-}
-
-
-
-/*
- * 書体: 5列×3段の升目に14書体。**スクロールさせない**ので何も切れない。
- *
- * 札には見本の「Aa」だけを置き、名前は**選んでいる1つぶん**を下に出す。
- * 14個ぶんの名前を並べると1枠 65px に「Baskerville SemiBold」が入らず、
- * 省略記号だらけになる。見本はその書体自身で描かれているので、
- * 名前が要るのは「いま選んでいるものが何か」を確かめるときだけである。
- */
-.p-font__grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-auto-rows: var(--tap);
-  gap: var(--s1);
-}
-
-.fcard {
-  min-height: var(--tap);
-  display: grid;
-  place-content: center;
-  padding: 0;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--ink);
-}
-
-.fcard[aria-checked='true'] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
-}
-
-.fcard__aa {
-  font-size: var(--t3);
-  line-height: 1.1;
-}
-
-/* 選んでいる書体・地色の名前。1行だけ出す */
-.picked {
+.wheel__cap {
   font-size: var(--t1);
   line-height: var(--t1-lh);
   letter-spacing: var(--t1-ls);
-  color: var(--ink);
-  margin: 0;
-  min-height: var(--t1-lh);
+  color: var(--ink-2);
+  text-align: center;
   white-space: nowrap;
+}
+
+/* 見出しの無い列（書体）も、他の列と高さを揃える */
+.wheel:not(:has(.wheel__cap)) {
+  padding-top: calc(var(--t1-lh) + 4px);
+}
+
+/*
+ * 真ん中の1行に薄い帯を敷く。スクロールする側ではなく、動かない枠に描く。
+ * 3行見せるので、帯は上から1行ぶんの位置。
+ */
+.wheel__frame {
+  position: relative;
+  height: calc(var(--row) * 3);
+}
+
+.wheel__frame::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--row);
+  height: var(--row);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/*
+ * 上下の端を淡く消す。「その先にまだある」を線ではなく消え際で示す。
+ * 上下 1 行ぶんの余白（.wheel__pad）で、先頭と末尾も真ん中に止まれる。
+ */
+.wheel__view {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 28%, #000 72%, transparent 100%);
+}
+
+.wheel__view::-webkit-scrollbar {
+  display: none;
+}
+
+.wheel__pad {
+  height: var(--row);
+  flex: none;
+}
+
+.wheel__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--row);
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: var(--t2);
+  letter-spacing: var(--t2-ls);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+.wheel__item[aria-checked='true'] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.wheel__item[aria-disabled='true'] {
+  color: var(--ink-3);
+  cursor: default;
+}
+
+/* 列ごと押せないとき */
+.wheel[aria-disabled='true'] .wheel__frame::before {
+  opacity: 0.4;
+}
+
+.wheel[aria-disabled='true'] .wheel__item {
+  color: var(--ink-3);
+}
+
+/* 色の行: 見本の丸 ＋ 名前 */
+.swatchrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.swatchrow__dot {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.swatchrow__name {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.fcard__name {
-  font-size: var(--t1);
-  letter-spacing: var(--t1-ls);
-  font-family: var(--ui-font);
-}
+/* ───────── 情報 ───────── */
 
-/* 情報: 46 + 8 + 46。組みと同じ理由で 44 ではなく 46 */
+/* 一覧（3行見せて縦に送る）＋ 右に印のボタン2つ */
 .p-info {
-  grid-template-rows: repeat(2, calc(var(--tap) + 2px));
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s1) var(--gutter);
 }
 
+.checklist {
+  height: calc(var(--row) * 3);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
 
+.checklist::-webkit-scrollbar {
+  display: none;
+}
+
+.check {
+  width: 100%;
+  height: var(--row);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--s2);
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: var(--t2);
+  letter-spacing: var(--t2-ls);
+}
+
+.check + .check {
+  box-shadow: inset 0 1px 0 var(--line);
+}
+
+.check[aria-pressed='true'] {
+  color: var(--ink);
+}
+
+.check__mark {
+  width: 1.2em;
+  text-align: right;
+  color: var(--ink);
+}
+
+.p-info__acts {
+  display: grid;
+  gap: var(--s1);
+}
 
 /* ───────── シート ───────── */
 .scrim {
