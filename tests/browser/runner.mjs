@@ -57,14 +57,20 @@ const TYPES = {
 };
 const server = createServer((req, res) => {
   const path = decodeURIComponent((req.url ?? '/').split('?')[0]);
-  const name = basename(path);
-  // テスト画像と同梱アセットも配る（実物で試せないと意味がない）
-  const dir = path.startsWith('/fixtures/') ? resolve(root, 'tests/fixtures')
-            : path.startsWith('/public/')   ? resolve(root, 'public')
-            : outDir;
+  // テスト画像と同梱アセットも配る。実物で試せないと意味がない。
+  // サブディレクトリを辿れるようにしつつ、指定した根より外へは出さない
+  const [base, rel] =
+    path.startsWith('/fixtures/') ? [resolve(root, 'tests/fixtures'), path.slice('/fixtures/'.length)]
+    : path.startsWith('/public/') ? [resolve(root, 'public'), path.slice('/public/'.length)]
+    : [outDir, basename(path)];
+  const file = resolve(base, rel);
+  if (!file.startsWith(base)) {
+    res.writeHead(403).end('forbidden');
+    return;
+  }
   try {
-    const body = readFileSync(resolve(dir, name));
-    res.writeHead(200, { 'content-type': TYPES[extname(name)] ?? 'application/octet-stream' });
+    const body = readFileSync(file);
+    res.writeHead(200, { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' });
     res.end(body);
   } catch {
     res.writeHead(404).end('not found');
@@ -94,7 +100,11 @@ for (const file of files) {
     console.log(`  [ページ内例外] ${e}`);
   });
   page.on('console', (m) => {
-    if (m.type() === 'error' || m.type() === 'warning') console.log(`  [${m.type()}] ${m.text()}`);
+    const t = m.text();
+    // Canvas2D の willReadFrequently 助言は測定のたびに出るので落とす
+    if (t.includes('willReadFrequently')) return;
+    if (m.type() === 'log') console.log(t);
+    else if (m.type() === 'error' || m.type() === 'warning') console.log(`  [${m.type()}] ${t}`);
   });
   page.on('crash', () => console.log('  [ページがクラッシュしました（メモリ不足の可能性）]'));
 
