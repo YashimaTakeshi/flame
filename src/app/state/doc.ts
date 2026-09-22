@@ -7,13 +7,14 @@
 import { create } from 'zustand';
 import { DEFAULT_SPEC, normalize } from '../../core/styles/spec';
 import { CENTER_FOCUS, type Align, type FieldId, type Focus, type SizeId, type StyleSpec, type TrackingId } from '../../core/styles/types';
+import type { BadgeMode } from '../../core/badge';
 import type { LatinFontKey } from '../fonts-catalog';
 
 export interface Overrides {
   readonly camera: string | null;
   readonly lens: string | null;
   readonly date: Date | null;
-  /** フィルムシミュレーション／ピクチャーコントロール。FUJIFILM 以外は手入力しかない */
+  /** 仕上がり（フィルムシミュレーション／ピクチャーコントロール等）。FUJIFILM 以外は手入力しかない */
   readonly film: string | null;
 }
 
@@ -33,8 +34,8 @@ export interface DocState {
   readonly bordered: boolean;
   readonly fields: Readonly<Record<FieldId, boolean>>;
   readonly overrides: Overrides;
-  /** 写真の右下にフィルム名を刻むか。フィルム名が分かるときだけ効く */
-  readonly badge: boolean;
+  /** 仕上がりの刻印。帯の中、文字の下に置く。名前が分かるときだけ効く */
+  readonly badge: BadgeMode;
 }
 
 export const DEFAULT_FIELDS: Record<FieldId, boolean> = {
@@ -62,7 +63,7 @@ const INITIAL: DocState = {
   bordered: false,
   fields: DEFAULT_FIELDS,
   overrides: { camera: null, lens: null, date: null, film: null },
-  badge: true,
+  badge: 'logo',
 };
 
 interface DocStore extends DocState {

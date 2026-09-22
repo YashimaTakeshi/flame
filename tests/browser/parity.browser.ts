@@ -347,6 +347,19 @@ await test('準備: 書体を読み込む', async () => {
     { family: 'Arimo', weight: 700 },
     { kind: 'url', url: '/public/fonts/Arimo-bold.woff2' },
   );
+  // 刻印のロゴは書体の選択によらず Tinos / Oswald の Bold を使う
+  await ensureFont(
+    { family: 'Tinos', weight: 700 },
+    { kind: 'url', url: '/public/fonts/Tinos-bold.woff2' },
+  );
+  await ensureFont(
+    { family: 'Tinos', weight: 400 },
+    { kind: 'url', url: '/public/fonts/Tinos-regular.woff2' },
+  );
+  await ensureFont(
+    { family: 'Oswald', weight: 700 },
+    { kind: 'url', url: '/public/fonts/Oswald-bold.woff2' },
+  );
   photo = makePhoto(2400, 1600) as CanvasImageSource;
 });
 
@@ -402,12 +415,10 @@ await test('整列を変えても一致する', () => {
   }
 });
 
-await test('フィルムの刻印を置いても一致する（余白あり・重ね）', () => {
-  expectParity('刻印', parityOf(sceneFor({ badge: 'CLASSIC CHROME' })));
-  expectParity(
-    '刻印 重ね',
-    parityOf(sceneFor({ badge: 'ACROS', style: { ratio: 'SQ', photo: 'center', caption: 'overlay', captionAlign: 'center', lines: 2, margin: 'none' } })),
-  );
+await test('仕上がりの刻印を置いても一致する（文字・ロゴ・段の中）', () => {
+  expectParity('刻印 文字', parityOf(sceneFor({ badge: { text: 'CLASSIC CHROME', mode: 'text' } })));
+  expectParity('刻印 ロゴ', parityOf(sceneFor({ badge: { text: 'PROVIA', mode: 'logo' } })));
+  expectParity('刻印 ロゴ 段', parityOf(sceneFor({ badge: { text: 'CLASSIC Neg.', mode: 'logo' }, style: { ratio: 'STN', photo: 'center', caption: 'right', captionAlign: 'center', lines: 2, margin: 'normal' } })));
 });
 
 /*

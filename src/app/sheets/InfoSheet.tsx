@@ -67,13 +67,13 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
           />
         </label>
         <label className="card__row">
-          <span>フィルム</span>
+          <span>仕上がり</span>
           <input
             value={film}
             list="film-suggestions"
             autoCapitalize="characters"
             onChange={(e) => setFilm(e.target.value)}
-            placeholder={exif.film ?? 'PROVIA / Vivid など'}
+            placeholder={exif.film ?? 'PROVIA / ビビッド など'}
           />
           <datalist id="film-suggestions">
             {FILM_SUGGESTIONS.map((f) => (

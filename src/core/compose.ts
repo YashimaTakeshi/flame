@@ -10,15 +10,16 @@
  * この不変条件を壊す変更は許可しない。k を渡したくなったら、
  * それは RenderTarget に置くべき値である。
  */
-import { hairline, lu, point, px, rect, type Lu, type RectLu } from './units';
-import { advanceFor, ascentFor, descentFor, type TextMeasurer } from './ports';
+import { hairline, lu, point, px, rect, type Lu } from './units';
+import type { TextMeasurer } from './ports';
+import { badgeBounds, buildBadge, type BadgeSpec } from './badge';
 import { typesetCaption, type Facts, type Gates, type TypesetLine } from './caption';
 import { SceneBuilder } from './scene/builder';
-import { photoId, rgba, type DrawOp, type FontRef, type PhotoId, type Rgba } from './scene/ops';
+import { photoId, rgba, type PhotoId, type Rgba } from './scene/ops';
 import type { Scene, SceneWarning } from './scene/scene';
 import { captionWidthLu, layoutViolations, resolveLayout } from './styles/layout';
 import { styleFor } from './styles/spec';
-import type { StyleDef } from './styles/types';
+import { SIZE_LU } from './styles/tokens';
 import { CENTER_FOCUS, type Align, type Focus, type SizeId, type StyleSpec, type TrackingId } from './styles/types';
 
 export interface SceneInput {
@@ -50,10 +51,11 @@ export interface SceneInput {
   readonly background: Rgba;
   readonly ink: Rgba;
   /**
-   * 写真の右下に刻むフィルム名（PROVIA / CLASSIC CHROME …）。null か省略なら刻まない。
-   * 参考アプリはメーカーのロゴ画像を置くが、商標の絵は同梱しない。名前を文字で刻む。
+   * 仕上がり（PROVIA / CLASSIC CHROME / ビビッド …）の刻印。null か省略なら刻まない。
+   * 写真の中ではなく、キャプションの帯の中、文字の下に積む。
+   * 重ね（全面）には帯が無いので置かない。
    */
-  readonly badge?: string | null;
+  readonly badge?: BadgeSpec | null;
 }
 
 /** 枠線の太さ。プレビューで消えないよう下限1pxを持つ */
@@ -119,10 +121,30 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   warnings.push(...typeset.warnings);
   if (typeset.lines.length === 0) warnings.push({ kind: 'caption-empty' });
 
-  /* 2. 組み上がった高さで矩形を決める */
-  const layout = resolveLayout(def, input.photo.aspect, typeset.heightLu, input.focus ?? CENTER_FOCUS);
-
   const overlay = def.caption.place === 'overlay';
+
+  /* 1b. 刻印。帯に積むので、帯の高さを決める前に組む。重ねには帯が無い */
+  const baseSize = SIZE_LU[input.size] * def.typeScale;
+  const badge =
+    input.badge && !overlay
+      ? buildBadge(
+          input.badge,
+          {
+            baseSize,
+            maxW: boxW,
+            ink: input.ink,
+            background: input.background,
+            family: input.family,
+            weight: input.weight,
+          },
+          measurer,
+        )
+      : null;
+  const badgeGap = badge && typeset.lines.length > 0 ? baseSize * 0.6 : 0;
+  const blockH = typeset.heightLu + (badge ? badgeGap + badge.h : 0);
+
+  /* 2. 組み上がった高さで矩形を決める */
+  const layout = resolveLayout(def, input.photo.aspect, blockH, input.focus ?? CENTER_FOCUS);
   const ink = overlay ? OVERLAY_INK : input.ink;
   const muted = overlay ? mix(ink, rgba(0, 0, 0), 0.22) : mix(ink, input.background, 0.42);
 
@@ -183,22 +205,18 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
     y += line.lineHeight;
   }
 
-  /* 6b. フィルムの刻印。重ねのときは文字の上に逃がす（重ならないように） */
-  if (input.badge) {
-    const badge = badgeOps(
-      input.badge,
-      def,
-      layout.photo,
-      overlay && typeset.lines.length > 0 ? (layout.captionBox.y as number) : null,
-      input,
-      measurer,
-    );
-    if (badge) {
-      // 板の縁のアンチエイリアスは 1px ほど外に出るので、文字と同じく少し広く免責する
-      const p = badge.plate;
-      b.exemptRect(rect((p.x as number) - 2, (p.y as number) - 2, (p.w as number) + 4, (p.h as number) + 4));
-      b.addAll(badge.ops);
-    }
+  /* 6b. 刻印。文字の下、揃えに従う */
+  if (badge) {
+    const box = layout.captionBox;
+    const bx =
+      input.align === 'left'
+        ? (box.x as number)
+        : input.align === 'right'
+          ? (box.x as number) + (box.w as number) - badge.w
+          : (box.x as number) + ((box.w as number) - badge.w) / 2;
+    const by = (box.y as number) + typeset.heightLu + badgeGap;
+    b.exemptRect(badgeBounds(bx, by, badge));
+    b.addAll(badge.emit(bx, by));
   }
 
   /* 7. 不変条件。ここで落ちるのはスタイル定義の誤りで、利用者の操作では起きない */
@@ -229,72 +247,6 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
 
 const colorFor = (line: TypesetLine, ink: Rgba, muted: Rgba): Rgba =>
   line.emphasis === 'muted' ? muted : ink;
-
-/* ── フィルムの刻印 ─────────────────────────────────────────
- * 写真の右下に、暗い板の上へ明色の文字で置く。板は半透明で、明るい写真でも暗い写真でも
- * 文字が読める。写真の中に置くので、地色にもキャプションの色にも従わない。
- */
-const BADGE_SIZE_LU = 15;
-const BADGE_TRACK_EM = 0.08;
-const BADGE_PLATE: Rgba = rgba(16, 16, 16, 0.6);
-const BADGE_INK: Rgba = rgba(244, 242, 239, 1);
-
-function badgeOps(
-  text: string,
-  def: StyleDef,
-  photo: RectLu,
-  captionTop: number | null,
-  input: SceneInput,
-  measurer: TextMeasurer,
-): { ops: DrawOp[]; plate: RectLu } | null {
-  const size = BADGE_SIZE_LU * def.typeScale;
-  const font: FontRef = { family: input.family, weight: input.hasBold ? 700 : input.weight };
-  const m = measurer.measure(text, font);
-  const track = size * BADGE_TRACK_EM;
-  const textW = advanceFor(m, size, track, [...text].length);
-  const ascent = ascentFor(m, size);
-  const descent = descentFor(m, size);
-  const padX = size * 0.7;
-  const padY = size * 0.45;
-  const plateW = textW + padX * 2;
-  const plateH = ascent + descent + padY * 2;
-
-  const pw = photo.w as number;
-  const ph = photo.h as number;
-  const inset = Math.max(14, Math.min(pw, ph) * 0.03);
-  // 写真が小さすぎて刻印が収まらないなら刻まない（はみ出すより無い方がよい）
-  if (plateW > pw - inset * 2 || plateH > ph - inset * 2) return null;
-
-  const right = (photo.x as number) + pw - inset;
-  let bottom = (photo.y as number) + ph - inset;
-  if (captionTop !== null) bottom = Math.min(bottom, captionTop - inset * 0.6);
-  const x = right - plateW;
-  const y = bottom - plateH;
-  if (y < (photo.y as number) + inset) return null;
-
-  const plate = rect(x, y, plateW, plateH);
-  const baseline = y + padY + ascent;
-  return {
-    plate,
-    ops: [
-      { op: 'fillRect', resolution: 'invariant', rect: plate, color: BADGE_PLATE },
-      {
-        op: 'text',
-        resolution: 'invariant',
-        id: 'badge',
-        text,
-        font,
-        sizeLu: lu(size),
-        letterSpacingLu: lu(track),
-        color: BADGE_INK,
-        anchor: point(x + padX, baseline),
-        align: 'left',
-        measuredWidthLu: lu(textW),
-        boundsLu: rect(x + padX - 2, baseline - ascent - 2, textW + 4, ascent + descent + 4),
-      },
-    ],
-  };
-}
 
 /** 1行を text op にする。行箱の中で上下中央に置く */
 function textOpFor(

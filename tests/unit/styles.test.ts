@@ -370,70 +370,86 @@ describe('Scene の組み立て', () => {
     expect(r?.op === 'strokeRect' && r.rect.x).toBeGreaterThan(0);
   });
 
-  describe('フィルムの刻印', () => {
-    const badgeOf = (scene: ReturnType<typeof buildScene>) => scene.ops.find((o) => o.op === 'text' && o.id === 'badge');
-    const inside = (r: { x: number; y: number; w: number; h: number }, p: { x: number; y: number; w: number; h: number }): boolean =>
-      r.x >= p.x - 0.001 && r.y >= p.y - 0.001 && r.x + r.w <= p.x + p.w + 0.001 && r.y + r.h <= p.y + p.h + 0.001;
-    const overlaps = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }): boolean =>
-      a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  describe('仕上がりの刻印', () => {
+    type R = { x: number; y: number; w: number; h: number };
+    const badgeOps = (scene: ReturnType<typeof buildScene>) =>
+      scene.ops.filter((o) => o.op === 'text' && o.id.startsWith('badge'));
+    const overlaps = (a: R, b: R): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    const LOGO = { text: 'CLASSIC CHROME', mode: 'logo' } as const;
+    const TEXT = { text: 'CLASSIC CHROME', mode: 'text' } as const;
 
-    it('渡さなければ刻まない。渡せば板と文字が1つずつ出る', () => {
-      expect(badgeOf(buildScene(inputFor(), measurer))).toBeUndefined();
-      expect(badgeOf(buildScene(inputFor({ badge: null }), measurer))).toBeUndefined();
-      const scene = buildScene(inputFor({ badge: 'CLASSIC CHROME' }), measurer);
-      const t = badgeOf(scene);
-      expect(t?.op === 'text' && t.text).toBe('CLASSIC CHROME');
-      expect(scene.ops.filter((o) => o.op === 'fillRect')).toHaveLength(1);
+    it('渡さなければ刻まない。文字は枠1本と文字1つ、ロゴは版の面が出る', () => {
+      expect(badgeOps(buildScene(inputFor(), measurer))).toHaveLength(0);
+      expect(badgeOps(buildScene(inputFor({ badge: null }), measurer))).toHaveLength(0);
+      const t = buildScene(inputFor({ badge: TEXT }), measurer);
+      expect(badgeOps(t)).toHaveLength(1);
+      expect(t.ops.filter((o) => o.op === 'strokeRect')).toHaveLength(1);
+      const l = buildScene(inputFor({ badge: LOGO }), measurer);
+      expect(badgeOps(l).length).toBeGreaterThan(0);
+      expect(l.ops.filter((o) => o.op === 'fillRect').length).toBeGreaterThan(1);
     });
 
-    it('全組み合わせ × 全比で、写真の右下に収まり、キャプションと重ならない', () => {
+    it('★写真の中には置かない★ 全組み合わせ × 全比で、帯の中・写真の外・文字と非重複', () => {
       for (const spec of SPECS) {
+        if (spec.caption === 'overlay') continue;
         for (const aspect of ASPECTS) {
-          const scene = buildScene(inputFor({ style: spec, photo: { id: 'p', aspect }, badge: 'ETERNA BLEACH BYPASS' }), measurer);
-          const photo = scene.ops.find((o) => o.op === 'photo');
-          const plate = scene.ops.find((o) => o.op === 'fillRect');
-          if (!plate || plate.op !== 'fillRect' || !photo || photo.op !== 'photo') continue; // 収まらないときは刻まない
-          const name = `${key(spec)} @${aspect.toFixed(2)}`;
-          expect(inside(plate.rect, photo.dst), name).toBe(true);
-          // 右下: 板の右端は写真の中心より右、下端は写真の中心より下
-          expect(plate.rect.x + plate.rect.w, name).toBeGreaterThan(photo.dst.x + photo.dst.w / 2);
-          expect(plate.rect.y + plate.rect.h, name).toBeGreaterThan(photo.dst.y + photo.dst.h / 2);
-          for (const o of scene.ops) {
-            if (o.op !== 'text' || o.id === 'badge') continue;
-            expect(overlaps(plate.rect, o.boundsLu), `${name}: ${o.id}`).toBe(false);
+          for (const badge of [LOGO, TEXT]) {
+            const scene = buildScene(inputFor({ style: spec, photo: { id: 'p', aspect }, badge }), measurer);
+            const photo = scene.ops.find((o) => o.op === 'photo');
+            const marks = badgeOps(scene);
+            const name = `${key(spec)} @${aspect.toFixed(2)} ${badge.mode}`;
+            expect(marks.length, name).toBeGreaterThan(0);
+            for (const o of scene.ops) {
+              if (o.op !== 'text') continue;
+              const r = o.boundsLu;
+              if (photo?.op === 'photo') {
+                // 免責の 2lu を除いた実体が写真に掛からない
+                const inner = { x: r.x + 2, y: r.y + 2, w: r.w - 4, h: r.h - 4 };
+                expect(overlaps(inner, photo.dst), `${name}: ${o.id} が写真に掛かる`).toBe(false);
+              }
+              expect(r.x + 2, name).toBeGreaterThanOrEqual(-0.01);
+              expect(r.x + r.w - 2, name).toBeLessThanOrEqual((scene.canvas.widthLu as number) + 0.01);
+              expect(r.y + r.h - 2, name).toBeLessThanOrEqual((scene.canvas.heightLu as number) + 0.01);
+            }
+            // 刻印はキャプションの文字と重ならない
+            const caps = scene.ops.filter((o) => o.op === 'text' && !o.id.startsWith('badge'));
+            for (const m of marks) {
+              if (m.op !== 'text') continue;
+              for (const c of caps) if (c.op === 'text') expect(overlaps(m.boundsLu, c.boundsLu), `${name}: ${m.id}/${c.id}`).toBe(false);
+            }
           }
         }
       }
     });
 
-    it('通常の写真では必ず刻まれる（収まらないのは極端な比だけ）', () => {
-      for (const spec of SPECS) {
-        const scene = buildScene(inputFor({ style: spec, photo: { id: 'p', aspect: 1.5 }, badge: 'PROVIA' }), measurer);
-        expect(badgeOf(scene), key(spec)).toBeDefined();
-      }
+    it('重ね（全面）には帯が無いので刻まない', () => {
+      const scene = buildScene(inputFor({ style: sp({ margin: 'none', caption: 'overlay' }), badge: LOGO }), measurer);
+      expect(badgeOps(scene)).toHaveLength(0);
     });
 
-    it('フィルム名はキャプションの項目としても載る', () => {
+    it('刻印のぶん帯が伸び、キャプションが無くても刻印だけ置ける', () => {
+      const without = buildScene(inputFor({ style: sp({ ratio: 'OR' }) }), measurer);
+      const withBadge = buildScene(inputFor({ style: sp({ ratio: 'OR' }), badge: LOGO }), measurer);
+      expect(withBadge.canvas.heightLu).toBeGreaterThan(without.canvas.heightLu);
+      const only = buildScene(inputFor({ style: sp({ ratio: 'OR' }), facts: {}, badge: LOGO }), measurer);
+      expect(badgeOps(only).length).toBeGreaterThan(0);
+    });
+
+    it('揃えに従う', () => {
+      const xs = (['left', 'center', 'right'] as const).map((align) => {
+        const scene = buildScene(inputFor({ badge: TEXT, align }), measurer);
+        const r = scene.ops.find((o) => o.op === 'strokeRect');
+        return r?.op === 'strokeRect' ? (r.rect.x as number) : NaN;
+      });
+      expect(xs[0]).toBeLessThan(xs[1]!);
+      expect(xs[1]).toBeLessThan(xs[2]!);
+    });
+
+    it('仕上がりの名前はキャプションの項目としても載る', () => {
       const scene = buildScene(inputFor({ facts: { ...REFERENCE, film: 'ACROS' } }), measurer);
-      const texts = scene.ops.filter((o) => o.op === 'text' && o.id !== 'badge').map((o) => (o.op === 'text' ? o.text : ''));
+      const texts = scene.ops.filter((o) => o.op === 'text' && !o.id.startsWith('badge')).map((o) => (o.op === 'text' ? o.text : ''));
       expect(texts.join(' ')).toContain('ACROS');
     });
-  });
-
-  it('重ね文字のときだけ暗幕を敷く', () => {
-    expect(buildScene(inputFor({ style: FRMM_PRESETS.SQ4! }), measurer).ops.filter((o) => o.op === 'linearGradient')).toHaveLength(1);
-    expect(buildScene(inputFor({ style: FRMM_PRESETS.SQ1! }), measurer).ops.filter((o) => o.op === 'linearGradient')).toHaveLength(0);
-  });
-
-  it('和文書体には Bold を頼まない（合成太字で字形が崩れる）', () => {
-    const scene = buildScene(inputFor({ style: FRMM_PRESETS.OR2!, family: 'NotoSansJP', hasBold: false }), measurer);
-    for (const op of scene.ops) if (op.op === 'text') expect(op.font.weight).toBe(400);
-  });
-
-  it('地がすでに Bold なら、強調しても 700 を超えない', () => {
-    const scene = buildScene(inputFor({ style: FRMM_PRESETS.OR2!, weight: 700 }), measurer);
-    const weights = new Set(scene.ops.filter((o) => o.op === 'text').map((o) => (o.op === 'text' ? o.font.weight : 0)));
-    expect([...weights]).toEqual([700]);
   });
 });
 

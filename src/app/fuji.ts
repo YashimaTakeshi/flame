@@ -44,7 +44,10 @@ const MONO: Readonly<Record<number, string>> = {
   0x503: 'ACROS +G',
 };
 
-/** 手入力の候補。FUJIFILM 以外のカメラでも、よく使う名前は選べるようにしておく */
+/**
+ * 手入力の候補。FUJIFILM のフィルムシミュレーションに続けて、
+ * 各社のピクチャーコントロール／ピクチャースタイル／クリエイティブルック等で共通する名前を置く。
+ */
 export const FILM_SUGGESTIONS: readonly string[] = [
   'PROVIA',
   'Velvia',
@@ -60,6 +63,13 @@ export const FILM_SUGGESTIONS: readonly string[] = [
   'ACROS',
   'MONOCHROME',
   'SEPIA',
+  'Standard',
+  'Vivid',
+  'Neutral',
+  'Portrait',
+  'Landscape',
+  'Flat',
+  'Monochrome',
 ];
 
 const MAGIC = 'FUJIFILM';
