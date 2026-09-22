@@ -131,7 +131,15 @@ export function App(): React.ReactElement {
       // 刻印は「載せる項目」のスイッチとは独立。文字列から外しても刻印だけ残せる
       badge:
         doc.badge !== 'none' && facts.film
-          ? { text: facts.film, mode: doc.badge, align: doc.badgeAlign, size: doc.badgeSize, framed: doc.badgeFramed }
+          ? {
+              text: facts.film,
+              mode: doc.badge,
+              place: doc.badgePlace,
+              align: doc.badgeAlign,
+              valign: doc.badgeValign,
+              size: doc.badgeSize,
+              framed: doc.badgeFramed,
+            }
           : null,
     };
   }, [loaded, fontsReady, doc, background]);

@@ -10,17 +10,17 @@
  * この不変条件を壊す変更は許可しない。k を渡したくなったら、
  * それは RenderTarget に置くべき値である。
  */
-import { hairline, lu, point, px, rect, type Lu } from './units';
+import { CANVAS_WIDTH_LU, hairline, lu, point, px, rect, type Lu } from './units';
 import type { TextMeasurer } from './ports';
 import { badgeBounds, buildBadge, type BadgeSpec } from './badge';
 import { typesetCaption, type Facts, type Gates, type TypesetLine } from './caption';
 import { SceneBuilder } from './scene/builder';
 import { photoId, rgba, type PhotoId, type Rgba } from './scene/ops';
 import type { Scene, SceneWarning } from './scene/scene';
-import { captionWidthLu, layoutViolations, resolveLayout } from './styles/layout';
+import { captionWidthLu, layoutViolations, resolveLayout, type ExtraBand } from './styles/layout';
 import { styleFor } from './styles/spec';
 import { SIZE_LU } from './styles/tokens';
-import { CENTER_FOCUS, type Align, type Focus, type SizeId, type StyleSpec, type TrackingId } from './styles/types';
+import { CENTER_FOCUS, type Align, type CaptionAlign, type Focus, type SizeId, type StyleSpec, type TrackingId } from './styles/types';
 
 export interface SceneInput {
   /** 比率 × 写真の位置 × 文字の位置 × 寄せ × 行数 × 余白 */
@@ -52,7 +52,7 @@ export interface SceneInput {
   readonly ink: Rgba;
   /**
    * 仕上がり（PROVIA / CLASSIC CHROME / ビビッド …）の刻印。null か省略なら刻まない。
-   * 写真の中ではなく、キャプションの帯の中、文字の下に積む。
+   * 写真の中ではなく帯の中。キャプションと同じ辺なら同じ帯を分け合い、別の辺ならその辺に帯を取る。
    * 重ね（全面）には帯が無いので置かない。
    */
   readonly badge?: BadgeSpec | null;
@@ -123,28 +123,80 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
 
   const overlay = def.caption.place === 'overlay';
 
-  /* 1b. 刻印。帯に積むので、帯の高さを決める前に組む。重ねには帯が無い */
+  /* 1b. 刻印。帯の大きさを決める前に組む。重ねには帯が無い */
   const baseSize = SIZE_LU[input.size] * def.typeScale;
-  const badge =
-    input.badge && !overlay
-      ? buildBadge(
-          input.badge,
-          {
-            baseSize,
-            maxW: boxW,
-            ink: input.ink,
-            background: input.background,
-            family: input.family,
-            weight: input.weight,
-          },
-          measurer,
-        )
-      : null;
-  const badgeGap = badge && typeset.lines.length > 0 ? baseSize * 0.6 : 0;
-  const blockH = typeset.heightLu + (badge ? badgeGap + badge.h : 0);
+  const bspec = input.badge && !overlay ? input.badge : null;
+  const capPlace = def.caption.place;
+  const shared = bspec !== null && bspec.place === capPlace; // キャプションと同じ帯を分け合う
+  const sideBand = bspec !== null && (bspec.place === 'left' || bspec.place === 'right');
+  const badgeMaxW = shared
+    ? boxW
+    : sideBand
+      ? SIDE_BADGE_BAND_LU
+      : (CANVAS_WIDTH_LU as number) - (def.caption.sideInsetLu as number) * 2;
+  const badge = bspec
+    ? buildBadge(
+        bspec,
+        {
+          baseSize,
+          maxW: badgeMaxW,
+          ink: input.ink,
+          background: input.background,
+          family: input.family,
+          weight: input.weight,
+        },
+        measurer,
+      )
+    : null;
+
+  /*
+   * 同じ帯を分け合うとき、帯に要る高さ。
+   * 横に重なる（文字が中央で幅いっぱい、など）なら縦に積むぶんが要る。
+   * 横に重ならない（文字は左、刻印は右）なら高い方だけあればよい。
+   */
+  const textH = typeset.heightLu;
+  const textRange = hRangeOfLines(typeset.lines, boxW);
+  const crossX =
+    badge !== null && bspec !== null && textRange !== null
+      ? rangesCross(textRange, hRange(bspec.align, badge.w, boxW))
+      : false;
+  const stackGap = badge && textH > 0 ? baseSize * 0.6 : 0;
+  const need = badge && shared ? (crossX ? textH + stackGap + badge.h : Math.max(textH, badge.h)) : textH;
+  const extra: ExtraBand | null =
+    badge && bspec && !shared ? { place: bspec.place, sizeLu: sideBand ? badge.w : badge.h } : null;
 
   /* 2. 組み上がった高さで矩形を決める */
-  const layout = resolveLayout(def, input.photo.aspect, blockH, input.focus ?? CENTER_FOCUS);
+  const layout = resolveLayout(def, input.photo.aspect, need, input.focus ?? CENTER_FOCUS, extra);
+
+  /*
+   * 2b. 文字と刻印の置き場所。
+   * 文字は帯の中で寄せ（captionAlign）、刻印は帯の中で自分の位置（align / valign）。
+   * 同じ場所を取り合ったら、文字を先に、刻印をその下に積んで、まとめて寄せる。
+   */
+  let textTop = layout.captionBox.y as number;
+  let badgeAt: { x: number; y: number } | null = null;
+  if (badge && bspec) {
+    const region = shared ? layout.band : layout.extraBand;
+    if (region) {
+      const rx = region.x as number;
+      const rw = region.w as number;
+      const ry = region.y as number;
+      const rh = region.h as number;
+      const bx = rx + hRange(bspec.align, badge.w, rw)[0];
+      let by = valignIn(ry, rh, badge.h, bspec.valign);
+      if (shared) {
+        textTop = valignIn(ry, rh, textH, def.spec.captionAlign);
+        const crossY = textH > 0 && textTop < by + badge.h && by < textTop + textH;
+        if (crossX && crossY) {
+          const top = valignIn(ry, rh, textH + stackGap + badge.h, def.spec.captionAlign);
+          textTop = top;
+          by = top + textH + stackGap;
+        }
+      }
+      badgeAt = { x: bx, y: by };
+    }
+  }
+
   const ink = overlay ? OVERLAY_INK : input.ink;
   const muted = overlay ? mix(ink, rgba(0, 0, 0), 0.22) : mix(ink, input.background, 0.42);
 
@@ -199,24 +251,16 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   }
 
   /* 6. キャプション */
-  let y = layout.captionBox.y as number;
+  let y = textTop;
   for (const line of typeset.lines) {
     b.add(textOpFor(line, layout.captionBox.x, layout.captionBox.w, y, colorFor(line, ink, muted)));
     y += line.lineHeight;
   }
 
-  /* 6b. 刻印。文字の下。左右は刻印自身の位置に従う（キャプションの揃えとは別） */
-  if (badge) {
-    const box = layout.captionBox;
-    const bx =
-      input.badge?.align === 'left'
-        ? (box.x as number)
-        : input.badge?.align === 'right'
-          ? (box.x as number) + (box.w as number) - badge.w
-          : (box.x as number) + ((box.w as number) - badge.w) / 2;
-    const by = (box.y as number) + typeset.heightLu + badgeGap;
-    b.exemptRect(badgeBounds(bx, by, badge));
-    b.addAll(badge.emit(bx, by));
+  /* 6b. 刻印 */
+  if (badge && badgeAt) {
+    b.exemptRect(badgeBounds(badgeAt.x, badgeAt.y, badge));
+    b.addAll(badge.emit(badgeAt.x, badgeAt.y));
   }
 
   /* 7. 不変条件。ここで落ちるのはスタイル定義の誤りで、利用者の操作では起きない */
@@ -247,6 +291,35 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
 
 const colorFor = (line: TypesetLine, ink: Rgba, muted: Rgba): Rgba =>
   line.emphasis === 'muted' ? muted : ink;
+
+/** 刻印だけの左右の帯の幅の上限。ロゴの最大（基準 20lu × 8 = 160lu）が入る */
+const SIDE_BADGE_BAND_LU = 200;
+
+/** 幅 w の塊を幅 boxW の中で align に寄せたときの [左, 右]（箱の左端からの相対） */
+function hRange(align: Align, w: number, boxW: number): [number, number] {
+  const left = align === 'left' ? 0 : align === 'right' ? boxW - w : (boxW - w) / 2;
+  return [left, left + w];
+}
+
+/** 組んだ行が横に占める範囲の合併。行が無ければ null */
+function hRangeOfLines(lines: readonly TypesetLine[], boxW: number): [number, number] | null {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const l of lines) {
+    const [a, b] = hRange(l.align, l.widthLu, boxW);
+    lo = Math.min(lo, a);
+    hi = Math.max(hi, b);
+  }
+  return lines.length ? [lo, hi] : null;
+}
+
+const rangesCross = (a: [number, number], b: [number, number]): boolean => a[0] < b[1] && b[0] < a[1];
+
+/** 帯の中で上・中・下に寄せる（layout.ts の alignIn と同じ規則） */
+function valignIn(top: number, h: number, size: number, a: CaptionAlign): number {
+  const slack = Math.max(0, h - size);
+  return a === 'start' ? top : a === 'end' ? top + slack : top + slack / 2;
+}
 
 /** 1行を text op にする。行箱の中で上下中央に置く */
 function textOpFor(

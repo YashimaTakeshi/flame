@@ -375,8 +375,31 @@ describe('Scene の組み立て', () => {
     const badgeOps = (scene: ReturnType<typeof buildScene>) =>
       scene.ops.filter((o) => o.op === 'text' && o.id.startsWith('badge'));
     const overlaps = (a: R, b: R): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-    const LOGO = { text: 'CLASSIC CHROME', mode: 'logo', align: 'center', size: 'M', framed: false } as const;
-    const TEXT = { text: 'CLASSIC CHROME', mode: 'text', align: 'center', size: 'M', framed: true } as const;
+    const LOGO = { text: 'CLASSIC CHROME', mode: 'logo', place: 'below', align: 'center', valign: 'center', size: 'M', framed: false } as const;
+    const TEXT = { text: 'CLASSIC CHROME', mode: 'text', place: 'below', align: 'center', valign: 'center', size: 'M', framed: true } as const;
+    const PLACES = ['above', 'below', 'left', 'right'] as const;
+    const noOverlapWithPhotoAndText = (scene: ReturnType<typeof buildScene>, name: string): void => {
+      const photo = scene.ops.find((o) => o.op === 'photo');
+      const marks = badgeOps(scene);
+      expect(marks.length, name).toBeGreaterThan(0);
+      for (const o of scene.ops) {
+        if (o.op !== 'text') continue;
+        const r = o.boundsLu;
+        if (photo?.op === 'photo') {
+          const inner = { x: r.x + 2, y: r.y + 2, w: r.w - 4, h: r.h - 4 };
+          expect(overlaps(inner, photo.dst), `${name}: ${o.id} が写真に掛かる`).toBe(false);
+        }
+        expect(r.x + 2, name).toBeGreaterThanOrEqual(-0.01);
+        expect(r.x + r.w - 2, name).toBeLessThanOrEqual((scene.canvas.widthLu as number) + 0.01);
+        expect(r.y + 2, name).toBeGreaterThanOrEqual(-0.01);
+        expect(r.y + r.h - 2, name).toBeLessThanOrEqual((scene.canvas.heightLu as number) + 0.01);
+      }
+      const caps = scene.ops.filter((o) => o.op === 'text' && !o.id.startsWith('badge'));
+      for (const m of marks) {
+        if (m.op !== 'text') continue;
+        for (const c of caps) if (c.op === 'text') expect(overlaps(m.boundsLu, c.boundsLu), `${name}: ${m.id}/${c.id}`).toBe(false);
+      }
+    };
 
     it('渡さなければ刻まない。文字は枠1本と文字1つ、ロゴは版の面が出る', () => {
       expect(badgeOps(buildScene(inputFor(), measurer))).toHaveLength(0);
@@ -393,35 +416,52 @@ describe('Scene の組み立て', () => {
      * 2,610 通り × 7 比 × 2 見せ方 = 3.6 万 Scene。既定の 5 秒に収まったり収まらなかったりして
      * 揺れたので、時間の上限を明示する。決定的な計算であり、揺れの原因は上限だけ。
      */
-    it('★写真の中には置かない★ 全組み合わせ × 全比で、帯の中・写真の外・文字と非重複', { timeout: 60_000 }, () => {
+    it('★写真の中には置かない★ 全組み合わせ × 全比 × 4辺で、帯の中・写真の外・文字と非重複', { timeout: 60_000 }, () => {
       for (const spec of SPECS) {
         if (spec.caption === 'overlay') continue;
-        for (const aspect of ASPECTS) {
-          for (const badge of [LOGO, TEXT]) {
-            const scene = buildScene(inputFor({ style: spec, photo: { id: 'p', aspect }, badge }), measurer);
-            const photo = scene.ops.find((o) => o.op === 'photo');
-            const marks = badgeOps(scene);
-            const name = `${key(spec)} @${aspect.toFixed(2)} ${badge.mode}`;
-            expect(marks.length, name).toBeGreaterThan(0);
-            for (const o of scene.ops) {
-              if (o.op !== 'text') continue;
-              const r = o.boundsLu;
-              if (photo?.op === 'photo') {
-                // 免責の 2lu を除いた実体が写真に掛からない
-                const inner = { x: r.x + 2, y: r.y + 2, w: r.w - 4, h: r.h - 4 };
-                expect(overlaps(inner, photo.dst), `${name}: ${o.id} が写真に掛かる`).toBe(false);
+        for (const aspect of [0.75, 1.5]) {
+          for (const place of PLACES) {
+            const badge = place === spec.caption ? LOGO : { ...TEXT, place };
+            const scene = buildScene(inputFor({ style: spec, photo: { id: 'p', aspect }, badge: { ...badge, place } }), measurer);
+            noOverlapWithPhotoAndText(scene, `${key(spec)} @${aspect} 刻印:${place}`);
+          }
+        }
+      }
+    });
+
+    it('同じ帯で場所を取り合っても重ならない（横・縦の寄せの総当たり）', { timeout: 60_000 }, () => {
+      const base = sp({ ratio: 'SQ', photo: 'top', caption: 'below' });
+      for (const captionAlign of ['start', 'center', 'end'] as const) {
+        for (const align of ['left', 'center', 'right'] as const) {
+          for (const valign of ['start', 'center', 'end'] as const) {
+            for (const capAlign of ['left', 'center', 'right'] as const) {
+              for (const size of ['S', 'M', 'L'] as const) {
+                const scene = buildScene(
+                  inputFor({ style: { ...base, captionAlign }, align: capAlign, badge: { ...LOGO, align, valign, size } }),
+                  measurer,
+                );
+                noOverlapWithPhotoAndText(scene, `寄せ ${captionAlign}/${capAlign} 刻印 ${align}/${valign}/${size}`);
               }
-              expect(r.x + 2, name).toBeGreaterThanOrEqual(-0.01);
-              expect(r.x + r.w - 2, name).toBeLessThanOrEqual((scene.canvas.widthLu as number) + 0.01);
-              expect(r.y + r.h - 2, name).toBeLessThanOrEqual((scene.canvas.heightLu as number) + 0.01);
-            }
-            // 刻印はキャプションの文字と重ならない
-            const caps = scene.ops.filter((o) => o.op === 'text' && !o.id.startsWith('badge'));
-            for (const m of marks) {
-              if (m.op !== 'text') continue;
-              for (const c of caps) if (c.op === 'text') expect(overlaps(m.boundsLu, c.boundsLu), `${name}: ${m.id}/${c.id}`).toBe(false);
             }
           }
+        }
+      }
+    });
+
+    it('別の辺に置くと、その辺に帯ができて刻印だけが入る', () => {
+      for (const place of PLACES) {
+        if (place === 'below') continue;
+        const scene = buildScene(inputFor({ style: sp({ ratio: 'OR' }), badge: { ...LOGO, place } }), measurer);
+        const photo = scene.ops.find((o) => o.op === 'photo');
+        const marks = badgeOps(scene);
+        expect(marks.length, place).toBeGreaterThan(0);
+        if (photo?.op !== 'photo') throw new Error('photo が無い');
+        for (const m of marks) {
+          if (m.op !== 'text') continue;
+          const r = m.boundsLu;
+          if (place === 'above') expect(r.y + r.h - 2, place).toBeLessThanOrEqual(photo.dst.y + 0.01);
+          if (place === 'left') expect(r.x + r.w - 2, place).toBeLessThanOrEqual(photo.dst.x + 0.01);
+          if (place === 'right') expect(r.x + 2, place).toBeGreaterThanOrEqual(photo.dst.x + photo.dst.w - 0.01);
         }
       }
     });

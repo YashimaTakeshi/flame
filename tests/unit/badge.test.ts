@@ -10,7 +10,7 @@ const measurer: TextMeasurer = {
   isAvailable: () => true,
 };
 const ctx = { baseSize: 16, maxW: 900, ink: INK, background: WHITE, family: 'Arimo', weight: 400 as const };
-const L = (text: string, over: Partial<Parameters<typeof buildBadge>[0]> = {}): Parameters<typeof buildBadge>[0] => ({ text, mode: 'logo', align: 'center', size: 'M', framed: false, ...over });
+const L = (text: string, over: Partial<Parameters<typeof buildBadge>[0]> = {}): Parameters<typeof buildBadge>[0] => ({ text, mode: 'logo', place: 'below', align: 'center', valign: 'center', size: 'M', framed: false, ...over });
 
 describe('刻印の版', () => {
   it('FUJIFILM から読み取れる名前には、すべて専用の配色がある', () => {

@@ -6,8 +6,9 @@
  */
 import { create } from 'zustand';
 import { DEFAULT_SPEC, normalize } from '../../core/styles/spec';
-import { CENTER_FOCUS, type Align, type FieldId, type Focus, type SizeId, type StyleSpec, type TrackingId } from '../../core/styles/types';
+import { CENTER_FOCUS, type Align, type CaptionAlign, type FieldId, type Focus, type SizeId, type StyleSpec, type TrackingId } from '../../core/styles/types';
 import type { BadgeMode, BadgeSize } from '../../core/badge';
+import type { BandSide } from '../../core/styles/layout';
 import type { LatinFontKey } from '../fonts-catalog';
 
 export interface Overrides {
@@ -36,8 +37,12 @@ export interface DocState {
   readonly overrides: Overrides;
   /** 仕上がりの刻印。帯の中、文字の下に置く。名前が分かるときだけ効く */
   readonly badge: BadgeMode;
+  /** 刻印を置く辺。キャプションと同じ辺なら同じ帯を分け合う */
+  readonly badgePlace: BandSide;
   /** 刻印の左右。キャプションの揃えとは独立 */
   readonly badgeAlign: Align;
+  /** 刻印の上下（帯の中） */
+  readonly badgeValign: CaptionAlign;
   readonly badgeSize: BadgeSize;
   /** 刻印の外周にヘアラインの枠。地色と版の色が同じときに */
   readonly badgeFramed: boolean;
@@ -69,7 +74,9 @@ const INITIAL: DocState = {
   fields: DEFAULT_FIELDS,
   overrides: { camera: null, lens: null, date: null, film: null },
   badge: 'logo',
+  badgePlace: 'below',
   badgeAlign: 'center',
+  badgeValign: 'center',
   badgeSize: 'M',
   badgeFramed: false,
 };
@@ -105,7 +112,9 @@ const snapshot = (s: DocState): DocState => ({
   fields: s.fields,
   overrides: s.overrides,
   badge: s.badge,
+  badgePlace: s.badgePlace,
   badgeAlign: s.badgeAlign,
+  badgeValign: s.badgeValign,
   badgeSize: s.badgeSize,
   badgeFramed: s.badgeFramed,
 });
