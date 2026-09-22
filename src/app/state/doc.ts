@@ -10,6 +10,7 @@ import { CENTER_FOCUS, type Align, type CaptionAlign, type FieldId, type Focus, 
 import type { BadgeMode, BadgeSize } from '../../core/badge';
 import type { BandSide } from '../../core/styles/layout';
 import type { LatinFontKey } from '../fonts-catalog';
+import { loadSettings, saveSettings, type Saved } from './persist';
 
 export interface Overrides {
   readonly camera: string | null;
@@ -60,7 +61,8 @@ export const DEFAULT_FIELDS: Record<FieldId, boolean> = {
   place: false, // 撮影地は未実装
 };
 
-const INITIAL: DocState = {
+/** 工場出荷の設定。「初期値に戻す」はここへ戻る（保存された好みへではない） */
+const BASE: DocState = {
   style: DEFAULT_SPEC,
   focus: CENTER_FOCUS,
   title: 'Untitled',
@@ -80,6 +82,27 @@ const INITIAL: DocState = {
   badgeSize: 'M',
   badgeFramed: false,
 };
+
+/** 保存するのは好みだけ。タイトル・切り取り・手入力はその1枚のものなので持ち越さない */
+const savedOf = (s: DocState): Saved => ({
+  style: s.style,
+  artist: s.artist,
+  fontKey: s.fontKey,
+  colorKey: s.colorKey,
+  align: s.align,
+  tracking: s.tracking,
+  size: s.size,
+  bordered: s.bordered,
+  fields: s.fields,
+  badge: s.badge,
+  badgePlace: s.badgePlace,
+  badgeAlign: s.badgeAlign,
+  badgeValign: s.badgeValign,
+  badgeSize: s.badgeSize,
+  badgeFramed: s.badgeFramed,
+});
+
+const INITIAL: DocState = { ...BASE, ...loadSettings(savedOf(BASE)) };
 
 interface DocStore extends DocState {
   set<K extends keyof DocState>(key: K, value: DocState[K]): void;
@@ -184,7 +207,7 @@ export const useDoc = create<DocStore>((set, get) => ({
 
   reset() {
     previous = snapshot(get());
-    set({ ...INITIAL });
+    set({ ...BASE });
   },
 
   undo() {
@@ -196,3 +219,10 @@ export const useDoc = create<DocStore>((set, get) => ({
 
   canUndo: () => previous !== null,
 }));
+
+/*
+ * 好みが変わったら保存する。
+ * 個々の操作に保存を書き足すのではなく、1か所で store を見張る。
+ * こうすれば軸を足したときに「ここにも保存を書き忘れた」が起きない。
+ */
+useDoc.subscribe((s) => saveSettings(savedOf(s)));

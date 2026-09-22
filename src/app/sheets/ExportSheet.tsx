@@ -14,6 +14,7 @@ import {
   type SaveOutcome,
 } from '../../platform/save';
 import { Sheet } from '../ui/Sheet';
+import { ShareApp } from '../ui/ShareApp';
 
 /**
  * 画像を data: にする。
@@ -119,6 +120,8 @@ export function ExportSheet({
       <button type="button" className="btn btn--sec" onClick={onClose}>
         続けて編集する
       </button>
+      {/* 作ったものを見せた直後が、人に教えたくなるとき */}
+      <ShareApp variant="button" />
     </Sheet>
   );
 }

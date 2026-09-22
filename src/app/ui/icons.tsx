@@ -76,6 +76,14 @@ export const IconInfo = ({ size = 22 }: P): React.ReactElement => (
   </svg>
 );
 
+/** 共有（鎖の輪。リンクを渡す） */
+export const IconLink = ({ size = 18 }: P): React.ReactElement => (
+  <svg {...base(size)}>
+    <path d="M10 13.5a3.5 3.5 0 005 0l3-3a3.5 3.5 0 00-5-5l-1.2 1.2" />
+    <path d="M14 10.5a3.5 3.5 0 00-5 0l-3 3a3.5 3.5 0 005 5l1.2-1.2" />
+  </svg>
+);
+
 /** 刻印（札。上に小さな帯、下に太い帯） */
 export const IconStamp = ({ size = 22 }: P): React.ReactElement => (
   <svg {...base(size)}>

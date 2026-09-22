@@ -81,6 +81,32 @@ for (const [file, max] of [['public/geo/jp-municipalities.json', 120 * 1024],
   check(file.replace('public/geo/', '地名 '), statSync(p).size, max);
 }
 
+// --- アプリの印（アイコン）---
+// 写真を含む絵なので、減色を外すと 512px が 430KB に戻る。
+// マニフェストに載せた印が全部あることと、膨らんでいないことを見る。
+const icons = [
+  ['icons/icon-192.png', 60 * 1024],
+  ['icons/icon-512.png', 200 * 1024],
+  ['icons/icon-maskable-512.png', 200 * 1024],
+  ['icons/apple-touch-icon.png', 60 * 1024],
+  ['icons/favicon-32.png', 8 * 1024],
+];
+for (const [file, max] of icons) {
+  const p = resolve(root, 'public', file);
+  if (!existsSync(p)) {
+    errors.push(`public/${file} がありません。npm run assets:icons を実行してください`);
+    continue;
+  }
+  check(file.replace('icons/', '印 '), statSync(p).size, max);
+}
+// マニフェストが指す先が実在すること。壊れていても画面は動くので気づけない
+const webmanifest = JSON.parse(readFileSync(resolve(root, 'public/manifest.webmanifest'), 'utf8'));
+for (const icon of webmanifest.icons ?? []) {
+  if (!existsSync(resolve(root, 'public', icon.src))) {
+    errors.push(`manifest.webmanifest が指す public/${icon.src} がありません`);
+  }
+}
+
 // --- ライセンス本文 ---
 // 同梱するフォントには OFL の本文を必ず添える（再配布の条件）。
 const licenses = ['Arimo', 'Jost', 'Oswald', 'Cinzel', 'PlayfairDisplay',

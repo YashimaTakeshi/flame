@@ -15,6 +15,8 @@ import { Band } from './editor/Band';
 import { OptionRow } from './editor/OptionRow';
 import { TabBar } from './editor/TabBar';
 import { EMPTY_EXIF, readExif, type ExifFacts } from './exif';
+import { ShareApp } from './ui/ShareApp';
+import { flushSettings } from './state/persist';
 import { fontRefFor, preloadLatinFonts } from './fonts-catalog';
 import { colorOf } from './panels/constants';
 import { ExportSheet } from './sheets/ExportSheet';
@@ -92,6 +94,17 @@ export function App(): React.ReactElement {
 
   useEffect(() => {
     safeStorage.init();
+    /*
+     * 画面が隠れるときに、待っている設定の保存を済ませる。
+     * iOS は裏に回った頁を黙って終わらせるので、まとめ書きの待ち時間が返ってこないことがある。
+     * pagehide だけでは足りない（ホームに戻しただけでは飛ばない端末がある）。
+     */
+    const flush = (): void => flushSettings();
+    const onHide = (): void => {
+      if (document.visibilityState === 'hidden') flushSettings();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onHide);
     preloadLatinFonts()
       .then(() => setFontsReady(true))
       .catch((e: unknown) =>
@@ -99,6 +112,10 @@ export function App(): React.ReactElement {
           `書体を読み込めませんでした: ${e instanceof Error ? e.message : String(e)}`,
         ),
       );
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onHide);
+    };
   }, []);
 
   const background = useMemo(() => colorOf(doc.colorKey), [doc.colorKey]);
@@ -302,14 +319,17 @@ export function App(): React.ReactElement {
             </>
           )
         ) : (
-          <button
-            type="button"
-            className="opener"
-            aria-label="写真を選ぶ"
-            onClick={() => fileRef.current?.click()}
-          >
-            <FrameMark />
-          </button>
+          <div className="home">
+            <button
+              type="button"
+              className="opener"
+              aria-label="写真を選ぶ"
+              onClick={() => fileRef.current?.click()}
+            >
+              <FrameMark />
+            </button>
+            <ShareApp />
+          </div>
         )}
       </div>
 

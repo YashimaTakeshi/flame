@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "assets:fonts": "python3 scripts/build-fonts.py",
+    "assets:icons": "python3 scripts/build-icons.py",
     "assets:geo": "node scripts/build-geo.mjs",
     "assets:verify": "node scripts/verify-assets.mjs",
     "verify": "npm run assets:verify && npx depcruise --config .dependency-cruiser.cjs src && npx eslint . && npm run typecheck",

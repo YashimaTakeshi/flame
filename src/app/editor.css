@@ -63,13 +63,23 @@
   gap: var(--s1);
   padding-top: var(--safe-top);
   padding-inline: var(--gutter);
+  /* 背後に何も透かさない。地色を明示して1枚の面にする */
+  background: var(--bg);
 }
 
+/*
+ * ★ヘッダーは濃さを1つに揃える。★
+ * 以前は名前が副次色（--ink-2）の細字、印が 1.6 の細線で、
+ * 実機で測ると本来 242 / 168 のところ 218 / 114 までしか出ず、
+ * 行全体がかすんで「グラデーションが掛かっている」ように見えた（実機で指摘された）。
+ * 名前も印も地の色（--ink）で、太さを上げて出す。
+ */
 .hdr__title {
   font-size: var(--t1);
   line-height: var(--t1-lh);
   letter-spacing: 0.18em;
-  color: var(--ink-2);
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .hdr__left {
@@ -97,8 +107,10 @@
 }
 
 .iconbtn svg {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
+  /* 細線は高解像度で薄く溶ける。印が「かすれた絵」に見えない太さまで上げる */
+  stroke-width: 1.8;
 }
 
 .iconbtn:disabled {
@@ -241,6 +253,13 @@
  * 枠を作るアプリで、枠の中に＋がある。押せば写真が入る。
  * それ以上の説明は、読まれないか、読ませる時点で負けている。
  */
+/* 写真がまだ無いとき。枠の印を真ん中に、共有をその下に静かに添える */
+.home {
+  display: grid;
+  justify-items: center;
+  gap: var(--s2);
+}
+
 .opener {
   border: 0;
   background: none;
@@ -784,4 +803,58 @@
   /* 長押しで保存できるよう、画像の既定の扱いを邪魔しない */
   -webkit-touch-callout: default;
   user-select: auto;
+}
+
+/* ───────── アプリを共有 ───────── */
+.shareapp {
+  display: grid;
+  justify-items: center;
+  gap: var(--s1);
+}
+.shareapp[data-variant='button'] {
+  justify-items: stretch;
+}
+
+/* ホーム画面では黙って添える。押せることは印と下線で示す */
+.shareapp__quiet {
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 var(--s2);
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: var(--t2);
+  letter-spacing: var(--t2-ls);
+}
+.shareapp__quiet svg {
+  width: 16px;
+  height: 16px;
+}
+.shareapp__quiet span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.shareapp__quiet:active {
+  color: var(--ink);
+}
+
+.shareapp .btn svg {
+  width: 16px;
+  height: 16px;
+  margin-inline-end: 6px;
+  vertical-align: -3px;
+}
+
+/* 共有できなかったときは URL をそのまま出す。選んで写せるように折り返す */
+.shareapp__note {
+  margin: 0;
+  max-width: 34ch;
+  text-align: center;
+  font-size: var(--t1);
+  letter-spacing: var(--t1-ls);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+  user-select: text;
 }
