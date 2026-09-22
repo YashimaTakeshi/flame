@@ -18,11 +18,13 @@ import { photoId, rgba, type PhotoId, type Rgba } from './scene/ops';
 import type { Scene, SceneWarning } from './scene/scene';
 import { captionWidthLu, layoutViolations, resolveLayout } from './styles/layout';
 import { styleFor } from './styles/spec';
-import type { Align, SizeId, StyleSpec, TrackingId } from './styles/types';
+import { CENTER_FOCUS, type Align, type Focus, type SizeId, type StyleSpec, type TrackingId } from './styles/types';
 
 export interface SceneInput {
-  /** 比率 × 写真の位置 × 文字の位置 × 行数 */
+  /** 比率 × 写真の位置 × 文字の位置 × 寄せ × 行数 × 余白 */
   readonly style: StyleSpec;
+  /** 全面のときの切り取りの中心。省くと中央 */
+  readonly focus?: Focus;
   readonly photo: {
     readonly id: string;
     /** 幅 / 高さ。**Orientation 適用後**の値（platform/decode.ts の契約） */
@@ -112,7 +114,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   if (typeset.lines.length === 0) warnings.push({ kind: 'caption-empty' });
 
   /* 2. 組み上がった高さで矩形を決める */
-  const layout = resolveLayout(def, input.photo.aspect, typeset.heightLu);
+  const layout = resolveLayout(def, input.photo.aspect, typeset.heightLu, input.focus ?? CENTER_FOCUS);
 
   const overlay = def.caption.place === 'overlay';
   const ink = overlay ? OVERLAY_INK : input.ink;

@@ -17,6 +17,7 @@ import {
   LINE_TITLE_DATE,
 } from './tokens';
 import type {
+  CaptionAlign,
   CaptionLineSpec,
   CaptionPlace,
   LineCount,
@@ -53,6 +54,7 @@ export const PHOTO_PLACES: readonly PhotoPlace[] = ['center', 'top', 'bottom', '
 export const CAPTION_PLACES: readonly CaptionPlace[] = ['above', 'below', 'left', 'right', 'overlay'];
 export const LINE_COUNTS: readonly LineCount[] = [1, 2, 3];
 export const MARGINS: readonly MarginId[] = ['narrow', 'normal', 'wide', 'none'];
+export const CAPTION_ALIGNS: readonly CaptionAlign[] = ['start', 'center', 'end'];
 
 /** 余白の倍率。比率ごとの基準（RATIOS.insetLu）に掛ける。none は全面 */
 export const MARGIN_SCALE: Readonly<Record<MarginId, number>> = { narrow: 0.45, normal: 0.7, wide: 1.0, none: 0 };
@@ -104,12 +106,20 @@ export function normalize(spec: StyleSpec): StyleSpec {
   if (s.margin === 'none' && s.caption !== 'overlay') s = { ...s, caption: 'overlay' };
   if (s.caption === 'overlay' && s.margin !== 'none') s = { ...s, margin: 'none' };
   if (isSide(s.caption) && isSide(s.photo)) s = { ...s, photo: 'center' };
+  // 重ねでは帯が無いので寄せは効かない。全面では切り取りの中心は指で決めるので写真の位置は効かない
+  if (s.caption === 'overlay' && s.captionAlign !== 'center') s = { ...s, captionAlign: 'center' };
+  if (s.margin === 'none' && s.photo !== 'center') s = { ...s, photo: 'center' };
   return s;
 }
 
 /** 同じ組み合わせか */
 export const sameSpec = (a: StyleSpec, b: StyleSpec): boolean =>
-  a.ratio === b.ratio && a.photo === b.photo && a.caption === b.caption && a.lines === b.lines && a.margin === b.margin;
+  a.ratio === b.ratio &&
+  a.photo === b.photo &&
+  a.caption === b.caption &&
+  a.captionAlign === b.captionAlign &&
+  a.lines === b.lines &&
+  a.margin === b.margin;
 
 export function styleFor(raw: StyleSpec): StyleDef {
   const spec = normalize(raw);
@@ -145,25 +155,27 @@ export function styleFor(raw: StyleSpec): StyleDef {
  * 画面には出さない。テストが「参考アプリの組み合わせが全部成立する」ことを確かめるのに使う。
  */
 const N: MarginId = 'normal';
+const C: CaptionAlign = 'center';
 export const FRMM_PRESETS: Readonly<Record<string, StyleSpec>> = {
-  OR1: { ratio: 'OR', photo: 'center', caption: 'below', lines: 1, margin: 'narrow' },
-  OR2: { ratio: 'OR', photo: 'center', caption: 'below', lines: 3, margin: N },
-  OR3: { ratio: 'OR', photo: 'center', caption: 'below', lines: 2, margin: 'wide' },
-  SQ1: { ratio: 'SQ', photo: 'center', caption: 'below', lines: 1, margin: N },
-  SQ2: { ratio: 'SQ', photo: 'center', caption: 'below', lines: 3, margin: N },
-  SQ3: { ratio: 'SQ', photo: 'top', caption: 'below', lines: 2, margin: N },
-  SQ4: { ratio: 'SQ', photo: 'center', caption: 'overlay', lines: 1, margin: 'none' },
-  TF1: { ratio: 'TF', photo: 'center', caption: 'below', lines: 2, margin: N },
-  FF1: { ratio: 'FF', photo: 'center', caption: 'below', lines: 1, margin: N },
-  FF2: { ratio: 'FF', photo: 'center', caption: 'above', lines: 2, margin: N },
-  FF3: { ratio: 'FF', photo: 'center', caption: 'below', lines: 3, margin: N },
-  NST1: { ratio: 'NST', photo: 'center', caption: 'below', lines: 2, margin: N },
-  STN1: { ratio: 'STN', photo: 'center', caption: 'below', lines: 1, margin: N },
-  STN2: { ratio: 'STN', photo: 'center', caption: 'right', lines: 3, margin: N },
-  STN3: { ratio: 'STN', photo: 'center', caption: 'overlay', lines: 1, margin: 'none' },
+  OR1: { ratio: 'OR', photo: 'center', caption: 'below', lines: 1, captionAlign: C, margin: 'narrow' },
+  OR2: { ratio: 'OR', photo: 'center', caption: 'below', lines: 3, captionAlign: C, margin: N },
+  OR3: { ratio: 'OR', photo: 'center', caption: 'below', lines: 2, captionAlign: C, margin: 'wide' },
+  SQ1: { ratio: 'SQ', photo: 'center', caption: 'below', lines: 1, captionAlign: C, margin: N },
+  SQ2: { ratio: 'SQ', photo: 'center', caption: 'below', lines: 3, captionAlign: C, margin: N },
+  SQ3: { ratio: 'SQ', photo: 'top', caption: 'below', lines: 2, captionAlign: C, margin: N },
+  SQ4: { ratio: 'SQ', photo: 'center', caption: 'overlay', lines: 1, captionAlign: C, margin: 'none' },
+  TF1: { ratio: 'TF', photo: 'center', caption: 'below', lines: 2, captionAlign: C, margin: N },
+  FF1: { ratio: 'FF', photo: 'center', caption: 'below', lines: 1, captionAlign: C, margin: N },
+  FF2: { ratio: 'FF', photo: 'center', caption: 'above', lines: 2, captionAlign: C, margin: N },
+  FF3: { ratio: 'FF', photo: 'center', caption: 'below', lines: 3, captionAlign: C, margin: N },
+  NST1: { ratio: 'NST', photo: 'center', caption: 'below', lines: 2, captionAlign: C, margin: N },
+  STN1: { ratio: 'STN', photo: 'center', caption: 'below', lines: 1, captionAlign: C, margin: N },
+  STN2: { ratio: 'STN', photo: 'center', caption: 'right', lines: 3, captionAlign: C, margin: N },
+  STN3: { ratio: 'STN', photo: 'center', caption: 'overlay', lines: 1, captionAlign: C, margin: 'none' },
 };
 
-export const specKey = (s: StyleSpec): string => `${s.ratio}/${s.photo}/${s.caption}/${s.lines}/${s.margin}`;
+export const specKey = (s: StyleSpec): string =>
+  `${s.ratio}/${s.photo}/${s.caption}/${s.captionAlign}/${s.lines}/${s.margin}`;
 
 /** 全組み合わせ（整合後の重複を除く）。テストが総当たりに使う */
 export function allSpecs(): StyleSpec[] {
@@ -173,18 +185,19 @@ export function allSpecs(): StyleSpec[] {
     for (const margin of MARGINS)
       for (const photo of PHOTO_PLACES)
         for (const caption of CAPTION_PLACES)
-          for (const lines of LINE_COUNTS) {
-            const s = normalize({ ratio, photo, caption, lines, margin });
-            const key = specKey(s);
-            if (seen.has(key)) continue;
-            seen.add(key);
-            out.push(s);
-          }
+          for (const captionAlign of CAPTION_ALIGNS)
+            for (const lines of LINE_COUNTS) {
+              const s = normalize({ ratio, photo, caption, captionAlign, lines, margin });
+              const key = specKey(s);
+              if (seen.has(key)) continue;
+              seen.add(key);
+              out.push(s);
+            }
   return out;
 }
 
 /** 既定。写真を真ん中に、下に1行 */
-export const DEFAULT_SPEC: StyleSpec = { ratio: 'OR', photo: 'center', caption: 'below', lines: 1, margin: 'normal' };
+export const DEFAULT_SPEC: StyleSpec = { ratio: 'OR', photo: 'center', caption: 'below', lines: 1, captionAlign: C, margin: 'normal' };
 
 // F は行構成を外から組むときに使う（tokens の再輸出）
 export { F };

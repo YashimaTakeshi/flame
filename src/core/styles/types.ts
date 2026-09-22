@@ -29,14 +29,33 @@ export type LineCount = 1 | 2 | 3;
 /** 余白の広さ。none は写真がキャンバスの端まで届く（全面） */
 export type MarginId = 'narrow' | 'normal' | 'wide' | 'none';
 
-/** 利用者が選ぶ5つ。これが「スタイル」のすべて */
+/**
+ * 文字を、その帯の中で上下どこに寄せるか。
+ * 写真を上に寄せたときの下の余白、左右の段の中、どちらもこれで決まる。
+ * 帯に余りが無ければ（写真が中央で余白がぴったり）効かない。重ねでは使わない。
+ */
+export type CaptionAlign = 'start' | 'center' | 'end';
+
+/** 利用者が選ぶ6つ。これが「スタイル」のすべて */
 export interface StyleSpec {
   readonly ratio: Ratio;
   readonly photo: PhotoPlace;
   readonly caption: CaptionPlace;
+  readonly captionAlign: CaptionAlign;
   readonly lines: LineCount;
   readonly margin: MarginId;
 }
+
+/**
+ * 全面（余白なし）のときの切り取りの中心。0..1 の正規化座標。
+ * 利用者がプレビューを指で動かして決める。余る軸だけが効く。
+ */
+export interface Focus {
+  readonly x: number;
+  readonly y: number;
+}
+
+export const CENTER_FOCUS: Focus = { x: 0.5, y: 0.5 };
 
 /** キャプションに載りうる項目 */
 export type FieldId =

@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { buildScene, INK, OVERLAY_INK, scrimAlphaAt, WHITE } from '../../src/core/compose';
 import { typesetCaption, type Gates } from '../../src/core/caption';
 import type { TextMeasurer } from '../../src/core/ports';
-import { captionWidthLu, layoutViolations, resolveLayout } from '../../src/core/styles/layout';
+import { captionWidthLu, focusCrop, layoutViolations, resolveLayout } from '../../src/core/styles/layout';
 import { allSpecs, FRMM_PRESETS, MARGINS, normalize, specKey, styleFor } from '../../src/core/styles/spec';
 import type { StyleSpec } from '../../src/core/styles/types';
 
@@ -51,7 +51,7 @@ const TYPO = { size: 'Medium', tracking: 'Normal', align: 'left', family: 'Arimo
 const key = specKey;
 const SPECS = allSpecs();
 const N = 'normal' as const;
-const sp = (o: Partial<StyleSpec>): StyleSpec => ({ ratio: 'SQ', photo: 'center', caption: 'below', lines: 1, margin: N, ...o });
+const sp = (o: Partial<StyleSpec>): StyleSpec => ({ ratio: 'SQ', photo: 'center', caption: 'below', captionAlign: 'center', lines: 1, margin: N, ...o });
 /** 縦位置から超パノラマまで。実際に来うる比を全部通す */
 const ASPECTS = [0.5, 0.75, 1, 4 / 3, 1.5, 16 / 9, 3];
 
@@ -84,10 +84,16 @@ describe('組み合わせの空間', () => {
     expect(normalize(sp({ caption: 'right', photo: 'top' })).photo).toBe('top');
   });
 
-  it('総当たりの数: 6比率 × 3行 × (余白3 × 16 + 全面5) = 954', () => {
-    // 余白あり: 写真5 × 文字4（上下左右）= 20 から、左右×左右の 4 を除いた 16
-    // 全面（余白なし）: 文字は重ねの1つ、写真5 は切り取りの寄せ
-    expect(SPECS).toHaveLength(6 * 3 * (3 * 16 + 5));
+  it('総当たりの数: 6比率 × 3行 × (余白3 × 16 × 寄せ3 + 全面1) = 2,610', () => {
+    // 余白あり: 写真5 × 文字4（上下左右）= 20 から、左右×左右の 4 を除いた 16。寄せは3通り
+    // 全面（余白なし）: 文字は重ねの1つ、写真の位置と寄せは効かないので1通り
+    expect(SPECS).toHaveLength(6 * 3 * (3 * 16 * 3 + 1));
+  });
+
+  it('全面では写真の位置と寄せは中央に畳まれる（指で決めるので選択肢ではない）', () => {
+    const n = normalize(sp({ margin: 'none', caption: 'overlay', photo: 'top', captionAlign: 'end' }));
+    expect(n.photo).toBe('center');
+    expect(n.captionAlign).toBe('center');
   });
 
   it('参考アプリの15スタイルはすべてこの空間の点である', () => {
@@ -174,18 +180,50 @@ describe('レイアウトが破綻しない（総当たり）', () => {
     expect(s.h).toBe(1);
   });
 
-  it('全面では「写真の位置」が切り取りの寄せになる', () => {
-    const at = (photo: StyleSpec['photo'], aspect: number) =>
-      resolveLayout(styleFor(sp({ margin: 'none', caption: 'overlay', photo })), aspect, 30).photoSrcNorm;
-    // 横長を正方形に: 横が余る → 左/中央/右 が効き、上下は中央扱い
-    expect(at('left', 1.5).x).toBe(0);
-    expect(at('center', 1.5).x).toBeCloseTo(1 / 6, 6);
-    expect(at('right', 1.5).x).toBeCloseTo(1 / 3, 6);
-    expect(at('top', 1.5).x).toBeCloseTo(1 / 6, 6);
-    // 縦長を正方形に: 縦が余る → 上/中央/下
-    expect(at('top', 0.5).y).toBe(0);
-    expect(at('bottom', 0.5).y).toBeCloseTo(0.5, 6);
-    expect(at('left', 0.5).y).toBeCloseTo(0.25, 6);
+  it('全面では切り取りの中心（focus）が余る軸だけを動かす', () => {
+    const at = (fx: number, fy: number, aspect: number) =>
+      resolveLayout(styleFor(sp({ margin: 'none', caption: 'overlay' })), aspect, 30, { x: fx, y: fy }).photoSrcNorm;
+    // 横長を正方形に: 横が余る → x が効き、y は効かない
+    expect(at(0, 0.9, 1.5).x).toBe(0);
+    expect(at(0.5, 0.9, 1.5).x).toBeCloseTo(1 / 6, 6);
+    expect(at(1, 0.9, 1.5).x).toBeCloseTo(1 / 3, 6);
+    expect(at(1, 0.9, 1.5).y).toBe(0);
+    // 縦長を正方形に: 縦が余る → y が効く
+    expect(at(0.9, 0, 0.5).y).toBe(0);
+    expect(at(0.9, 1, 0.5).y).toBeCloseTo(0.5, 6);
+    expect(at(0.9, 0.5, 0.5).y).toBeCloseTo(0.25, 6);
+    // 範囲の外は端に丸める
+    expect(focusCrop(1.5, 1, { x: 7, y: -3 }).x).toBeCloseTo(1 / 3, 6);
+  });
+
+  it('寄せ: 写真を上に寄せたとき、文字は下の帯の中で上・中・下に動く', () => {
+    const box = (a: StyleSpec['captionAlign']) =>
+      resolveLayout(styleFor(sp({ photo: 'top', caption: 'below', captionAlign: a })), 1.5, 40);
+    const s = box('start');
+    const c = box('center');
+    const e = box('end');
+    // 帯: 写真の下端＋隙間 〜 キャンバス下端−余白
+    expect(s.captionBox.y).toBeGreaterThan(s.photo.y + s.photo.h);
+    expect(s.captionBox.y).toBeLessThan(c.captionBox.y);
+    expect(c.captionBox.y).toBeLessThan(e.captionBox.y);
+    expect(e.captionBox.y + e.captionBox.h).toBeLessThanOrEqual(e.canvas.h);
+    // 中は帯の真ん中: 上の余りと下の余りが等しい
+    const top = c.photo.y + c.photo.h + styleFor(sp({})).caption.gapLu;
+    const bottom = c.canvas.h - styleFor(sp({})).caption.outerInsetLu;
+    expect(c.captionBox.y - top).toBeCloseTo(bottom - (c.captionBox.y + c.captionBox.h), 6);
+  });
+
+  it('寄せ: 写真が中央で帯に余りが無ければ、寄せを変えても文字は動かない', () => {
+    const y = (a: StyleSpec['captionAlign']) =>
+      resolveLayout(styleFor(sp({ ratio: 'OR', captionAlign: a })), 1.5, 40).captionBox.y;
+    expect(y('start')).toBeCloseTo(y('end'), 6);
+  });
+
+  it('寄せ: 左右の段では、段の中で上・中・下に動く', () => {
+    const y = (a: StyleSpec['captionAlign']) =>
+      resolveLayout(styleFor(sp({ ratio: 'STN', caption: 'right', lines: 2, captionAlign: a })), 1.5, 60).captionBox.y;
+    expect(y('start')).toBeLessThan(y('center'));
+    expect(y('center')).toBeLessThan(y('end'));
   });
 
   it('余白を狭めると写真が大きくなる', () => {

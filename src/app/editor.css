@@ -79,31 +79,35 @@
   justify-self: end;
 }
 
-/* 印だけのボタン。44φ、文字なし。意味は aria-label と title に持たせる */
+/*
+ * 印だけのボタン。文字なし。意味は aria-label と title に持たせる。
+ * 押せる範囲は 44px のまま、見えるのは印だけ。丸いフチは置かない。
+ * フチを付けると印が「部品」に見えて画面の中で主張する。ヘッダーの印は黙っていてよい。
+ */
 .iconbtn {
   width: var(--tap);
   height: var(--tap);
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--line-strong);
+  border: 0;
   border-radius: 50%;
   background: transparent;
   color: var(--ink);
 }
 
-.iconbtn--solid {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
-}
-
-.iconbtn--ghost {
-  border-color: var(--line-strong);
+.iconbtn svg {
+  width: 20px;
+  height: 20px;
 }
 
 .iconbtn:disabled {
   opacity: 0.4;
+}
+
+/* 情報タブの印は列の中で並ぶので、薄い輪郭で場所を示す */
+.iconbtn--ghost {
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 
 /*
@@ -172,6 +176,16 @@
   max-width: 100%;
   max-height: 100%;
   box-shadow: var(--shadow);
+}
+
+/* 全面のとき、写真は指で動かせる。ページのスクロールに取られないよう触れ方を宣言する */
+.stage__canvas[data-pannable='true'] {
+  touch-action: none;
+  cursor: grab;
+}
+
+.stage__canvas[data-pannable='true']:active {
+  cursor: grabbing;
 }
 
 .stage__hint {

@@ -1,6 +1,7 @@
 import { rgba, type Rgba } from '../../core/scene/ops';
 import type {
   Align,
+  CaptionAlign,
   CaptionPlace,
   LineCount,
   MarginId,
@@ -73,6 +74,13 @@ export const CAPTION_PLACE_OPTIONS: { value: CaptionPlace; label: string }[] = [
   { value: 'left', label: '左' },
   { value: 'right', label: '右' },
   { value: 'overlay', label: '重ね' },
+];
+
+/** 文字を帯の中で上下どこに寄せるか */
+export const CAPTION_ALIGN_OPTIONS: { value: CaptionAlign; label: string }[] = [
+  { value: 'start', label: '上' },
+  { value: 'center', label: '中' },
+  { value: 'end', label: '下' },
 ];
 
 export const LINE_OPTIONS: { value: LineCount; label: string }[] = [

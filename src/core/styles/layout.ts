@@ -6,7 +6,7 @@
  */
 import { CANVAS_WIDTH_LU, rect, size, type RectLu, type SizeLu } from '../units';
 import { MARGIN_SCALE } from './spec';
-import type { CaptionPlace, PhotoPlace, StyleDef } from './types';
+import { CENTER_FOCUS, type CaptionAlign, type CaptionPlace, type Focus, type PhotoPlace, type StyleDef } from './types';
 
 export interface SrcNorm {
   readonly x: number;
@@ -28,21 +28,27 @@ export type { MarginId } from './types';
 
 const FULL: SrcNorm = { x: 0, y: 0, w: 1, h: 1 };
 
+const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
+
 /**
  * 比 src の画像から、比 target の領域を切り出す正規化矩形。
- * 余る軸だけが動く。横に余れば左/中央/右、縦に余れば上/中央/下。
- * 余らない軸の指定（横に余っているのに「上」）は中央として扱う。
+ * 余る軸だけが動き、focus（0..1）がその軸のどこを見せるかを決める。
+ * 0 で左端／上端、0.5 で中央、1 で右端／下端。余らない軸の focus は効かない。
  */
-function anchoredCrop(src: number, target: number, place: PhotoPlace): SrcNorm {
+export function focusCrop(src: number, target: number, focus: Focus): SrcNorm {
   if (!Number.isFinite(src) || src <= 0 || !Number.isFinite(target) || target <= 0) return FULL;
   if (src > target) {
     const w = target / src;
-    const x = place === 'left' ? 0 : place === 'right' ? 1 - w : (1 - w) / 2;
-    return { x, y: 0, w, h: 1 };
+    return { x: (1 - w) * clamp01(focus.x), y: 0, w, h: 1 };
   }
   const h = src / target;
-  const y = place === 'top' ? 0 : place === 'bottom' ? 1 - h : (1 - h) / 2;
-  return { x: 0, y, w: 1, h };
+  return { x: 0, y: (1 - h) * clamp01(focus.y), w: 1, h };
+}
+
+/** 帯の中で、文字を上・中・下のどこに置くか */
+function alignIn(bandTop: number, bandH: number, h: number, a: CaptionAlign): number {
+  const slack = Math.max(0, bandH - h);
+  return a === 'start' ? bandTop : a === 'end' ? bandTop + slack : bandTop + slack / 2;
 }
 
 /** 比 aspect の矩形を box に収め、place の向きに寄せる */
@@ -79,6 +85,8 @@ export function resolveLayout(
   /** ★Orientation 適用後の w/h（platform/decode.ts の契約） */
   photoAspect: number,
   captionHeightLu: number,
+  /** 全面のときの切り取りの中心。余白があるときは使わない */
+  focus: Focus = CENTER_FOCUS,
 ): ResolvedLayout {
   const W = CANVAS_WIDTH_LU as number;
   const c = def.caption;
@@ -94,6 +102,7 @@ export function resolveLayout(
   const band = c.bandLu as number;
   const place: CaptionPlace = c.place;
   const sideways = (place === 'left' || place === 'right') && hasCaption;
+  const align = def.spec.captionAlign;
 
   /* 1. キャンバスの高さ */
   let canvasH: number;
@@ -114,62 +123,75 @@ export function resolveLayout(
   /* 2. 内容領域 */
   const content = rect(inset.left, inset.top, W - inset.left - inset.right, canvasH - inset.top - inset.bottom);
 
-  /* 3. キャプション帯を差し引く */
+  /* 3. 文字の帯ぶんを差し引いて、写真の箱を決める */
   let photoBox = content;
-  let captionBox: RectLu;
   switch (place) {
-    case 'below': {
-      const top = canvasH - outer - captionHeightLu;
-      captionBox = rect(side, top, W - side * 2, captionHeightLu);
+    case 'below':
       photoBox = hasCaption
-        ? rect(content.x, content.y, content.w, Math.max(0, top - gap - content.y))
+        ? rect(content.x, content.y, content.w, Math.max(0, canvasH - outer - captionHeightLu - gap - content.y))
         : content;
       break;
-    }
     case 'above': {
-      captionBox = rect(side, outer, W - side * 2, captionHeightLu);
       const photoTop = hasCaption ? outer + captionHeightLu + gap : content.y;
       photoBox = rect(content.x, photoTop, content.w, Math.max(0, content.y + content.h - photoTop));
       break;
     }
     case 'left':
-    case 'right': {
-      const avail = content.h;
-      const y = content.y + Math.max(0, avail - captionHeightLu) / 2; // 段は上下中央
-      if (!hasCaption) {
-        captionBox = rect(0, y, 0, 0);
-        break;
-      }
-      if (place === 'right') {
-        const x = W - outer - band;
-        captionBox = rect(x, y, band, captionHeightLu);
-        photoBox = rect(content.x, content.y, Math.max(0, x - gap - content.x), content.h);
-      } else {
-        const x = outer;
-        captionBox = rect(x, y, band, captionHeightLu);
-        const photoLeft = x + band + gap;
-        photoBox = rect(photoLeft, content.y, Math.max(0, content.x + content.w - photoLeft), content.h);
-      }
+      photoBox = hasCaption
+        ? rect(outer + band + gap, content.y, Math.max(0, content.x + content.w - (outer + band + gap)), content.h)
+        : content;
       break;
-    }
-    case 'overlay': {
-      // 差し引かない。写真の上に重なる
-      captionBox = rect(side, canvasH - outer - captionHeightLu, W - side * 2, captionHeightLu);
-      photoBox = rect(0, 0, W, canvasH);
+    case 'right':
+      photoBox = hasCaption
+        ? rect(content.x, content.y, Math.max(0, W - outer - band - gap - content.x), content.h)
+        : content;
       break;
-    }
+    case 'overlay':
+      photoBox = rect(0, 0, W, canvasH); // 差し引かない。写真の上に重なる
+      break;
   }
 
   /* 4. 写真を収める */
   let srcNorm: SrcNorm = FULL;
   let photo: RectLu;
   if (bleed) {
-    // 全面では「写真の位置」が切り取りの寄せになる
+    // 全面では切り取りの中心を指で決める（focus）。写真の位置は使わない
     const target = photoBox.h > 0 ? photoBox.w / photoBox.h : 1;
-    srcNorm = anchoredCrop(aspect, target, p.place);
+    srcNorm = focusCrop(aspect, target, focus);
     photo = rect(0, 0, W, canvasH);
   } else {
     photo = fitInto(photoBox, aspect, p.place);
+  }
+
+  /*
+   * 5. 文字を、写真が決まったあとに残る帯の中で寄せる。
+   * 写真を上に寄せると下に帯が余る。以前は文字を必ずキャンバスの端に置いていたので、
+   * 帯の真ん中に置けなかった（実機で指摘された）。帯は「写真の端＋隙間」から
+   * 「キャンバスの端−余白」まで。寄せはこの中で効く。
+   */
+  let captionBox: RectLu;
+  switch (place) {
+    case 'below': {
+      const top = photo.y + photo.h + gap;
+      const bottom = canvasH - outer;
+      captionBox = rect(side, alignIn(top, bottom - top, captionHeightLu, align), W - side * 2, captionHeightLu);
+      break;
+    }
+    case 'above': {
+      const top = outer;
+      const bottom = photo.y - gap;
+      captionBox = rect(side, alignIn(top, bottom - top, captionHeightLu, align), W - side * 2, captionHeightLu);
+      break;
+    }
+    case 'left':
+    case 'right': {
+      const x = place === 'right' ? W - outer - band : outer;
+      captionBox = rect(x, alignIn(content.y, content.h, captionHeightLu, align), hasCaption ? band : 0, captionHeightLu);
+      break;
+    }
+    case 'overlay':
+      captionBox = rect(side, canvasH - outer - captionHeightLu, W - side * 2, captionHeightLu);
+      break;
   }
 
   return { canvas: size(W, canvasH), photo, photoSrcNorm: srcNorm, captionBox };

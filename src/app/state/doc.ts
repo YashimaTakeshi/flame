@@ -6,7 +6,7 @@
  */
 import { create } from 'zustand';
 import { DEFAULT_SPEC, normalize } from '../../core/styles/spec';
-import type { Align, FieldId, SizeId, StyleSpec, TrackingId } from '../../core/styles/types';
+import { CENTER_FOCUS, type Align, type FieldId, type Focus, type SizeId, type StyleSpec, type TrackingId } from '../../core/styles/types';
 import type { LatinFontKey } from '../fonts-catalog';
 
 export interface Overrides {
@@ -16,8 +16,10 @@ export interface Overrides {
 }
 
 export interface DocState {
-  /** 比率 × 写真の位置 × 文字の位置 × 行数 */
+  /** 比率 × 写真の位置 × 文字の位置 × 寄せ × 行数 × 余白 */
   readonly style: StyleSpec;
+  /** 全面のときの切り取りの中心。プレビューを指で動かして決める */
+  readonly focus: Focus;
   readonly title: string;
   readonly artist: string;
   readonly fontKey: LatinFontKey | 'jp';
@@ -44,6 +46,7 @@ export const DEFAULT_FIELDS: Record<FieldId, boolean> = {
 
 const INITIAL: DocState = {
   style: DEFAULT_SPEC,
+  focus: CENTER_FOCUS,
   title: 'Untitled',
   artist: '',
   fontKey: 'helvetica',
@@ -59,6 +62,11 @@ const INITIAL: DocState = {
 interface DocStore extends DocState {
   set<K extends keyof DocState>(key: K, value: DocState[K]): void;
   setStyle(patch: Partial<StyleSpec>): void;
+  /** 指で動かし始めるとき1回。ここで取り消しの控えを取る */
+  beginDrag(): void;
+  /** 動かしている最中。控えは取らない（1回のドラッグが1回の取り消しになる） */
+  dragFocus(f: Focus): void;
+  resetFocus(): void;
   toggleField(id: FieldId): void;
   setOverride<K extends keyof Overrides>(key: K, value: Overrides[K]): void;
   reset(): void;
@@ -70,6 +78,7 @@ let previous: DocState | null = null;
 
 const snapshot = (s: DocState): DocState => ({
   style: s.style,
+  focus: s.focus,
   title: s.title,
   artist: s.artist,
   fontKey: s.fontKey,
@@ -119,6 +128,19 @@ export const useDoc = create<DocStore>((set, get) => ({
       next = { ...next, caption: 'below' };
     }
     set({ style: normalize(next) });
+  },
+
+  beginDrag() {
+    previous = snapshot(get());
+  },
+
+  dragFocus(f) {
+    const c = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
+    set({ focus: { x: c(f.x), y: c(f.y) } });
+  },
+
+  resetFocus() {
+    set({ focus: CENTER_FOCUS });
   },
 
   toggleField(id) {

@@ -121,11 +121,11 @@ export async function saveImage(blob: Blob, filename: string): Promise<SaveOutco
   };
 }
 
-/** flame-20260921-084512.jpg のような名前にする */
+/** fuchidori-20260921-084512.jpg のような名前にする */
 export function makeFilename(at: Date = new Date()): string {
   const p = (n: number): string => String(n).padStart(2, '0');
   return (
-    `flame-${at.getFullYear()}${p(at.getMonth() + 1)}${p(at.getDate())}` +
+    `fuchidori-${at.getFullYear()}${p(at.getMonth() + 1)}${p(at.getDate())}` +
     `-${p(at.getHours())}${p(at.getMinutes())}${p(at.getSeconds())}.jpg`
   );
 }

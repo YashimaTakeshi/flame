@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildScene, INK, type SceneInput } from '../core/compose';
 import { rgba, type Rgba } from '../core/scene/ops';
+import type { Focus } from '../core/styles/types';
 import type { Scene } from '../core/scene/scene';
 import { closeDecoded, decode, type DecodedPhoto } from '../platform/decode';
 import { safeStorage } from '../platform/storage';
@@ -22,6 +23,7 @@ import { DEFAULT_FIELDS, useDoc } from './state/doc';
 import { useUi } from './state/ui';
 import { IconPhoto, IconShare } from './ui/icons';
 import { Sheet } from './ui/Sheet';
+import { usePan } from './usePan';
 import { usePreview } from './usePreview';
 import { useViewportHeight } from './useViewportHeight';
 import './theme.css';
@@ -45,6 +47,9 @@ function relativeLuminance(c: Rgba): number {
 
 const inkFor = (bg: Rgba): Rgba =>
   relativeLuminance(bg) > INK_CROSSOVER ? INK : rgba(236, 233, 228);
+
+/** いまの切り取りの中心。指で動かし始めた瞬間に1回読む */
+const readFocus = (): Focus => useDoc.getState().focus;
 
 interface Loaded {
   readonly file: File;
@@ -109,6 +114,7 @@ export function App(): React.ReactElement {
     });
     return {
       style: doc.style,
+      focus: doc.focus,
       photo: { id: 'photo', aspect: loaded.decoded.natural.w / loaded.decoded.natural.h },
       facts: applyFieldSwitches(facts, doc.fields),
       gates: gatesFrom(doc.fields),
@@ -138,6 +144,12 @@ export function App(): React.ReactElement {
     }
   }, [sceneInput]);
 
+  /* 全面のとき、プレビューを指で動かして切り取りの位置を決める */
+  const bleed = doc.style.margin === 'none';
+  const beginDrag = useDoc((s) => s.beginDrag);
+  const dragFocus = useDoc((s) => s.dragFocus);
+  usePan(canvasRef, scene, bleed && loaded !== null, readFocus, beginDrag, dragFocus);
+
   const preview = usePreview(
     canvasRef,
     stageRef,
@@ -159,6 +171,7 @@ export function App(): React.ReactElement {
         if (prev) closeDecoded(prev.decoded);
         return { file, decoded, exif };
       });
+      useDoc.getState().resetFocus();
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'この写真を開けませんでした');
     } finally {
@@ -217,11 +230,11 @@ export function App(): React.ReactElement {
         ) : (
           <span />
         )}
-        <span className="hdr__title">flame</span>
+        <span className="hdr__title">Fuchidori</span>
         {loaded ? (
           <button
             type="button"
-            className="iconbtn iconbtn--solid hdr__right"
+            className="iconbtn hdr__right"
             aria-label="書き出す"
             title="書き出す"
             aria-busy={busy !== null || undefined}
@@ -263,7 +276,8 @@ export function App(): React.ReactElement {
                 ref={canvasRef}
                 className="stage__canvas"
                 role="img"
-                aria-label="枠を付けた写真のプレビュー"
+                aria-label={bleed ? '枠を付けた写真のプレビュー。動かして切り取る位置を決める' : '枠を付けた写真のプレビュー'}
+                data-pannable={bleed || undefined}
               />
               {preview.slow && <span className="stage__dot" aria-hidden="true" />}
               {/* 注記は操作の上に重ねない。プレビューの足元に短く出て、自分で消える */}
