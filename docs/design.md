@@ -1800,6 +1800,17 @@ APP1 は APP0（JFIF）の直後に差し込み、元の JPEG は読み直さず
 貼り付けは画像のときだけ横取りする（入力欄への文字の貼り付けは邪魔しない）。
 検査: `shot.mjs` で `DataTransfer` に画像を入れて drop / paste を投げ、どちらでも canvas が出ること。
 
+### 3.19 Cloudflare への公開（2026-09-23）
+
+「クラウドフレアで公開したい」。§15 の決定どおり **Workers（Static Assets）＋ `public/_headers`**。Worker のコードは書かない。
+- `wrangler.jsonc` … 名前 `fuchidori`、`assets.directory = ./dist`、無いものは 404
+- `public/_headers` … CSP ほか（§15.5）。入口（`/`・`index.html`・`boot.js`）は `no-cache`、指紋つきの部品は immutable
+- `scripts/gen-version.mjs` … `dist/version.json`（版・コミット・時刻）。`npm run build` の最後に走る
+- `.github/workflows/cloudflare.yml` … push で `wrangler deploy`。鍵（`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`）が
+  Secrets に無いうちは何もせず緑で終わる。配信後に `version.json` のコミットが一致し、CSP と `no-cache` が付いていることを確かめる
+- GitHub Pages への配信（`pages.yml`）はそのまま残す（確認用。§15 の「本番は Cloudflare」）
+`base: './'` なのでドメイン直下でも `/flame/` でも同じ dist が動く。
+
 ## 4. キャプションの組版
 
 > 出典: 組み立て・欠損の詰め・はみ出しのはしご・インク選択は案C §4。
@@ -5221,23 +5232,26 @@ test('同梱サブセットの収録文字', () => {
 **決定: Cloudflare Workers の Static Assets ＋ `public/_headers` で付ける。Worker のコードは書かない。**
 
 ```
-# public/_headers
+# public/_headers（実物。外部の接続先は無い）
 /*
-  Content-Security-Policy: default-src 'self'; img-src 'self' blob: data:; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; img-src 'self' blob: data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   Permissions-Policy: geolocation=(), camera=(), microphone=(), interest-cohort=()
   Cross-Origin-Opener-Policy: same-origin
 
-/sw.js
-  Cache-Control: no-cache, max-age=0
-
-/version.json
-  Cache-Control: no-store
-
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
+/                      Cache-Control: no-cache      ← 入口は毎回確かめる（古い HTML で真っ黒、を防ぐ）
+/index.html            Cache-Control: no-cache
+/boot.js               Cache-Control: no-cache
+/manifest.webmanifest  Cache-Control: no-cache
+/version.json          Cache-Control: no-store
+/assets/*              Cache-Control: public, max-age=31536000, immutable
 ```
+
+（2026-09-23 更新）Google Fonts は使っていないので `connect-src` / `font-src` / `style-src` から外した。
+`script-src 'self'` にするため、公開直後の取り直し（§3.17）は `index.html` の中ではなく `public/boot.js` に置く。
+検査: `shot.mjs` が `_headers` の `/*` の塊を実際の応答ヘッダに付けた置き場を立て、
+写真を読み込み・和文書体に替え・書き出すまでに `securitypolicyviolation` が 0 件であることを数える。
 
 理由: Worker のコードを書くと、**CSP を付ける責任がアプリのコードに移る**。
 `_headers` は静的ファイルなので、アプリのバグで CSP が外れることがない。

@@ -76,7 +76,7 @@ const CORE_GLOBALS = [
 ];
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', '.fontwork', '.geowork', 'scripts/**', '*.cjs'] },
+  { ignores: ['dist', 'node_modules', '.fontwork', '.geowork', 'scripts/**', '*.cjs', 'public/**' /* 同梱の静的ファイル（boot.js は素の JS） */] },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,

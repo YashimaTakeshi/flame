@@ -1,0 +1,15 @@
+/*
+ * Cloudflare Workers（Static Assets）の設定。Worker のコードは書かない（§15.5）。
+ * dist をそのまま配る。CSP などの HTTP ヘッダは public/_headers（静的ファイル）で付ける。
+ * 配信は GitHub Actions（.github/workflows/cloudflare.yml）から wrangler deploy。
+ */
+{
+  "name": "fuchidori",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    // /about → /about.html のような読み替えはしない（そういうページは無い）。無いものは 404
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  }
+}

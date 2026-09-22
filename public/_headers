@@ -1,0 +1,32 @@
+# Cloudflare（Workers Static Assets）が付ける HTTP ヘッダ。§15.5
+# 静的ファイルなので、アプリのバグで CSP が外れることがない。
+#
+# CSP は「このアプリが通信する先」の一覧でもある（§12）。外部の先は無い。
+#   img-src blob: data: … 書き出した画像の表示（長押し保存のため data:）
+#   style-src 'unsafe-inline' … React の style 属性
+#   worker-src blob: … 将来の一括処理の Worker
+#   frame-ancestors 'none' … 他のサイトの枠の中に入れない（枠の中では保存が効かない）
+/*
+  Content-Security-Policy: default-src 'self'; img-src 'self' blob: data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+
+# 入口は毎回確かめる（ETag で軽い）。公開し直した直後に古い HTML で開いて真っ黒になるのを防ぐ
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/boot.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+# 版の確認は必ず取りに行く
+/version.json
+  Cache-Control: no-store
+
+# 指紋つきの部品は永久に置いてよい
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -363,4 +363,53 @@ const pasted = await entry.waitForSelector('canvas.stage__canvas', { timeout: 15
 console.log('PC の入口:', JSON.stringify({ highlighted, dropped, unhighlighted, pasted }));
 await entryCtx.close();
 
+/*
+ * Cloudflare で付ける CSP（public/_headers）の下でもアプリが壊れないか。
+ * CSP は「書いたつもり」で効かない／効きすぎて自分のアプリを止めることが最も多い。
+ * _headers の /* の塊を実際の応答ヘッダに付けた置き場を立て、違反の通知（securitypolicyviolation）を数える。
+ */
+const headerLines = readFileSync(resolve(DIST, '_headers'), 'utf8').split('\n');
+const globalHeaders = {};
+{
+  let inGlobal = false;
+  for (const line of headerLines) {
+    if (/^\S/.test(line)) { inGlobal = line.trim() === '/*'; continue; }
+    if (!inGlobal || !line.trim() || line.trim().startsWith('#')) continue;
+    const i = line.indexOf(':');
+    if (i > 0) globalHeaders[line.slice(0, i).trim().toLowerCase()] = line.slice(i + 1).trim();
+  }
+}
+const cspSrv = createServer((req, res) => {
+  let p = decodeURIComponent((req.url ?? '/').split('?')[0]);
+  if (p === '/') p = '/index.html';
+  const f = resolve(DIST, '.' + p);
+  if (!f.startsWith(DIST) || !existsSync(f)) { res.writeHead(404).end('nf'); return; }
+  res.writeHead(200, { 'content-type': TYPES[extname(f)] ?? 'application/octet-stream', ...globalHeaders });
+  res.end(readFileSync(f));
+});
+await new Promise(ok => cspSrv.listen(0, '127.0.0.1', ok));
+const cspCtx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+const cspPage = await cspCtx.newPage();
+const cspErrs = [];
+cspPage.on('pageerror', e => cspErrs.push(String(e)));
+cspPage.on('console', m => { if (m.type() === 'error') cspErrs.push('[console] ' + m.text()); });
+await cspPage.addInitScript(() => {
+  window.__csp = [];
+  document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ← ${e.blockedURI || e.sourceFile || '(inline)'}`));
+});
+await cspPage.goto(`http://127.0.0.1:${cspSrv.address().port}`, { waitUntil: 'networkidle' });
+await cspPage.setInputFiles('input[type=file]', '/home/user/flame/tests/fixtures/iphone-portrait.jpg');
+const cspCanvas = await cspPage.waitForSelector('canvas.stage__canvas', { timeout: 15000 }).then(() => true).catch(() => false);
+await cspPage.locator('.side .seg__opt', { hasText: '日本語' }).first().click().catch(() => {});
+await cspPage.waitForTimeout(800);
+await cspPage.getByRole('button', { name: '書き出す' }).click();
+await cspPage.waitForTimeout(3000);
+const cspResult = await cspPage.evaluate(() => ({
+  violations: window.__csp,
+  exported: !!document.querySelector('.result-img'),
+  cspApplied: true,
+}));
+console.log('CSP の下で:', JSON.stringify({ header: globalHeaders['content-security-policy']?.slice(0, 40) + '…', canvas: cspCanvas, ...cspResult, errors: cspErrs }));
+await cspCtx.close(); cspSrv.close();
+
 await b.close(); server.close();

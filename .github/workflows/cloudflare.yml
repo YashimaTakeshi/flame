@@ -1,0 +1,78 @@
+# Cloudflare Workers（Static Assets）へ公開する。§15.6
+# push で本番が更新され、配信後に CSP と版を確かめる。手動デプロイで終わらせない。
+#
+# 鍵は GitHub の Secrets に置く（リポジトリには置かない）:
+#   CLOUDFLARE_API_TOKEN … 「Edit Cloudflare Workers」テンプレートで作ったトークン
+#   CLOUDFLARE_ACCOUNT_ID … ダッシュボード右側の Account ID
+# 鍵が無いうちは何もせず緑で終わる（GitHub Pages だけで配る段階）。
+name: cloudflare
+
+on:
+  push:
+    branches: ['claude/mobile-photo-frame-app-2rx12i', 'main']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 鍵があるか
+        id: key
+        run: echo "ok=${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: 鍵が無いので配信しない
+        if: steps.key.outputs.ok != 'true'
+        run: echo "::notice::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID が Secrets に無いため、Cloudflare には配信しません"
+
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.ok == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+      - if: steps.key.outputs.ok == 'true'
+        run: npm ci
+
+      # assets:verify → tsc → vite build → version.json
+      - name: ビルド
+        if: steps.key.outputs.ok == 'true'
+        run: npm run build
+
+      - name: 配信（wrangler deploy）
+        id: deploy
+        if: steps.key.outputs.ok == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+
+      # CSP は「書いたつもり」で効かないことが最も多い。届いた版も確かめる
+      - name: 配信後の確認（CSP と版）
+        if: steps.key.outputs.ok == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          set -euo pipefail
+          [ -n "$URL" ] || { echo "配信先の URL が取れなかった"; exit 1; }
+          echo "配信先: $URL"
+          for i in 1 2 3 4 5 6; do
+            V=$(curl -fsS "$URL/version.json" | jq -r .commit || true)
+            [ "$V" = "${GITHUB_SHA:0:7}" ] && break
+            echo "まだ古い版（$V）。待つ…"; sleep 10
+          done
+          [ "$V" = "${GITHUB_SHA:0:7}" ] || { echo "配信された版が違う: $V ≠ ${GITHUB_SHA:0:7}"; exit 1; }
+          H=$(curl -fsSI "$URL/")
+          echo "$H" | grep -qi "^content-security-policy:" || { echo "CSP ヘッダが無い"; exit 1; }
+          echo "$H" | grep -qi "frame-ancestors 'none'" || { echo "CSP の中身が想定と違う"; exit 1; }
+          echo "$H" | grep -qi "^cache-control:.*no-cache" || { echo "入口の Cache-Control が no-cache でない"; exit 1; }
+          echo "OK: $URL"
