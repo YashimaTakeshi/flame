@@ -606,6 +606,10 @@
 .check + .check {
   box-shadow: inset 0 1px 0 var(--line);
 }
+/* 載せる項目の一覧と、写真そのものに刻む切り替えの間は太めに区切る */
+.check + .check--sep {
+  box-shadow: inset 0 1px 0 var(--line-strong);
+}
 
 .check[aria-pressed='true'] {
   color: var(--ink);
@@ -738,7 +742,12 @@
   background: transparent;
   border: 0;
   text-align: right;
-  font-size: var(--t2);
+  /*
+   * 16px 未満だと iOS Safari がフォーカス時に画面を拡大し、
+   * どこを入力しているか分からなくなる。maximum-scale で拡大を禁じる手もあるが、
+   * それは弱視の利用者のピンチ拡大まで奪うので、文字を 16px にして原因を消す。
+   */
+  font-size: 1rem;
 }
 
 .sheet__label {

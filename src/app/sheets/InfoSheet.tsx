@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useDoc } from '../state/doc';
 import type { ExifFacts } from '../exif';
+import { FILM_SUGGESTIONS } from '../fuji';
 import { Sheet } from '../ui/Sheet';
 
 const toInput = (d: Date | null): string => {
@@ -17,6 +18,7 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
   const [camera, setCamera] = useState(doc.overrides.camera ?? '');
   const [lens, setLens] = useState(doc.overrides.lens ?? '');
   const [date, setDate] = useState(toInput(doc.overrides.date));
+  const [film, setFilm] = useState(doc.overrides.film ?? '');
 
   const confirm = (): void => {
     doc.set('title', title);
@@ -24,6 +26,7 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
     doc.setOverride('camera', camera.trim() || null);
     doc.setOverride('lens', lens.trim() || null);
     doc.setOverride('date', date ? new Date(`${date}T12:00:00`) : null);
+    doc.setOverride('film', film.trim() || null);
     onClose();
   };
 
@@ -62,6 +65,21 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
             onChange={(e) => setLens(e.target.value)}
             placeholder={exif.lens ?? 'レンズ名（写真に記録なし）'}
           />
+        </label>
+        <label className="card__row">
+          <span>フィルム</span>
+          <input
+            value={film}
+            list="film-suggestions"
+            autoCapitalize="characters"
+            onChange={(e) => setFilm(e.target.value)}
+            placeholder={exif.film ?? 'PROVIA / Vivid など'}
+          />
+          <datalist id="film-suggestions">
+            {FILM_SUGGESTIONS.map((f) => (
+              <option key={f} value={f} />
+            ))}
+          </datalist>
         </label>
         <label className="card__row">
           <span>日付</span>

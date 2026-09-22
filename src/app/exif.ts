@@ -5,6 +5,7 @@
  * exifr は例外を投げず undefined を返すので、そのまま「情報なし」として扱う。
  */
 import { parse } from 'exifr/dist/lite.esm.mjs';
+import { parseFujiFilm } from './fuji';
 
 export interface ExifFacts {
   readonly camera: string | null;
@@ -16,6 +17,8 @@ export interface ExifFacts {
   readonly focalLength: number | null;
   readonly focalLength35: number | null;
   readonly gps: { readonly lat: number; readonly lng: number } | null;
+  /** フィルムシミュレーション（FUJIFILM の MakerNote から）。読めなければ null */
+  readonly film: string | null;
 }
 
 export const EMPTY_EXIF: ExifFacts = {
@@ -28,6 +31,7 @@ export const EMPTY_EXIF: ExifFacts = {
   focalLength: null,
   focalLength35: null,
   gps: null,
+  film: null,
 };
 
 interface RawExif {
@@ -42,6 +46,7 @@ interface RawExif {
   FocalLengthIn35mmFormat?: number;
   latitude?: number;
   longitude?: number;
+  makerNote?: Uint8Array;
 }
 
 /** 「Apple iPhone 16 Pro」のような重複を畳む */
@@ -52,7 +57,7 @@ function cameraName(make?: string, model?: string): string | null {
 }
 
 export async function readExif(file: Blob): Promise<ExifFacts> {
-  const raw = (await parse(file).catch(() => undefined)) as RawExif | undefined;
+  const raw = (await parse(file, { makerNote: true }).catch(() => undefined)) as RawExif | undefined;
   if (!raw) return EMPTY_EXIF;
   const d = raw.DateTimeOriginal;
   return {
@@ -68,6 +73,8 @@ export async function readExif(file: Blob): Promise<ExifFacts> {
       typeof raw.latitude === 'number' && typeof raw.longitude === 'number'
         ? { lat: raw.latitude, lng: raw.longitude }
         : null,
+    // FUJIFILM 以外の MakerNote は形式が違う。先頭の "FUJIFILM" で見分けるので Make は見なくてよい
+    film: parseFujiFilm(raw.makerNote),
   };
 }
 

@@ -402,6 +402,14 @@ await test('整列を変えても一致する', () => {
   }
 });
 
+await test('フィルムの刻印を置いても一致する（余白あり・重ね）', () => {
+  expectParity('刻印', parityOf(sceneFor({ badge: 'CLASSIC CHROME' })));
+  expectParity(
+    '刻印 重ね',
+    parityOf(sceneFor({ badge: 'ACROS', style: { ratio: 'SQ', photo: 'center', caption: 'overlay', captionAlign: 'center', lines: 2, margin: 'none' } })),
+  );
+});
+
 /*
  * 15スタイル全部。
  *

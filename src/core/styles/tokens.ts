@@ -53,6 +53,7 @@ export const LINE_ALL_IN_ONE: readonly FieldToken[] = [
   F('date'),
   F('camera'),
   F('lens'),
+  F('film'),
   F('focalLength', 'focalEnabled'),
   F('exposure', 'exposureEnabled'),
   F('place', 'placeEnabled'),
@@ -68,6 +69,7 @@ export const LINE_CAMERA: readonly FieldToken[] = [F('camera')];
 
 export const LINE_LENS_TECH: readonly FieldToken[] = [
   F('lens'),
+  F('film'),
   F('focalLength', 'focalEnabled'),
   F('exposure', 'exposureEnabled'),
 ];
@@ -75,6 +77,7 @@ export const LINE_LENS_TECH: readonly FieldToken[] = [
 export const LINE_TECH_PLACE: readonly FieldToken[] = [
   F('camera'),
   F('lens'),
+  F('film'),
   F('exposure', 'exposureEnabled'),
   F('place', 'placeEnabled'),
 ];

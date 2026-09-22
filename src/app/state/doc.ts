@@ -13,6 +13,8 @@ export interface Overrides {
   readonly camera: string | null;
   readonly lens: string | null;
   readonly date: Date | null;
+  /** フィルムシミュレーション／ピクチャーコントロール。FUJIFILM 以外は手入力しかない */
+  readonly film: string | null;
 }
 
 export interface DocState {
@@ -31,6 +33,8 @@ export interface DocState {
   readonly bordered: boolean;
   readonly fields: Readonly<Record<FieldId, boolean>>;
   readonly overrides: Overrides;
+  /** 写真の右下にフィルム名を刻むか。フィルム名が分かるときだけ効く */
+  readonly badge: boolean;
 }
 
 export const DEFAULT_FIELDS: Record<FieldId, boolean> = {
@@ -41,6 +45,7 @@ export const DEFAULT_FIELDS: Record<FieldId, boolean> = {
   lens: true,
   exposure: true,
   focalLength: true,
+  film: true,
   place: false, // 撮影地は未実装
 };
 
@@ -56,7 +61,8 @@ const INITIAL: DocState = {
   size: 'Medium',
   bordered: false,
   fields: DEFAULT_FIELDS,
-  overrides: { camera: null, lens: null, date: null },
+  overrides: { camera: null, lens: null, date: null, film: null },
+  badge: true,
 };
 
 interface DocStore extends DocState {
@@ -89,6 +95,7 @@ const snapshot = (s: DocState): DocState => ({
   bordered: s.bordered,
   fields: s.fields,
   overrides: s.overrides,
+  badge: s.badge,
 });
 
 export const useDoc = create<DocStore>((set, get) => ({

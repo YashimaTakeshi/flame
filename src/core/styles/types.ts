@@ -66,6 +66,7 @@ export type FieldId =
   | 'lens'
   | 'exposure'
   | 'focalLength'
+  | 'film'
   | 'place';
 
 /** 利用者の設定で項目ごと消えるもの。欠損（値が無い）とは区別する */

@@ -13,6 +13,7 @@ const FIELDS: { id: FieldId; label: string }[] = [
   { id: 'date', label: '日付' },
   { id: 'camera', label: 'カメラ' },
   { id: 'lens', label: 'レンズ' },
+  { id: 'film', label: 'フィルム' },
   { id: 'focalLength', label: '焦点距離' },
   { id: 'exposure', label: '露出' },
 ];
@@ -20,6 +21,8 @@ const FIELDS: { id: FieldId; label: string }[] = [
 export function InfoPanel(): React.ReactElement {
   const fields = useDoc((s) => s.fields);
   const toggleField = useDoc((s) => s.toggleField);
+  const badge = useDoc((s) => s.badge);
+  const setDoc = useDoc((s) => s.set);
   const reset = useDoc((s) => s.reset);
   const openSheet = useUi((s) => s.openSheet);
 
@@ -34,6 +37,18 @@ export function InfoPanel(): React.ReactElement {
             </span>
           </button>
         ))}
+        <button
+          type="button"
+          className="check check--sep"
+          aria-pressed={badge}
+          title="フィルム名を写真の右下に刻む"
+          onClick={() => setDoc('badge', !badge)}
+        >
+          <span>右下にフィルム名を刻む</span>
+          <span className="check__mark" aria-hidden="true">
+            {badge ? '✓' : ''}
+          </span>
+        </button>
       </div>
       <div className="p-info__acts">
         <button type="button" className="iconbtn iconbtn--ghost" aria-label="編集" title="編集" onClick={() => openSheet('info')}>

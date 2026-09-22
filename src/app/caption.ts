@@ -27,6 +27,7 @@ export interface CaptionParts {
     readonly camera: string | null;
     readonly lens: string | null;
     readonly date: Date | null;
+    readonly film: string | null;
   };
 }
 
@@ -44,6 +45,7 @@ export function collectFacts(exif: ExifFacts, parts: CaptionParts): Facts {
 
   put('camera', parts.overrides.camera ?? exif.camera);
   put('lens', parts.overrides.lens ?? exif.lens);
+  put('film', parts.overrides.film ?? exif.film);
 
   const mm = exif.focalLength35 ?? exif.focalLength;
   if (mm) put('focalLength', formatFocal(mm));

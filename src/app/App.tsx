@@ -128,6 +128,8 @@ export function App(): React.ReactElement {
       bordered: doc.bordered,
       background,
       ink: inkFor(background),
+      // 刻印は「載せる項目」のスイッチとは独立。切っても写真右下には残せる
+      badge: doc.badge ? (facts.film ?? null) : null,
     };
   }, [loaded, fontsReady, doc, background]);
 

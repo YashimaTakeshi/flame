@@ -370,6 +370,56 @@ describe('Scene の組み立て', () => {
     expect(r?.op === 'strokeRect' && r.rect.x).toBeGreaterThan(0);
   });
 
+  describe('フィルムの刻印', () => {
+    const badgeOf = (scene: ReturnType<typeof buildScene>) => scene.ops.find((o) => o.op === 'text' && o.id === 'badge');
+    const inside = (r: { x: number; y: number; w: number; h: number }, p: { x: number; y: number; w: number; h: number }): boolean =>
+      r.x >= p.x - 0.001 && r.y >= p.y - 0.001 && r.x + r.w <= p.x + p.w + 0.001 && r.y + r.h <= p.y + p.h + 0.001;
+    const overlaps = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }): boolean =>
+      a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+    it('渡さなければ刻まない。渡せば板と文字が1つずつ出る', () => {
+      expect(badgeOf(buildScene(inputFor(), measurer))).toBeUndefined();
+      expect(badgeOf(buildScene(inputFor({ badge: null }), measurer))).toBeUndefined();
+      const scene = buildScene(inputFor({ badge: 'CLASSIC CHROME' }), measurer);
+      const t = badgeOf(scene);
+      expect(t?.op === 'text' && t.text).toBe('CLASSIC CHROME');
+      expect(scene.ops.filter((o) => o.op === 'fillRect')).toHaveLength(1);
+    });
+
+    it('全組み合わせ × 全比で、写真の右下に収まり、キャプションと重ならない', () => {
+      for (const spec of SPECS) {
+        for (const aspect of ASPECTS) {
+          const scene = buildScene(inputFor({ style: spec, photo: { id: 'p', aspect }, badge: 'ETERNA BLEACH BYPASS' }), measurer);
+          const photo = scene.ops.find((o) => o.op === 'photo');
+          const plate = scene.ops.find((o) => o.op === 'fillRect');
+          if (!plate || plate.op !== 'fillRect' || !photo || photo.op !== 'photo') continue; // 収まらないときは刻まない
+          const name = `${key(spec)} @${aspect.toFixed(2)}`;
+          expect(inside(plate.rect, photo.dst), name).toBe(true);
+          // 右下: 板の右端は写真の中心より右、下端は写真の中心より下
+          expect(plate.rect.x + plate.rect.w, name).toBeGreaterThan(photo.dst.x + photo.dst.w / 2);
+          expect(plate.rect.y + plate.rect.h, name).toBeGreaterThan(photo.dst.y + photo.dst.h / 2);
+          for (const o of scene.ops) {
+            if (o.op !== 'text' || o.id === 'badge') continue;
+            expect(overlaps(plate.rect, o.boundsLu), `${name}: ${o.id}`).toBe(false);
+          }
+        }
+      }
+    });
+
+    it('通常の写真では必ず刻まれる（収まらないのは極端な比だけ）', () => {
+      for (const spec of SPECS) {
+        const scene = buildScene(inputFor({ style: spec, photo: { id: 'p', aspect: 1.5 }, badge: 'PROVIA' }), measurer);
+        expect(badgeOf(scene), key(spec)).toBeDefined();
+      }
+    });
+
+    it('フィルム名はキャプションの項目としても載る', () => {
+      const scene = buildScene(inputFor({ facts: { ...REFERENCE, film: 'ACROS' } }), measurer);
+      const texts = scene.ops.filter((o) => o.op === 'text' && o.id !== 'badge').map((o) => (o.op === 'text' ? o.text : ''));
+      expect(texts.join(' ')).toContain('ACROS');
+    });
+  });
+
   it('重ね文字のときだけ暗幕を敷く', () => {
     expect(buildScene(inputFor({ style: FRMM_PRESETS.SQ4! }), measurer).ops.filter((o) => o.op === 'linearGradient')).toHaveLength(1);
     expect(buildScene(inputFor({ style: FRMM_PRESETS.SQ1! }), measurer).ops.filter((o) => o.op === 'linearGradient')).toHaveLength(0);
