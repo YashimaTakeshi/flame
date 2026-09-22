@@ -73,7 +73,13 @@ export const SIDE_BAND_LU = 300;
  */
 function linesFor(n: LineCount, side: boolean): readonly CaptionLineSpec[] {
   const wrap = (k: number): { maxWrap?: number } => (side ? { maxWrap: k } : {});
-  const alignSide = side ? ({ alignOverride: 'left' } as const) : {};
+  /*
+   * 左右の段でも揃えは利用者の選択に従う。
+   * 以前は段では左揃えに固定していた（参考アプリの段のスタイルが左揃えのため）。
+   * 縦位置の写真で右の余白が広いとき「余白の中央に置けない」と指摘され、固定をやめた。
+   * 段の幅（300lu）で組んだ行を、余り全部の幅の中で左・中・右に揃える（layout.ts）。
+   */
+  const alignSide = {};
   switch (n) {
     case 1:
       return [

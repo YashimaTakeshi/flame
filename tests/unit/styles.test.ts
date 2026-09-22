@@ -344,6 +344,35 @@ describe('16:9・右の段に参考素材が収まる', () => {
   });
 });
 
+describe('左右の段の中での揃え', () => {
+  /*
+   * 縦位置の写真を左に置くと右の余白が広い。文字は 300lu の幅で組むが、
+   * 置く場所は余り全部で、その中で左・中・右に揃う（実機で「余白の中央に置けない」と指摘された）。
+   */
+  const spec = sp({ ratio: 'SQ', photo: 'left', caption: 'right', lines: 1 });
+  const lineOf = (align: 'left' | 'center' | 'right') => {
+    const scene = buildScene(inputFor({ style: spec, photo: { id: 'p', aspect: 0.75 }, facts: { title: 'Untitled', date: '2026.08.16' }, align }), measurer);
+    const photo = scene.ops.find((o) => o.op === 'photo');
+    const t = scene.ops.find((o) => o.op === 'text');
+    if (photo?.op !== 'photo' || t?.op !== 'text') throw new Error('写真か文字が無い');
+    return { photo: photo.dst, left: t.boundsLu.x + 2, right: t.boundsLu.x + t.boundsLu.w - 2, W: scene.canvas.widthLu as number };
+  };
+  it('中央揃えは、写真の右端からキャンバスの右の余白までの真ん中に来る', () => {
+    const { photo, left, right, W } = lineOf('center');
+    const def = styleFor(spec);
+    const regionL = photo.x + photo.w + (def.caption.gapLu as number);
+    const regionR = W - (def.caption.outerInsetLu as number);
+    expect((left + right) / 2).toBeCloseTo((regionL + regionR) / 2, 1);
+  });
+  it('右揃えは右の余白の内側の端に、左揃えは写真の右端＋隙間に付く', () => {
+    const def = styleFor(spec);
+    const r = lineOf('right');
+    expect(r.right).toBeCloseTo(r.W - (def.caption.outerInsetLu as number), 1);
+    const l = lineOf('left');
+    expect(l.left).toBeCloseTo(l.photo.x + l.photo.w + (def.caption.gapLu as number), 1);
+  });
+});
+
 describe('Scene の組み立て', () => {
   it('参考アプリの15組み合わせは写真を1つと、行数ぶんの文字を出す', () => {
     for (const [name, spec] of Object.entries(FRMM_PRESETS)) {

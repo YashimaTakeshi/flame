@@ -186,8 +186,11 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
       let by = valignIn(ry, rh, badge.h, bspec.valign);
       if (shared) {
         textTop = valignIn(ry, rh, textH, def.spec.captionAlign);
+        // 左右の段は組んだ幅（300）より広いことがある。重なりは実際の帯の幅で見直す
+        const textRangeNow = hRangeOfLines(typeset.lines, rw);
+        const crossXNow = textRangeNow !== null && rangesCross(textRangeNow, hRange(bspec.align, badge.w, rw));
         const crossY = textH > 0 && textTop < by + badge.h && by < textTop + textH;
-        if (crossX && crossY) {
+        if (crossXNow && crossY) {
           const top = valignIn(ry, rh, textH + stackGap + badge.h, def.spec.captionAlign);
           textTop = top;
           by = top + textH + stackGap;

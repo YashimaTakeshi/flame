@@ -187,7 +187,14 @@ export function resolveLayout(
   const vertical = t.above >= 0 || t.below >= 0;
   const colY = vertical ? photo.y : photoBox.y;
   const colH = vertical ? photo.h : photoBox.h;
-  const bandRect = (s: BandSide, w: number): RectLu => {
+  /*
+   * 左右の帯の横幅。
+   * キャプションの段（w を渡さない）は**写真の端＋隙間からキャンバスの端−余白まで**の余り全部。
+   * 文字は 300lu の幅で組んであるが、置く場所は余り全部にして、その中で左・中・右に揃える。
+   * 段の幅（300）に置くと、縦位置の写真で余りが広いとき、文字が右端に寄ったまま
+   * 「余白の中央に置けない」（実機で指摘された）。刻印の帯（w を渡す）は端に w だけ取る。
+   */
+  const bandRect = (s: BandSide, w?: number): RectLu => {
     switch (s) {
       case 'below': {
         const y = photo.y + photo.h + gap;
@@ -195,10 +202,15 @@ export function resolveLayout(
       }
       case 'above':
         return rect(side, outer, W - side * 2, Math.max(0, photo.y - gap - outer));
-      case 'left':
-        return rect(outer, colY, w, colH);
-      case 'right':
-        return rect(W - outer - w, colY, w, colH);
+      case 'left': {
+        const bw = w ?? Math.max(0, photo.x - gap - outer);
+        return rect(outer, colY, bw, colH);
+      }
+      case 'right': {
+        const x = w === undefined ? photo.x + photo.w + gap : W - outer - w;
+        const bw = w ?? Math.max(0, W - outer - x);
+        return rect(x, colY, bw, colH);
+      }
     }
   };
 
@@ -213,8 +225,10 @@ export function resolveLayout(
     captionBox = rect(side, canvasH - outer - captionHeightLu, W - side * 2, captionHeightLu);
     captionBand = captionBox;
   } else {
-    captionBand = bandRect(place, hasCaption ? band : 0);
-    captionBox = rect(captionBand.x, alignIn(captionBand.y, captionBand.h, captionHeightLu, align), captionBand.w, captionHeightLu);
+    captionBand = bandRect(place);
+    // 文字が無ければ段の幅は 0（写真に食い込ませないための従来の規則）
+    const bw = (place === 'left' || place === 'right') && !hasCaption ? 0 : captionBand.w;
+    captionBox = rect(captionBand.x, alignIn(captionBand.y, captionBand.h, captionHeightLu, align), bw, captionHeightLu);
   }
   const extraBand = x2 ? bandRect(x2.place, x2.sizeLu) : null;
 
