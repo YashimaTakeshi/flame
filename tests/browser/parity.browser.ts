@@ -109,6 +109,8 @@ const worstNormal = (pick: (d: Diff) => number): number =>
   normals.reduce((a, n) => Math.max(a, pick(n.d)), 0);
 
 let photo: CanvasImageSource | null = null;
+/** 仕上がりの札。写真と取り違えたら絵が変わって差として出る */
+let filmLogo: CanvasImageSource | null = null;
 
 function makePhoto(w: number, h: number): AnyCanvas {
   const r = createVerifiedCanvas(w, h);
@@ -128,7 +130,7 @@ function makePhoto(w: number, h: number): AnyCanvas {
 }
 
 const resources = (): RenderResources => ({
-  photo: () => photo,
+  photo: (id) => (String(id).startsWith('film:') ? filmLogo : photo),
   grainTile: () => null,
   verticalText: () => null,
 });
@@ -361,6 +363,7 @@ await test('準備: 書体を読み込む', async () => {
     { kind: 'url', url: '/public/fonts/Oswald-bold.woff2' },
   );
   photo = makePhoto(2400, 1600) as CanvasImageSource;
+  filmLogo = makePhoto(300, 220) as CanvasImageSource;
 });
 
 function report(label: string, d: Diff): void {
@@ -415,11 +418,23 @@ await test('整列を変えても一致する', () => {
   }
 });
 
-await test('仕上がりの刻印を置いても一致する（文字・ロゴ・段の中）', () => {
+await test('仕上がりの刻印を置いても一致する（文字・札・段の中）', () => {
   const B = { place: 'below', align: 'right', valign: 'end', size: 'L', framed: true } as const;
   expectParity('刻印 文字', parityOf(sceneFor({ badge: { text: 'CLASSIC CHROME', mode: 'text', ...B } })));
-  expectParity('刻印 ロゴ', parityOf(sceneFor({ badge: { text: 'PROVIA', mode: 'logo', ...B } })));
-  expectParity('刻印 ロゴ 段', parityOf(sceneFor({ badge: { text: 'CLASSIC Neg.', mode: 'logo', place: 'above', align: 'left', valign: 'center', size: 'S', framed: false }, style: { ratio: 'STN', photo: 'center', caption: 'right', captionAlign: 'center', lines: 2, margin: 'normal' } })));
+  // 札を持たない名前は名前の面に落ちる
+  expectParity('刻印 名前', parityOf(sceneFor({ badge: { text: 'MONOCHROME', mode: 'logo', ...B } })));
+  // 同梱した札（画像）。縮尺が違っても同じ絵になること
+  const img = { id: 'film:PROVIA', aspect: 300 / 220 };
+  expectParity('刻印 札', parityOf(sceneFor({ badge: { text: 'PROVIA', mode: 'logo', ...B, image: img } })));
+  expectParity(
+    '刻印 札 段',
+    parityOf(
+      sceneFor({
+        badge: { text: 'CLASSIC Neg.', mode: 'logo', place: 'above', align: 'left', valign: 'center', size: 'S', framed: false, image: img },
+        style: { ratio: 'STN', photo: 'center', caption: 'right', captionAlign: 'center', lines: 2, margin: 'normal' },
+      }),
+    ),
+  );
 });
 
 /*

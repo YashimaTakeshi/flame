@@ -7,6 +7,7 @@
  * 欠損を「（不明）」で埋めない。総当たりで確かめる。
  */
 import { describe, expect, it } from 'vitest';
+import type { BadgeSpec } from '../../src/core/badge';
 import { buildScene, INK, OVERLAY_INK, scrimAlphaAt, WHITE } from '../../src/core/compose';
 import { typesetCaption, type Gates } from '../../src/core/caption';
 import type { TextMeasurer } from '../../src/core/ports';
@@ -430,15 +431,16 @@ describe('Scene の組み立て', () => {
       }
     };
 
-    it('渡さなければ刻まない。文字は枠1本と文字1つ、ロゴは版の面が出る', () => {
+    it('渡さなければ刻まない。文字は枠1本と文字1つ、札の無い名前は面と文字', () => {
       expect(badgeOps(buildScene(inputFor(), measurer))).toHaveLength(0);
       expect(badgeOps(buildScene(inputFor({ badge: null }), measurer))).toHaveLength(0);
       const t = buildScene(inputFor({ badge: TEXT }), measurer);
       expect(badgeOps(t)).toHaveLength(1);
       expect(t.ops.filter((o) => o.op === 'strokeRect')).toHaveLength(1);
+      // 札を持たない名前は、地色と文字色を反転した面に名前を入れる
       const l = buildScene(inputFor({ badge: LOGO }), measurer);
-      expect(badgeOps(l).length).toBeGreaterThan(0);
-      expect(l.ops.filter((o) => o.op === 'fillRect').length).toBeGreaterThan(1);
+      expect(badgeOps(l)).toHaveLength(1);
+      expect(l.ops.filter((o) => o.op === 'fillRect')).toHaveLength(1);
     });
 
     /*
@@ -495,6 +497,26 @@ describe('Scene の組み立て', () => {
       }
     });
 
+    it('同梱した札（画像）も帯の中に収まり、写真と重ならない', () => {
+      const IMG = { id: 'film:PROVIA', aspect: 300 / 220 };
+      for (const spec of SPECS) {
+        if (spec.caption === 'overlay') continue;
+        for (const place of PLACES) {
+          const scene = buildScene(inputFor({ style: spec, badge: { ...LOGO, place, image: IMG } }), measurer);
+          const photo = scene.ops.find((o) => o.op === 'photo' && o.photo === 'photo');
+          const mark = scene.ops.find((o) => o.op === 'photo' && String(o.photo).startsWith('film:'));
+          const name = `${key(spec)} 刻印:${place}`;
+          expect(mark, name).toBeDefined();
+          if (mark?.op !== 'photo' || photo?.op !== 'photo') continue;
+          expect(mark.dst.w / mark.dst.h, name).toBeCloseTo(IMG.aspect, 3);
+          expect(overlaps(mark.dst, photo.dst), `${name}: 札が写真に掛かる`).toBe(false);
+          expect(mark.dst.x, name).toBeGreaterThanOrEqual(-0.01);
+          expect(mark.dst.x + mark.dst.w, name).toBeLessThanOrEqual((scene.canvas.widthLu as number) + 0.01);
+          expect(mark.dst.y + mark.dst.h, name).toBeLessThanOrEqual((scene.canvas.heightLu as number) + 0.01);
+        }
+      }
+    });
+
     it('重ね（全面）には帯が無いので刻まない', () => {
       const scene = buildScene(inputFor({ style: sp({ margin: 'none', caption: 'overlay' }), badge: LOGO }), measurer);
       expect(badgeOps(scene)).toHaveLength(0);
@@ -519,25 +541,24 @@ describe('Scene の組み立て', () => {
       expect(xOf('center', 'left')).toBeCloseTo(xOf('center', 'right'), 6);
     });
 
-    it('大きさは 小 < 中 < 大。ロゴは正方形。枠は選んだときだけ', () => {
-      const side = (size: 'S' | 'M' | 'L'): { w: number; h: number } => {
-        const scene = buildScene(inputFor({ badge: { ...LOGO, size } }), measurer);
-        const rects = scene.ops.filter((o) => o.op === 'fillRect');
-        const xs = rects.map((r) => (r.op === 'fillRect' ? [r.rect.x as number, (r.rect.x as number) + (r.rect.w as number)] : [0, 0]));
-        const ys = rects.map((r) => (r.op === 'fillRect' ? [r.rect.y as number, (r.rect.y as number) + (r.rect.h as number)] : [0, 0]));
-        return {
-          w: Math.max(...xs.map((a) => a[1]!)) - Math.min(...xs.map((a) => a[0]!)),
-          h: Math.max(...ys.map((a) => a[1]!)) - Math.min(...ys.map((a) => a[0]!)),
-        };
+    it('大きさは 小 < 中 < 大。札は比を保つ。枠は選んだときだけ', () => {
+      const IMG = { id: 'film:PROVIA', aspect: 300 / 220 };
+      const box = (size: 'S' | 'M' | 'L'): { w: number; h: number } => {
+        const scene = buildScene(inputFor({ badge: { ...LOGO, size, image: IMG } }), measurer);
+        const mark = scene.ops.find((o) => o.op === 'photo' && String(o.photo).startsWith('film:'));
+        if (mark?.op !== 'photo') throw new Error('札が無い');
+        return { w: mark.dst.w as number, h: mark.dst.h as number };
       };
-      const s = side('S');
-      const m = side('M');
-      const l = side('L');
-      expect(s.w).toBeLessThan(m.w);
-      expect(m.w).toBeLessThan(l.w);
-      for (const r of [s, m, l]) expect(r.w).toBeCloseTo(r.h, 6);
-      expect(buildScene(inputFor({ badge: LOGO }), measurer).ops.filter((o) => o.op === 'strokeRect')).toHaveLength(0);
-      expect(buildScene(inputFor({ badge: { ...LOGO, framed: true } }), measurer).ops.filter((o) => o.op === 'strokeRect')).toHaveLength(1);
+      const s = box('S');
+      const m = box('M');
+      const l = box('L');
+      expect(s.h).toBeLessThan(m.h);
+      expect(m.h).toBeLessThan(l.h);
+      for (const r of [s, m, l]) expect(r.w / r.h).toBeCloseTo(IMG.aspect, 6);
+      const strokes = (badge: BadgeSpec): number =>
+        buildScene(inputFor({ badge }), measurer).ops.filter((o) => o.op === 'strokeRect').length;
+      expect(strokes({ ...LOGO, image: IMG })).toBe(0);
+      expect(strokes({ ...LOGO, image: IMG, framed: true })).toBe(1);
     });
 
     it('仕上がりの名前はキャプションの項目としても載る', () => {

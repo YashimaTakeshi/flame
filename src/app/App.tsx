@@ -16,6 +16,8 @@ import { OptionRow } from './editor/OptionRow';
 import { TabBar } from './editor/TabBar';
 import { EMPTY_EXIF, readExif, type ExifFacts } from './exif';
 import { ShareApp } from './ui/ShareApp';
+import { ensureFilmLogo, filmLogoImage } from './film-logos';
+import type { BadgeImage } from '../core/badge';
 import { flushSettings } from './state/persist';
 import { fontRefFor, preloadLatinFonts } from './fonts-catalog';
 import { colorOf } from './panels/constants';
@@ -120,6 +122,29 @@ export function App(): React.ReactElement {
 
   const background = useMemo(() => colorOf(doc.colorKey), [doc.colorKey]);
 
+  /*
+   * 仕上がりの札は名前が決まってから取りに行く。
+   * 届くまでは null（名前だけの面に落ちている）で、届いたら状態が変わって組み直される。
+   * ★描いている最中にモジュールの籠を覗かない。★ 覗くと、籠が変わっても React が気づかない。
+   */
+  const filmName = (doc.overrides.film ?? loaded?.exif.film ?? '').trim() || null;
+  const [loadedLogo, setLoadedLogo] = useState<{ name: string; logo: BadgeImage } | null>(null);
+  useEffect(() => {
+    if (doc.badge !== 'logo' || !filmName) return;
+    let alive = true;
+    void ensureFilmLogo(filmName).then((logo) => {
+      if (alive && logo) setLoadedLogo({ name: filmName, logo });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [filmName, doc.badge]);
+  /*
+   * 名前も一緒に覚えておき、一致するときだけ使う。
+   * こうしないと、仕上がりを切り替えた直後の一瞬だけ前の札が新しい名前で出る。
+   */
+  const filmBadge = loadedLogo && loadedLogo.name === filmName ? loadedLogo.logo : null;
+
   const sceneInput: SceneInput | null = useMemo(() => {
     if (!loaded || !fontsReady) return null;
     const font = fontRefFor(doc.fontKey);
@@ -156,10 +181,11 @@ export function App(): React.ReactElement {
               valign: doc.badgeValign,
               size: doc.badgeSize,
               framed: doc.badgeFramed,
+              image: filmBadge,
             }
           : null,
     };
-  }, [loaded, fontsReady, doc, background]);
+  }, [loaded, fontsReady, doc, background, filmBadge]);
 
   /**
    * スタイル定義が破綻していると buildScene は投げる。
@@ -180,13 +206,14 @@ export function App(): React.ReactElement {
   const dragFocus = useDoc((s) => s.dragFocus);
   usePan(canvasRef, scene, bleed && loaded !== null, readFocus, beginDrag, dragFocus);
 
-  const preview = usePreview(
-    canvasRef,
-    stageRef,
-    scene,
-    loaded?.decoded.bitmap ?? null,
-    EXPORT_LONG_EDGE,
+  /** 描くときに識別子から画像を引く。写真は1枚、札は名前ごと */
+  const previewImage = useCallback(
+    (id: string): CanvasImageSource | null =>
+      id === 'photo' ? (loaded?.decoded.bitmap ?? null) : filmLogoImage(id),
+    [loaded],
   );
+
+  const preview = usePreview(canvasRef, stageRef, scene, previewImage, EXPORT_LONG_EDGE);
 
   const pick = useCallback(async (file: File) => {
     setBusy('写真を読み込んでいます');
@@ -221,7 +248,7 @@ export function App(): React.ReactElement {
       }
       try {
         renderScene(scene, canvas.ctx, target, {
-          photo: () => full.bitmap,
+          photo: (id) => (id === 'photo' ? full.bitmap : filmLogoImage(id)),
           grainTile: () => null,
           verticalText: () => null,
         });

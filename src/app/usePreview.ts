@@ -14,6 +14,7 @@ import type { Scene } from '../core/scene/scene';
 import { renderScene } from '../render/executor';
 import { createVerifiedCanvas, release, type AnyCanvas, type Ctx } from '../render/guards';
 import { grainTileFor } from '../render/resources/grainTiles';
+import type { PhotoId } from '../core/scene/ops';
 import type { RenderResources } from '../render/resources/types';
 import { makePreviewTarget } from '../render/target';
 
@@ -28,7 +29,8 @@ export function usePreview(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   hostRef: React.RefObject<HTMLElement | null>,
   scene: Scene | null,
-  photo: CanvasImageSource | null,
+  /** 識別子から画像を引く。写真のほかに仕上がりの札も載るので、1枚では足りない */
+  image: (id: PhotoId) => CanvasImageSource | null,
   exportLongEdge: number,
 ): PreviewState {
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export function usePreview(
         }
 
         const resources: RenderResources = {
-          photo: () => photo,
+          photo: (id) => image(id),
           grainTile: (op, t) => {
             const tile = grainTileFor(op, t);
             const hostCtx = patternHost.current;
@@ -102,7 +104,7 @@ export function usePreview(
       if (raf.current) cancelAnimationFrame(raf.current);
       raf.current = 0;
     };
-  }, [canvasRef, hostRef, scene, photo, exportLongEdge]);
+  }, [canvasRef, hostRef, scene, image, exportLongEdge]);
 
   useEffect(
     () => () => {

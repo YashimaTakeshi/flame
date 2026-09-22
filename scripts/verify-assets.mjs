@@ -81,6 +81,28 @@ for (const [file, max] of [['public/geo/jp-municipalities.json', 120 * 1024],
   check(file.replace('public/geo/', '地名 '), statSync(p).size, max);
 }
 
+// --- 仕上がりの札（フィルムシミュレーションのロゴ）---
+// 目録が正。ファイル名はコードに直書きしていないので、目録と実体がずれても画面は
+// 静かに「名前だけの札」に落ちて気づけない。ここで実体と大きさを突き合わせる。
+const filmManifestPath = resolve(root, 'public/film/manifest.json');
+if (!existsSync(filmManifestPath)) {
+  errors.push('public/film/manifest.json がありません。npm run assets:film を実行してください');
+} else {
+  const film = JSON.parse(readFileSync(filmManifestPath, 'utf8'));
+  let filmTotal = 0;
+  for (const [name, e] of Object.entries(film.logos ?? {})) {
+    const p = resolve(root, 'public', e.file);
+    if (!existsSync(p)) { errors.push(`札 ${name}: ${e.file} がありません`); continue; }
+    const size = statSync(p).size;
+    if (size !== e.bytes) errors.push(`札 ${name}: 実サイズ ${size} が目録の ${e.bytes} と違います`);
+    if (e.sha256 && sha256(p) !== e.sha256) errors.push(`札 ${name}: 中身が目録の sha256 と一致しません`);
+    if (!(e.w > 0 && e.h > 0)) errors.push(`札 ${name}: 大きさが目録にありません（縦横比を出せません）`);
+    filmTotal += size;
+  }
+  // 1枚ずつ必要になったときだけ取りに行く。全部足してもこの程度に収める
+  check('仕上がりの札 合計', filmTotal, 300 * 1024);
+}
+
 // --- アプリの印（アイコン）---
 // 写真を含む絵なので、減色を外すと 512px が 430KB に戻る。
 // マニフェストに載せた印が全部あることと、膨らんでいないことを見る。

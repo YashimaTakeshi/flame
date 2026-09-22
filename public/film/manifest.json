@@ -1,0 +1,95 @@
+{
+  "logos": {
+    "ACROS": {
+      "file": "film/acros.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 6004,
+      "sha256": "a0f83a7534e2210f67301fc9546c87a2dde2c0e26e21e50272e3e89ddf3c3a51"
+    },
+    "ASTIA": {
+      "file": "film/astia.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 6128,
+      "sha256": "b67a06c6d539e4d76ad59f198327b60620aa2101712e64ed649c7b89ab5b3cd3"
+    },
+    "CLASSIC CHROME": {
+      "file": "film/classic-chrome.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 10946,
+      "sha256": "4496a472351125144c0cd0039f76ea53dc074ef3709ab97a04dad4389f0f261d"
+    },
+    "CLASSIC Neg.": {
+      "file": "film/classic-neg.webp",
+      "w": 300,
+      "h": 221,
+      "bytes": 9144,
+      "sha256": "f3d3c30e2bcea5204e54f6423ca6821979059c7be2aa70bb93b08bbd1f01099a"
+    },
+    "ETERNA BLEACH BYPASS": {
+      "file": "film/eterna-bleach-bypass.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 10002,
+      "sha256": "a2847f4c6a5e027000893d57aee2c508b0f82af97dca19fd2930a67d24d094d4"
+    },
+    "ETERNA": {
+      "file": "film/eterna.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 5866,
+      "sha256": "7f38c9f16c23b85cb767d408213c0f64f68955849991acb80bfb1c21af3e6610"
+    },
+    "NOSTALGIC Neg.": {
+      "file": "film/nostalgic-neg.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 8870,
+      "sha256": "94e89373b813bdd23bca6349a31d6400f61b31b1839e4a6c28e63e6f9b0f31be"
+    },
+    "PRO Neg. Hi": {
+      "file": "film/pro-neg-hi.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 6642,
+      "sha256": "d938c3005a490973a0b0d8c56fc5c3f7f20fbdbd90cd6b9f62f395cc685f75cf"
+    },
+    "PRO Neg. Std": {
+      "file": "film/pro-neg-std.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 6396,
+      "sha256": "37adcbf04aed5cf503d32ee772913b29ad7de6c360eafc4e216751d1d7606b1a"
+    },
+    "PROVIA": {
+      "file": "film/provia.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 7424,
+      "sha256": "feecff117435d935a90efbd3e9f4dda025b36c51d0a936f3f6afc0ada439ee8f"
+    },
+    "REALA ACE": {
+      "file": "film/reala-ace.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 10456,
+      "sha256": "f27298ef02ec434825e0f0b765b01b457145a9d441f5d573556d9b8f0ce2655d"
+    },
+    "SEPIA": {
+      "file": "film/sepia.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 7094,
+      "sha256": "46809687b6ad9aac55094b3fa6e53b824e0e2a19da3ec7eb72fdadf2bdb9d935"
+    },
+    "Velvia": {
+      "file": "film/velvia.webp",
+      "w": 300,
+      "h": 220,
+      "bytes": 5812,
+      "sha256": "db1b93354baa00a82672a12aa4914ac40dedf52b597b84f3842d7f3a599d6c0f"
+    }
+  }
+}
