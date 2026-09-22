@@ -375,8 +375,8 @@ describe('Scene の組み立て', () => {
     const badgeOps = (scene: ReturnType<typeof buildScene>) =>
       scene.ops.filter((o) => o.op === 'text' && o.id.startsWith('badge'));
     const overlaps = (a: R, b: R): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-    const LOGO = { text: 'CLASSIC CHROME', mode: 'logo' } as const;
-    const TEXT = { text: 'CLASSIC CHROME', mode: 'text' } as const;
+    const LOGO = { text: 'CLASSIC CHROME', mode: 'logo', align: 'center', size: 'M', framed: false } as const;
+    const TEXT = { text: 'CLASSIC CHROME', mode: 'text', align: 'center', size: 'M', framed: true } as const;
 
     it('渡さなければ刻まない。文字は枠1本と文字1つ、ロゴは版の面が出る', () => {
       expect(badgeOps(buildScene(inputFor(), measurer))).toHaveLength(0);
@@ -439,14 +439,36 @@ describe('Scene の組み立て', () => {
       expect(badgeOps(only).length).toBeGreaterThan(0);
     });
 
-    it('揃えに従う', () => {
-      const xs = (['left', 'center', 'right'] as const).map((align) => {
-        const scene = buildScene(inputFor({ badge: TEXT, align }), measurer);
+    it('左右は刻印自身の位置に従い、キャプションの揃えには従わない', () => {
+      const xOf = (align: 'left' | 'center' | 'right', capAlign: 'left' | 'center' | 'right'): number => {
+        const scene = buildScene(inputFor({ badge: { ...TEXT, align }, align: capAlign }), measurer);
         const r = scene.ops.find((o) => o.op === 'strokeRect');
         return r?.op === 'strokeRect' ? (r.rect.x as number) : NaN;
-      });
-      expect(xs[0]).toBeLessThan(xs[1]!);
-      expect(xs[1]).toBeLessThan(xs[2]!);
+      };
+      expect(xOf('left', 'right')).toBeLessThan(xOf('center', 'right'));
+      expect(xOf('center', 'left')).toBeLessThan(xOf('right', 'left'));
+      expect(xOf('center', 'left')).toBeCloseTo(xOf('center', 'right'), 6);
+    });
+
+    it('大きさは 小 < 中 < 大。ロゴは正方形。枠は選んだときだけ', () => {
+      const side = (size: 'S' | 'M' | 'L'): { w: number; h: number } => {
+        const scene = buildScene(inputFor({ badge: { ...LOGO, size } }), measurer);
+        const rects = scene.ops.filter((o) => o.op === 'fillRect');
+        const xs = rects.map((r) => (r.op === 'fillRect' ? [r.rect.x as number, (r.rect.x as number) + (r.rect.w as number)] : [0, 0]));
+        const ys = rects.map((r) => (r.op === 'fillRect' ? [r.rect.y as number, (r.rect.y as number) + (r.rect.h as number)] : [0, 0]));
+        return {
+          w: Math.max(...xs.map((a) => a[1]!)) - Math.min(...xs.map((a) => a[0]!)),
+          h: Math.max(...ys.map((a) => a[1]!)) - Math.min(...ys.map((a) => a[0]!)),
+        };
+      };
+      const s = side('S');
+      const m = side('M');
+      const l = side('L');
+      expect(s.w).toBeLessThan(m.w);
+      expect(m.w).toBeLessThan(l.w);
+      for (const r of [s, m, l]) expect(r.w).toBeCloseTo(r.h, 6);
+      expect(buildScene(inputFor({ badge: LOGO }), measurer).ops.filter((o) => o.op === 'strokeRect')).toHaveLength(0);
+      expect(buildScene(inputFor({ badge: { ...LOGO, framed: true } }), measurer).ops.filter((o) => o.op === 'strokeRect')).toHaveLength(1);
     });
 
     it('仕上がりの名前はキャプションの項目としても載る', () => {

@@ -5,22 +5,32 @@
  * 帯の高さは compose がこの塊の高さを足して決めるので、写真と重なることはない。
  *
  * 2つの見せ方:
- *   text … 地の色に細い枠と名前。どの書体・地色でも馴染む
- *   logo … 富士フイルムの各フィルムの札に倣った配色の版。名前ごとに配色を持ち、
+ *   text … 地の色に名前。枠あり／なし
+ *   logo … 富士フイルムの各フィルムの札に倣った**正方形**の配色の版。名前ごとに配色を持ち、
  *          知らない名前（他社のピクチャーコントロール等）は地色と文字色を反転した札にする
+ *
+ * 位置（左・中・右）と大きさ（小・中・大）と枠線はキャプションとは独立に選ぶ。
+ * 地色と版の色が同じ（黒地に ETERNA、白地に Velvia）ときは枠線を入れると輪郭が出る。
  *
  * ★ロゴの絵（ビットマップ）は同梱しない。配色と文字だけで組む。★
  * 実行層は measureText を呼ばないので、文字の寸法はここで測って確定させる。
  */
 import { advanceFor, ascentFor, descentFor, type TextMeasurer } from './ports';
 import { rgba, type DrawOp, type FontRef, type Rgba } from './scene/ops';
+import type { Align } from './styles/types';
 import { hairline, lu, point, px, rect, type RectLu } from './units';
 
 export type BadgeMode = 'none' | 'text' | 'logo';
+export type BadgeSize = 'S' | 'M' | 'L';
 
 export interface BadgeSpec {
   readonly text: string;
   readonly mode: 'text' | 'logo';
+  /** 帯の中での左右。キャプションの揃えとは別に選ぶ */
+  readonly align: Align;
+  readonly size: BadgeSize;
+  /** 地の色でヘアラインの枠を回す */
+  readonly framed: boolean;
 }
 
 export interface BadgeContext {
@@ -45,14 +55,14 @@ export interface BadgeBlock {
 
 /* ── 寸法 ───────────────────────────────────────────────── */
 
-/** ロゴ版の高さ。基準サイズの倍。Medium(16lu) で 72lu（幅の約 12%）。参考アプリの札とほぼ同じ大きさ */
-const LOGO_HEIGHT_EM = 4.5;
-/** 文字版の文字サイズ。キャプションより一段小さい */
-const TEXT_SIZE_EM = 0.85;
+/** ロゴ版の一辺。基準サイズの倍。Medium(16lu) で 小48 / 中72 / 大96 lu（幅の 5〜10%） */
+const LOGO_EM: Readonly<Record<BadgeSize, number>> = { S: 3, M: 4.5, L: 6 };
+/** 文字版の文字サイズ。基準サイズの倍 */
+const TEXT_EM: Readonly<Record<BadgeSize, number>> = { S: 0.7, M: 0.85, L: 1.05 };
 const TEXT_TRACK_EM = 0.1;
 const TEXT_PAD_X_EM = 0.6;
 const TEXT_PAD_Y_EM = 0.35;
-const TEXT_FRAME_LU = 1.2;
+const FRAME_LU = 1.2;
 
 /* ── ロゴの配色 ─────────────────────────────────────────── */
 
@@ -64,6 +74,7 @@ const COND = 'Oswald';
 const G: Rgba = rgba(0, 166, 81); // 富士フイルムの緑
 const K: Rgba = rgba(0, 0, 0);
 const W: Rgba = rgba(255, 255, 255);
+const DARK: Rgba = rgba(30, 30, 30);
 
 interface LRect {
   readonly k: 'rect';
@@ -92,16 +103,15 @@ interface LText {
   readonly c: Rgba;
   readonly face: string;
   readonly weight: 400 | 700;
-  readonly align: 'left' | 'center' | 'right';
+  readonly align: Align;
 }
 type LPart = LRect | LGrad | LText;
 
-/** 設計単位で描いた版。幅 100 を基準に、高さは版ごと */
+/** 設計単位で描いた版。**すべて 100 × 100 の正方形** */
 interface LogoDesign {
-  readonly w: number;
-  readonly h: number;
   readonly parts: readonly LPart[];
 }
+const DESIGN = 100;
 
 const R = (x: number, y: number, w: number, h: number, c: Rgba): LRect => ({ k: 'rect', x, y, w, h, c });
 const T = (
@@ -113,81 +123,69 @@ const T = (
   c: Rgba,
   face: string = SANS,
   weight: 400 | 700 = 700,
-  align: 'left' | 'center' | 'right' = 'center',
+  align: Align = 'center',
 ): LText => ({ k: 'text', t, x, y, w, h, c, face, weight, align });
 
-/** 上に付く緑の札。多くの版に共通 */
-const TAB: LRect = R(8, 0, 48, 16, G);
+/** 上に付く緑の札。多くの版では左上に */
+const TAB: LRect = R(0, 0, 55, 26, G);
 
 const LOGOS: Readonly<Record<string, LogoDesign>> = {
   PROVIA: {
-    w: 100,
-    h: 80,
-    parts: [TAB, R(0, 16, 100, 48, rgba(29, 79, 158)), T('PROVIA', 6, 20, 88, 40, W, SERIF), R(0, 64, 100, 16, K)],
+    parts: [R(35, 0, 65, 28, G), R(0, 28, 100, 52, rgba(29, 79, 158)), T('PROVIA', 4, 32, 92, 44, W, SERIF), R(0, 80, 100, 20, K)],
   },
   Velvia: {
-    w: 100,
-    h: 60,
-    parts: [TAB, R(8, 16, 92, 36, W), R(0, 16, 8, 36, G), T('Velvia', 12, 18, 84, 32, K, SERIF), R(0, 52, 100, 8, G)],
+    parts: [R(0, 0, 60, 28, G), R(0, 28, 100, 50, W), R(0, 28, 10, 50, G), T('Velvia', 14, 32, 82, 42, K, SERIF), R(0, 78, 100, 22, G)],
   },
   ASTIA: {
-    w: 100,
-    h: 60,
-    parts: [TAB, R(0, 16, 100, 36, rgba(176, 150, 105)), T('ASTIA', 6, 18, 88, 32, rgba(30, 30, 30)), R(0, 52, 100, 8, rgba(120, 100, 66))],
+    parts: [TAB, R(0, 26, 100, 74, rgba(176, 150, 105)), T('ASTIA', 6, 40, 88, 40, rgba(25, 35, 60)), R(0, 90, 40, 10, rgba(25, 35, 60))],
   },
   'CLASSIC CHROME': {
-    w: 100,
-    h: 60,
     parts: [
-      R(0, 0, 100, 60, rgba(120, 80, 40)),
-      R(12, 0, 8, 60, rgba(220, 120, 40)),
-      R(15, 0, 2, 60, rgba(200, 30, 30)),
-      R(80, 0, 8, 60, rgba(220, 120, 40)),
-      R(83, 0, 2, 60, rgba(200, 30, 30)),
-      T('FUJI', 24, 8, 52, 18, W, COND),
-      T('CLASSIC CHROME', 24, 30, 52, 20, W, COND),
+      R(0, 0, 100, 100, rgba(120, 80, 40)),
+      R(10, 0, 10, 100, rgba(220, 120, 40)),
+      R(14, 0, 2, 100, rgba(200, 30, 30)),
+      R(80, 0, 10, 100, rgba(220, 120, 40)),
+      R(84, 0, 2, 100, rgba(200, 30, 30)),
+      T('FUJI', 24, 22, 52, 24, W, COND),
+      T('CLASSIC CHROME', 22, 52, 56, 20, W, COND),
     ],
   },
   'REALA ACE': {
-    w: 100,
-    h: 60,
-    parts: [TAB, R(0, 16, 100, 36, rgba(25, 40, 70)), T('REALA ACE', 6, 18, 88, 32, W), R(0, 52, 100, 8, rgba(200, 25, 45))],
+    parts: [TAB, R(0, 26, 100, 62, rgba(25, 40, 70)), T('REALA', 6, 30, 88, 30, W), T('ACE', 6, 60, 88, 26, W, SANS, 700, 'right'), R(0, 88, 100, 12, rgba(200, 25, 45))],
   },
   'PRO Neg. Hi': {
-    w: 100,
-    h: 60,
     parts: [
       TAB,
-      R(0, 16, 100, 36, rgba(60, 60, 60)),
-      T('PRO Neg.', 4, 18, 56, 32, W, SERIF, 700, 'left'),
-      T('Hi', 62, 18, 34, 32, W, SERIF, 400, 'right'),
-      R(0, 52, 100, 8, rgba(120, 60, 160)),
+      R(0, 26, 100, 62, rgba(60, 60, 60)),
+      R(0, 26, 5, 62, rgba(120, 60, 160)),
+      T('PRO', 10, 30, 46, 30, W, SERIF, 700, 'left'),
+      T('Neg.', 10, 60, 46, 22, W, SERIF, 700, 'left'),
+      T('Hi', 58, 30, 38, 52, W, SERIF, 400, 'right'),
+      R(0, 88, 100, 12, rgba(120, 60, 160)),
     ],
   },
   'PRO Neg. Std': {
-    w: 100,
-    h: 60,
     parts: [
       TAB,
-      R(0, 16, 100, 36, rgba(200, 196, 190)),
-      T('PRO Neg.', 4, 18, 56, 32, rgba(30, 30, 30), SERIF, 700, 'left'),
-      T('Std', 62, 18, 34, 32, rgba(30, 30, 30), SERIF, 400, 'right'),
-      R(0, 52, 100, 8, rgba(190, 30, 120)),
+      R(0, 26, 100, 62, rgba(200, 196, 190)),
+      R(0, 26, 5, 62, rgba(190, 30, 120)),
+      T('PRO', 10, 30, 46, 30, DARK, SERIF, 700, 'left'),
+      T('Neg.', 10, 60, 46, 22, DARK, SERIF, 700, 'left'),
+      T('Std', 58, 30, 38, 52, DARK, SERIF, 400, 'right'),
+      R(0, 88, 100, 12, rgba(190, 30, 120)),
     ],
   },
   'CLASSIC Neg.': {
-    w: 100,
-    h: 60,
     parts: [
-      R(0, 0, 100, 52, rgba(240, 195, 50)),
-      T('CLASSIC', 6, 4, 88, 28, rgba(200, 20, 45)),
-      T('Neg.', 6, 32, 88, 18, rgba(200, 20, 45), SANS, 700, 'right'),
+      R(0, 0, 100, 100, rgba(240, 195, 50)),
+      T('CLASSIC', 6, 14, 88, 36, rgba(200, 20, 45)),
+      T('Neg.', 6, 50, 88, 22, rgba(200, 20, 45), SANS, 700, 'right'),
       {
         k: 'grad',
         x: 0,
-        y: 52,
-        w: 100,
-        h: 8,
+        y: 84,
+        w: 62,
+        h: 10,
         stops: [
           [0, rgba(40, 90, 180)],
           [0.5, rgba(250, 200, 60)],
@@ -197,45 +195,40 @@ const LOGOS: Readonly<Record<string, LogoDesign>> = {
     ],
   },
   'NOSTALGIC Neg.': {
-    w: 100,
-    h: 60,
-    parts: [TAB, R(0, 16, 100, 36, W), T('NOSTALGIC Neg.', 4, 18, 92, 32, K), R(0, 52, 100, 5, rgba(240, 150, 40)), R(0, 57, 100, 3, rgba(245, 215, 60))],
-  },
-  ETERNA: {
-    w: 100,
-    h: 60,
-    parts: [TAB, R(0, 16, 100, 44, K), T('ETERNA', 6, 20, 88, 34, rgba(200, 165, 80), SERIF)],
-  },
-  'ETERNA BLEACH BYPASS': {
-    w: 100,
-    h: 70,
     parts: [
       TAB,
-      R(0, 16, 100, 26, K),
-      T('ETERNA', 6, 18, 88, 22, W, SERIF),
-      R(0, 42, 100, 28, rgba(185, 200, 210)),
-      T('BLEACH BYPASS', 6, 45, 88, 22, rgba(30, 30, 30)),
+      R(0, 26, 100, 58, W),
+      R(0, 26, 4, 58, rgba(220, 60, 40)),
+      T('NOSTALGIC', 8, 30, 88, 30, K),
+      T('Neg.', 8, 60, 88, 22, K, SANS, 700, 'right'),
+      R(0, 84, 100, 9, rgba(240, 150, 40)),
+      R(0, 93, 100, 7, rgba(245, 215, 60)),
+    ],
+  },
+  ETERNA: {
+    parts: [TAB, R(0, 26, 100, 74, K), T('ETERNA', 6, 40, 88, 44, rgba(200, 165, 80), SERIF)],
+  },
+  'ETERNA BLEACH BYPASS': {
+    parts: [
+      TAB,
+      R(0, 26, 100, 30, K),
+      T('ETERNA', 6, 28, 88, 26, W, SERIF),
+      R(0, 56, 100, 44, rgba(185, 200, 210)),
+      T('BLEACH', 6, 58, 88, 20, DARK),
+      T('BYPASS', 6, 78, 88, 20, DARK),
     ],
   },
   'BLEACH BYPASS': {
-    w: 100,
-    h: 60,
-    parts: [TAB, R(0, 16, 100, 36, rgba(185, 200, 210)), T('BLEACH BYPASS', 6, 18, 88, 32, rgba(30, 30, 30)), R(0, 52, 100, 8, K)],
+    parts: [TAB, R(0, 26, 100, 62, rgba(185, 200, 210)), T('BLEACH', 6, 30, 88, 28, DARK), T('BYPASS', 6, 58, 88, 28, DARK), R(0, 88, 100, 12, K)],
   },
   ACROS: {
-    w: 100,
-    h: 60,
-    parts: [TAB, R(0, 16, 100, 36, rgba(55, 55, 55)), T('ACROS', 6, 18, 88, 32, W, SERIF), R(0, 52, 100, 8, rgba(90, 90, 90))],
+    parts: [TAB, R(0, 26, 100, 26, rgba(120, 120, 120)), R(0, 52, 100, 48, rgba(45, 45, 45)), T('ACROS', 6, 56, 88, 40, W, SERIF)],
   },
   MONOCHROME: {
-    w: 100,
-    h: 60,
-    parts: [TAB, R(0, 16, 100, 36, W), T('MONOCHROME', 4, 18, 92, 32, K), R(0, 52, 100, 8, K)],
+    parts: [TAB, R(0, 26, 100, 62, W), T('MONO', 6, 30, 88, 28, K), T('CHROME', 6, 58, 88, 28, K), R(0, 88, 100, 12, K)],
   },
   SEPIA: {
-    w: 100,
-    h: 60,
-    parts: [TAB, R(0, 16, 100, 36, rgba(200, 165, 120)), T('SEPIA', 6, 18, 88, 32, rgba(70, 45, 25), SERIF), R(0, 52, 100, 8, rgba(70, 45, 25))],
+    parts: [TAB, R(0, 26, 100, 62, rgba(200, 165, 120)), T('SEPIA', 6, 34, 88, 46, rgba(70, 45, 25), SERIF), R(0, 88, 100, 12, rgba(70, 45, 25))],
   },
 };
 
@@ -247,11 +240,7 @@ const baseName = (name: string): string => name.replace(/\s\+\w+$/, '').trim();
 
 /** 知らない名前の版。地色と文字色を反転した札。他社の名前もこれで置ける */
 function genericLogo(text: string, ink: Rgba, background: Rgba): LogoDesign {
-  return {
-    w: 100,
-    h: 60,
-    parts: [R(0, 0, 100, 60, ink), T(text, 6, 6, 88, 48, background)],
-  };
+  return { parts: [R(0, 0, 100, 100, ink), T(text, 6, 8, 88, 84, background)] };
 }
 
 export function logoFor(name: string, ink: Rgba, background: Rgba): LogoDesign {
@@ -316,13 +305,23 @@ function textOp(
   };
 }
 
+/** 塊の外周にヘアラインの枠。地色と版の色が同じときの輪郭 */
+const frameOp = (x: number, y: number, w: number, h: number, color: Rgba): DrawOp => ({
+  op: 'strokeRect',
+  resolution: 'invariant',
+  rect: rect(x, y, w, h),
+  color,
+  width: hairline(lu(FRAME_LU), px(1)),
+  snap: 'device-pixel-when-preview',
+});
+
 function buildLogo(spec: BadgeSpec, ctx: BadgeContext, measurer: TextMeasurer): BadgeBlock | null {
   const design = logoFor(spec.text, ctx.ink, ctx.background);
-  const targetH = ctx.baseSize * LOGO_HEIGHT_EM;
-  const scale = Math.min(targetH / design.h, ctx.maxW / design.w);
+  const side = Math.min(ctx.baseSize * LOGO_EM[spec.size], ctx.maxW);
+  const scale = side / DESIGN;
   if (!(scale > 0)) return null;
-  const w = design.w * scale;
-  const h = design.h * scale;
+  const w = side;
+  const h = side;
   return {
     w,
     h,
@@ -359,13 +358,14 @@ function buildLogo(spec: BadgeSpec, ctx: BadgeContext, measurer: TextMeasurer): 
           ops.push(textOp(`badge-${n++}`, p.t, f.font, f.size, 0, f.width, f.ascent, f.descent, left, baseline, p.c));
         }
       }
+      if (spec.framed) ops.push(frameOp(x, y, w, h, ctx.ink));
       return ops;
     },
   };
 }
 
 function buildText(spec: BadgeSpec, ctx: BadgeContext, measurer: TextMeasurer): BadgeBlock | null {
-  const size = ctx.baseSize * TEXT_SIZE_EM;
+  const size = ctx.baseSize * TEXT_EM[spec.size];
   const font: FontRef = { family: ctx.family, weight: ctx.weight };
   const m = measurer.measure(spec.text, font);
   const track = size * TEXT_TRACK_EM;
@@ -381,17 +381,11 @@ function buildText(spec: BadgeSpec, ctx: BadgeContext, measurer: TextMeasurer): 
     w,
     h,
     emit(x, y) {
-      return [
-        {
-          op: 'strokeRect',
-          resolution: 'invariant',
-          rect: rect(x, y, w, h),
-          color: ctx.ink,
-          width: hairline(lu(TEXT_FRAME_LU), px(1)),
-          snap: 'device-pixel-when-preview',
-        },
+      const ops: DrawOp[] = [
         textOp('badge', spec.text, font, size, track, width, ascent, descent, x + padX, y + padY + ascent, ctx.ink),
       ];
+      if (spec.framed) ops.push(frameOp(x, y, w, h, ctx.ink));
+      return ops;
     },
   };
 }

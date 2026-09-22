@@ -205,13 +205,13 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
     y += line.lineHeight;
   }
 
-  /* 6b. 刻印。文字の下、揃えに従う */
+  /* 6b. 刻印。文字の下。左右は刻印自身の位置に従う（キャプションの揃えとは別） */
   if (badge) {
     const box = layout.captionBox;
     const bx =
-      input.align === 'left'
+      input.badge?.align === 'left'
         ? (box.x as number)
-        : input.align === 'right'
+        : input.badge?.align === 'right'
           ? (box.x as number) + (box.w as number) - badge.w
           : (box.x as number) + ((box.w as number) - badge.w) / 2;
     const by = (box.y as number) + typeset.heightLu + badgeGap;

@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { DEFAULT_SPEC, normalize } from '../../core/styles/spec';
 import { CENTER_FOCUS, type Align, type FieldId, type Focus, type SizeId, type StyleSpec, type TrackingId } from '../../core/styles/types';
-import type { BadgeMode } from '../../core/badge';
+import type { BadgeMode, BadgeSize } from '../../core/badge';
 import type { LatinFontKey } from '../fonts-catalog';
 
 export interface Overrides {
@@ -36,6 +36,11 @@ export interface DocState {
   readonly overrides: Overrides;
   /** 仕上がりの刻印。帯の中、文字の下に置く。名前が分かるときだけ効く */
   readonly badge: BadgeMode;
+  /** 刻印の左右。キャプションの揃えとは独立 */
+  readonly badgeAlign: Align;
+  readonly badgeSize: BadgeSize;
+  /** 刻印の外周にヘアラインの枠。地色と版の色が同じときに */
+  readonly badgeFramed: boolean;
 }
 
 export const DEFAULT_FIELDS: Record<FieldId, boolean> = {
@@ -64,6 +69,9 @@ const INITIAL: DocState = {
   fields: DEFAULT_FIELDS,
   overrides: { camera: null, lens: null, date: null, film: null },
   badge: 'logo',
+  badgeAlign: 'center',
+  badgeSize: 'M',
+  badgeFramed: false,
 };
 
 interface DocStore extends DocState {
@@ -97,6 +105,9 @@ const snapshot = (s: DocState): DocState => ({
   fields: s.fields,
   overrides: s.overrides,
   badge: s.badge,
+  badgeAlign: s.badgeAlign,
+  badgeSize: s.badgeSize,
+  badgeFramed: s.badgeFramed,
 });
 
 export const useDoc = create<DocStore>((set, get) => ({

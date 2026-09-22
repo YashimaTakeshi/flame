@@ -1,7 +1,7 @@
 /** 画面の状態。設定そのものとは分けて持つ */
 import { create } from 'zustand';
 
-export type TabId = 'place' | 'layout' | 'color' | 'font' | 'info';
+export type TabId = 'place' | 'layout' | 'color' | 'font' | 'badge' | 'info';
 export type SheetId = 'info' | 'export' | 'diagnostics' | null;
 
 export const TABS: { id: TabId; label: string }[] = [
@@ -9,6 +9,7 @@ export const TABS: { id: TabId; label: string }[] = [
   { id: 'layout', label: '組み' },
   { id: 'color', label: '地色' },
   { id: 'font', label: '書体' },
+  { id: 'badge', label: '刻印' },
   { id: 'info', label: '情報' },
 ];
 

@@ -76,6 +76,15 @@ export const IconInfo = ({ size = 22 }: P): React.ReactElement => (
   </svg>
 );
 
+/** 刻印（札。上に小さな帯、下に太い帯） */
+export const IconStamp = ({ size = 22 }: P): React.ReactElement => (
+  <svg {...base(size)}>
+    <rect x="4" y="4" width="16" height="16" />
+    <path d="M4 9h9" />
+    <rect x="4" y="15" width="16" height="5" fill="currentColor" stroke="none" opacity="0.35" />
+  </svg>
+);
+
 /** 初期値に戻す（反時計回りの矢印） */
 export const IconReset = ({ size = 20 }: P): React.ReactElement => (
   <svg {...base(size)}>

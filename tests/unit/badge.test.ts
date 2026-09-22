@@ -10,6 +10,7 @@ const measurer: TextMeasurer = {
   isAvailable: () => true,
 };
 const ctx = { baseSize: 16, maxW: 900, ink: INK, background: WHITE, family: 'Arimo', weight: 400 as const };
+const L = (text: string, over: Partial<Parameters<typeof buildBadge>[0]> = {}): Parameters<typeof buildBadge>[0] => ({ text, mode: 'logo', align: 'center', size: 'M', framed: false, ...over });
 
 describe('刻印の版', () => {
   it('FUJIFILM から読み取れる名前には、すべて専用の配色がある', () => {
@@ -37,16 +38,17 @@ describe('刻印の版', () => {
   });
 
   it('ロゴの高さは基準サイズに比例し、段の幅を越えない', () => {
-    const a = buildBadge({ text: 'PROVIA', mode: 'logo' }, ctx, measurer);
-    const b = buildBadge({ text: 'PROVIA', mode: 'logo' }, { ...ctx, baseSize: 32 }, measurer);
+    const a = buildBadge(L('PROVIA'), ctx, measurer);
+    const b = buildBadge(L('PROVIA'), { ...ctx, baseSize: 32 }, measurer);
     expect(a && b && b.h / a.h).toBeCloseTo(2, 6);
-    const narrow = buildBadge({ text: 'PROVIA', mode: 'logo' }, { ...ctx, maxW: 30 }, measurer);
+    expect(a && a.w / a.h).toBeCloseTo(1, 6);
+    const narrow = buildBadge(L('PROVIA'), { ...ctx, maxW: 30 }, measurer);
     expect(narrow?.w).toBeLessThanOrEqual(30 + 1e-9);
   });
 
   it('版の文字は箱からはみ出さない（どの書体でも幅を実測して縮める）', () => {
     for (const name of LOGO_NAMES) {
-      const block = buildBadge({ text: name, mode: 'logo' }, ctx, measurer);
+      const block = buildBadge(L(name), ctx, measurer);
       expect(block, name).not.toBeNull();
       if (!block) continue;
       for (const op of block.emit(0, 0)) {
@@ -59,7 +61,7 @@ describe('刻印の版', () => {
   });
 
   it('文字の刻印は段より広ければ置かない。空の名前も置かない', () => {
-    expect(buildBadge({ text: 'ETERNA BLEACH BYPASS', mode: 'text' }, { ...ctx, maxW: 40 }, measurer)).toBeNull();
-    expect(buildBadge({ text: '  ', mode: 'logo' }, ctx, measurer)).toBeNull();
+    expect(buildBadge(L('ETERNA BLEACH BYPASS', { mode: 'text' }), { ...ctx, maxW: 40 }, measurer)).toBeNull();
+    expect(buildBadge(L('  '), ctx, measurer)).toBeNull();
   });
 });

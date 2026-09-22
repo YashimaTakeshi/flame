@@ -1,18 +1,19 @@
 /**
- * タブバー。印の下に名前。5つとも。
+ * タブバー。印の下に名前。6つとも。
  *
  * 一度「選んでいるタブにだけ名前」を試したが、配置と組みはどちらもレイアウトの印になり、
  * 押すまで区別が付かなかった。2文字の名前は文字数として無視できる。全部に添える。
  */
 import { TABS, useUi, type TabId } from '../state/ui';
 import { useDoc } from '../state/doc';
-import { IconFont, IconInfo, IconPlace, IconSwatch, IconType } from '../ui/icons';
+import { IconFont, IconInfo, IconPlace, IconStamp, IconSwatch, IconType } from '../ui/icons';
 
 const ICONS: Record<TabId, React.ReactElement> = {
   place: <IconPlace />,
   layout: <IconType />,
   color: <IconSwatch />,
   font: <IconFont />,
+  badge: <IconStamp />,
   info: <IconInfo />,
 };
 

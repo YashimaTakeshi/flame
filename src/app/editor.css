@@ -324,7 +324,7 @@
   max-width: 420px;
   height: 52px;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   padding: 4px;
   border-radius: var(--radius-pill);
   background: var(--surface);
@@ -569,8 +569,7 @@
 .p-info {
   height: 100%;
   display: grid;
-  /* 一覧 / 刻印のホイール / 印。ホイールは他のタブの1列と同じ幅 */
-  grid-template-columns: minmax(0, 1fr) 88px auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--s2);
   padding: var(--s1) var(--gutter);
@@ -733,7 +732,8 @@
   color: var(--ink-2);
 }
 
-.card__row input {
+.card__row input,
+.card__row select {
   width: 100%;
   min-height: var(--tap);
   background: transparent;
@@ -745,6 +745,28 @@
    * それは弱視の利用者のピンチ拡大まで奪うので、文字を 16px にして原因を消す。
    */
   font-size: 1rem;
+}
+.card__row select {
+  appearance: none;
+  -webkit-appearance: none;
+  color: inherit;
+  /* 右端に選択の印。iOS では押すと OS のピッカーが出る */
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23a8a39c' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right center;
+  padding-right: 18px;
+  direction: rtl;
+}
+.card__row select option {
+  direction: ltr;
+  color: #111;
+}
+.card__row--stack {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  row-gap: 0;
+}
+.card__row--stack > input {
+  grid-column: 1 / -1;
+  min-height: calc(var(--tap) - 8px);
 }
 
 .sheet__label {

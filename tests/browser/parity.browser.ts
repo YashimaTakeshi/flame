@@ -416,9 +416,10 @@ await test('整列を変えても一致する', () => {
 });
 
 await test('仕上がりの刻印を置いても一致する（文字・ロゴ・段の中）', () => {
-  expectParity('刻印 文字', parityOf(sceneFor({ badge: { text: 'CLASSIC CHROME', mode: 'text' } })));
-  expectParity('刻印 ロゴ', parityOf(sceneFor({ badge: { text: 'PROVIA', mode: 'logo' } })));
-  expectParity('刻印 ロゴ 段', parityOf(sceneFor({ badge: { text: 'CLASSIC Neg.', mode: 'logo' }, style: { ratio: 'STN', photo: 'center', caption: 'right', captionAlign: 'center', lines: 2, margin: 'normal' } })));
+  const B = { align: 'right', size: 'L', framed: true } as const;
+  expectParity('刻印 文字', parityOf(sceneFor({ badge: { text: 'CLASSIC CHROME', mode: 'text', ...B } })));
+  expectParity('刻印 ロゴ', parityOf(sceneFor({ badge: { text: 'PROVIA', mode: 'logo', ...B } })));
+  expectParity('刻印 ロゴ 段', parityOf(sceneFor({ badge: { text: 'CLASSIC Neg.', mode: 'logo', align: 'center', size: 'S', framed: false }, style: { ratio: 'STN', photo: 'center', caption: 'right', captionAlign: 'center', lines: 2, margin: 'normal' } })));
 });
 
 /*

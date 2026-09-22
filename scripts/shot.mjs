@@ -33,7 +33,7 @@ await page.waitForTimeout(700);
 await page.screenshot({ path: '/tmp/u2-place.png' });
 
 // タブを順に開く
-for (const [name, file] of [['組み','u3-layout'],['地色','u4-color'],['書体','u5-font'],['情報','u6-info']]) {
+for (const [name, file] of [['組み','u3-layout'],['地色','u4-color'],['書体','u5-font'],['刻印','u5b-badge'],['情報','u6-info']]) {
   await page.getByRole('tab', { name }).click();
   await page.waitForTimeout(350);
   await page.screenshot({ path: `/tmp/${file}.png` });
@@ -62,7 +62,7 @@ async function clippedIn(tabName) {
 }
 
 const clipped = {};
-for (const t of ['配置', '組み', '地色', '書体', '情報']) clipped[t] = await clippedIn(t);
+for (const t of ['配置', '組み', '地色', '書体', '刻印', '情報']) clipped[t] = await clippedIn(t);
 
 // 配置タブの6比率を順に選んで、どの比率でも列が切れないか
 await page.getByRole('tab', { name: '配置' }).click();

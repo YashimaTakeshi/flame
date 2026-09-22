@@ -5,6 +5,9 @@ import type { ExifFacts } from '../exif';
 import { FILM_SUGGESTIONS } from '../fuji';
 import { Sheet } from '../ui/Sheet';
 
+/** select の「その他」。候補の名前と衝突しない値 */
+const CUSTOM = '__custom__';
+
 const toInput = (d: Date | null): string => {
   if (!d) return '';
   const p = (n: number): string => String(n).padStart(2, '0');
@@ -19,6 +22,8 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
   const [lens, setLens] = useState(doc.overrides.lens ?? '');
   const [date, setDate] = useState(toInput(doc.overrides.date));
   const [film, setFilm] = useState(doc.overrides.film ?? '');
+  // 候補に無い名前（他社の呼び名など）は「その他」を選んで手で入れる
+  const [customFilm, setCustomFilm] = useState(film !== '' && !FILM_SUGGESTIONS.includes(film));
 
   const confirm = (): void => {
     doc.set('title', title);
@@ -66,20 +71,39 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
             placeholder={exif.lens ?? 'レンズ名（写真に記録なし）'}
           />
         </label>
-        <label className="card__row">
+        <label className={`card__row${customFilm ? ' card__row--stack' : ''}`}>
           <span>仕上がり</span>
-          <input
-            value={film}
-            list="film-suggestions"
-            autoCapitalize="characters"
-            onChange={(e) => setFilm(e.target.value)}
-            placeholder={exif.film ?? 'PROVIA / ビビッド など'}
-          />
-          <datalist id="film-suggestions">
+          <select
+            aria-label="仕上がり"
+            value={customFilm ? CUSTOM : film}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === CUSTOM) {
+                setCustomFilm(true);
+                setFilm('');
+              } else {
+                setCustomFilm(false);
+                setFilm(v);
+              }
+            }}
+          >
+            <option value="">{exif.film ? `${exif.film}（写真の値）` : '（なし）'}</option>
             {FILM_SUGGESTIONS.map((f) => (
-              <option key={f} value={f} />
+              <option key={f} value={f}>
+                {f}
+              </option>
             ))}
-          </datalist>
+            <option value={CUSTOM}>その他（手で入れる）</option>
+          </select>
+          {customFilm && (
+            <input
+              value={film}
+              autoFocus
+              autoCapitalize="characters"
+              onChange={(e) => setFilm(e.target.value)}
+              placeholder="ピクチャーコントロール名など"
+            />
+          )}
         </label>
         <label className="card__row">
           <span>日付</span>

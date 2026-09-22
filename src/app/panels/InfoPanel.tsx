@@ -1,13 +1,12 @@
 /**
- * 情報。キャプションに載せる項目のオン／オフを縦の一覧で、仕上がりの刻印をホイールで。
- * 右に編集と初期値の印。項目は選ぶのではなく切り替えるので一覧にする。行の高さはホイールと同じ。
+ * 情報。キャプションに載せる項目のオン／オフを縦の一覧で。右に編集と初期値の印。
+ * 選ぶのではなく切り替えるので、ホイールではなく一覧にする。行の高さはホイールと同じ。
+ * 仕上がりの刻印は「刻印」タブ。
  */
-import type { BadgeMode } from '../../core/badge';
 import type { FieldId } from '../../core/styles/types';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
 import { IconEdit, IconReset } from '../ui/icons';
-import { Wheel, type WheelOption } from '../ui/Wheel';
 
 const FIELDS: { id: FieldId; label: string }[] = [
   { id: 'title', label: 'タイトル' },
@@ -20,22 +19,11 @@ const FIELDS: { id: FieldId; label: string }[] = [
   { id: 'exposure', label: '露出' },
 ];
 
-/** 刻印の見せ方。名前が分からない写真では何も出ない */
-const BADGE_OPTIONS: readonly WheelOption<BadgeMode>[] = [
-  { value: 'none', label: 'なし' },
-  { value: 'text', label: '文字' },
-  { value: 'logo', label: 'ロゴ' },
-];
-
 export function InfoPanel(): React.ReactElement {
   const fields = useDoc((s) => s.fields);
   const toggleField = useDoc((s) => s.toggleField);
-  const badge = useDoc((s) => s.badge);
-  const bleed = useDoc((s) => s.style.margin === 'none');
-  const setDoc = useDoc((s) => s.set);
   const reset = useDoc((s) => s.reset);
   const openSheet = useUi((s) => s.openSheet);
-  const setHint = useUi((s) => s.setHint);
 
   return (
     <div className="p-info">
@@ -49,15 +37,6 @@ export function InfoPanel(): React.ReactElement {
           </button>
         ))}
       </div>
-      <Wheel
-        caption="刻印"
-        label="仕上がりの刻印"
-        options={BADGE_OPTIONS}
-        value={badge}
-        onChange={(v) => setDoc('badge', v)}
-        disabled={bleed}
-        onDisabledPick={() => setHint('余白なしでは刻印を置けません')}
-      />
       <div className="p-info__acts">
         <button type="button" className="iconbtn iconbtn--ghost" aria-label="編集" title="編集" onClick={() => openSheet('info')}>
           <IconEdit />

@@ -1,4 +1,5 @@
 import { useUi } from '../state/ui';
+import { BadgePanel } from '../panels/BadgePanel';
 import { ColorPanel } from '../panels/ColorPanel';
 import { FontPanel } from '../panels/FontPanel';
 import { InfoPanel } from '../panels/InfoPanel';
@@ -14,6 +15,7 @@ export function OptionRow(): React.ReactElement {
       {tab === 'layout' && <LayoutPanel />}
       {tab === 'color' && <ColorPanel />}
       {tab === 'font' && <FontPanel />}
+      {tab === 'badge' && <BadgePanel />}
       {tab === 'info' && <InfoPanel />}
     </div>
   );
