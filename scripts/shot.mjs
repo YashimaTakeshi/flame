@@ -82,21 +82,35 @@ for (const r of ratios) {
  */
 const fitOf = () => {
   const body = document.querySelector('.sheet__body');
+  const box = document.querySelector('.result');
   const img = document.querySelector('.result-img');
-  if (!body || !img) return { ok: false, reason: '窓か画像が無い' };
-  const b = body.getBoundingClientRect(), i = img.getBoundingClientRect();
-  const inside = i.top >= b.top - 0.5 && i.bottom <= b.bottom + 0.5 && i.left >= b.left - 0.5 && i.right <= b.right + 0.5;
+  if (!body || !box || !img) return { ok: false, reason: '窓か画像が無い' };
+  const b = body.getBoundingClientRect(), k = box.getBoundingClientRect(), i = img.getBoundingClientRect();
+  const inside = i.top >= b.top - 0.5 && i.bottom <= b.bottom + 0.5 && i.left >= b.left - 0.5 && i.right >= 0 && i.right <= b.right + 0.5;
+  // 枠からのはみ出し（はみ出すと下が切れる。★9:16 で 430px はみ出していた★）
+  const spill = Math.round(Math.max(0, i.bottom - k.bottom, k.top - i.top, i.right - k.right, k.left - i.left));
   const scrolls = body.scrollHeight > body.clientHeight + 1;
   const buttonsVisible = [...document.querySelectorAll('.sheet .btn')].every((el) => { const r = el.getBoundingClientRect(); return r.top >= b.top - 0.5 && r.bottom <= b.bottom + 0.5; });
-  return { ok: inside && !scrolls && buttonsVisible, scrolls, imgInside: inside, buttonsVisible, imgW: Math.round(i.width), imgH: Math.round(i.height) };
+  // 写った絵の大きさ（contain。全体が見えているか／どれだけ場所を使えているか）
+  const ratio = img.naturalWidth / img.naturalHeight;
+  const drawnH = Math.min(i.height, i.width / ratio), drawnW = drawnH * ratio;
+  return { ok: inside && spill === 0 && !scrolls && buttonsVisible, scrolls, imgInside: inside, spill, buttonsVisible,
+    drawn: [Math.round(drawnW), Math.round(drawnH)], area: [Math.round(k.width), Math.round(k.height)] };
 };
-await page.getByRole('button', { name: '書き出す' }).click();
-await page.waitForTimeout(2500);
-const phoneDialog = await page.evaluate(fitOf);
-await page.screenshot({ path: '/tmp/u8-export.png' });
-await page.keyboard.press('Escape');
-await page.waitForTimeout(300);
-console.log('書き出しの窓（スマホ）:', JSON.stringify(phoneDialog));
+const phoneDialogs = {};
+for (const r of ['9:16', '16:9']) {
+  await page.getByRole('tab', { name: '配置' }).click();
+  await page.waitForTimeout(250);
+  await page.locator('.wheel').first().getByRole('radio', { name: r, exact: true }).click();
+  await page.waitForTimeout(450);
+  await page.getByRole('button', { name: '書き出す' }).click();
+  await page.waitForTimeout(2500);
+  phoneDialogs[r] = await page.evaluate(fitOf);
+  await page.screenshot({ path: `/tmp/u8-export-${r.replace(':', '-')}.png` });
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+}
+console.log('書き出しの窓（スマホ）:', JSON.stringify(phoneDialogs));
 console.log('切れている部品:', JSON.stringify(clipped, null, 1));
 
 /*
@@ -144,7 +158,12 @@ const deskReport = await desk.evaluate(() => {
 await desk.locator('.side .seg__opt', { hasText: '1:1' }).first().click();
 await desk.waitForTimeout(500);
 const square = await desk.evaluate(() => { const c = document.querySelector('canvas.stage__canvas')?.getBoundingClientRect(); return c ? Math.abs(c.width - c.height) < 2 : false; });
-// 書き出しの窓
+/*
+ * 書き出しの窓。**縦長（9:16）**で開く。
+ * ★実測: 横長や正方形は幅で決まるのでたまたま収まり、縦長だけが枠からはみ出して下が切れていた。★
+ */
+await desk.locator('.side .seg__opt', { hasText: '9:16' }).first().click();
+await desk.waitForTimeout(500);
 await desk.getByRole('button', { name: '書き出す' }).click();
 await desk.waitForTimeout(2500);
 const dialog = await desk.evaluate(() => {
