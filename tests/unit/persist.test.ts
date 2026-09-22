@@ -26,6 +26,7 @@ const DEFAULTS: Saved = {
   size: 'Medium',
   bordered: false,
   fields: { title: true, artist: true, date: true, camera: true, lens: true, exposure: true, focalLength: true, film: true, place: false },
+  dateFormat: 'dots',
   badge: 'logo',
   badgePlace: 'below',
   badgeAlign: 'center',
@@ -37,6 +38,12 @@ const DEFAULTS: Saved = {
 const saved = (o: unknown): Saved => readSaved(JSON.stringify(o), DEFAULTS);
 
 describe('設定の読み戻し', () => {
+  it('日付の書き方は決まった選択肢だけ。知らない値は既定に戻る', () => {
+    expect(saved({ dateFormat: 'ja' }).dateFormat).toBe('ja');
+    expect(saved({ dateFormat: 'nope' }).dateFormat).toBe('dots');
+    expect(saved({}).dateFormat).toBe('dots');
+  });
+
   it('保存が無い・壊れているときは既定から始める', () => {
     expect(readSaved(null, DEFAULTS)).toEqual(DEFAULTS);
     expect(readSaved('{壊れた', DEFAULTS)).toEqual(DEFAULTS);

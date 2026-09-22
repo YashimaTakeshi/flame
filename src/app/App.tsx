@@ -3,7 +3,11 @@ import { buildScene, INK, type SceneInput } from '../core/compose';
 import { rgba, type Rgba } from '../core/scene/ops';
 import type { Focus } from '../core/styles/types';
 import type { Scene } from '../core/scene/scene';
+import { wallClockFromDate } from '../core/wallclock';
+import { softwareTag } from '../build-info';
 import { closeDecoded, decode, type DecodedPhoto } from '../platform/decode';
+import { reinjectExif } from '../platform/exif-write';
+import { makeFilename, nowWallClock } from '../platform/save';
 import { safeStorage } from '../platform/storage';
 import { renderScene } from '../render/executor';
 import { createVerifiedCanvas, release } from '../render/guards';
@@ -14,7 +18,7 @@ import { Diagnostics } from './Diagnostics';
 import { Band } from './editor/Band';
 import { OptionRow } from './editor/OptionRow';
 import { TabBar } from './editor/TabBar';
-import { EMPTY_EXIF, readExif, type ExifFacts } from './exif';
+import { EMPTY_EXIF, minimalExifOf, readExif, type ExifFacts } from './exif';
 import { ShareApp } from './ui/ShareApp';
 import { Side } from './editor/Side';
 import { useLayoutMode } from './layout';
@@ -23,10 +27,10 @@ import type { BadgeImage } from '../core/badge';
 import { flushSettings } from './state/persist';
 import { fontRefFor, preloadLatinFonts } from './fonts-catalog';
 import { colorOf } from './panels/constants';
-import { ExportSheet } from './sheets/ExportSheet';
+import { ExportSheet, type Exported } from './sheets/ExportSheet';
 import { InfoSheet } from './sheets/InfoSheet';
 import { DEFAULT_FIELDS, useDoc } from './state/doc';
-import { useUi } from './state/ui';
+import { bindSheetHistory, useUi } from './state/ui';
 import { IconPhoto, IconShare } from './ui/icons';
 import { Sheet } from './ui/Sheet';
 import { usePan } from './usePan';
@@ -69,6 +73,8 @@ export function App(): React.ReactElement {
   const [busy, setBusy] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bandDismissed, setBandDismissed] = useState(false);
+  /** 写真を窓に落とそうとしている最中。縁を光らせて「ここに落とせる」と伝える */
+  const [dragging, setDragging] = useState(false);
 
   const doc = useDoc();
   const tab = useUi((s) => s.tab);
@@ -84,17 +90,29 @@ export function App(): React.ReactElement {
   useViewportHeight();
 
   /*
-   * 自己診断は画面から入口を外した（利用者には意味が分からない）。
-   * ただし実機で困ったときに要るので、URL の末尾に #diag を足すと開く。
+   * 面（情報・書き出し・自己診断）は URL の印と対にして履歴に載せる（state/ui.ts）。
+   * iPhone の戻るスワイプやブラウザの戻るで、アプリごと離れて写真を失うのではなく、面が1段閉じる。
+   * 自己診断は画面から入口を外してある（利用者には意味が分からない）。URL の末尾に #diag を足すと開く。
+   * 写真が無いのに #info / #export で開かれたら、面は出さず印だけ消す。
+   */
+  const loadedRef = useRef(false);
+  useEffect(() => {
+    loadedRef.current = loaded !== null;
+  }, [loaded]);
+  useEffect(() => bindSheetHistory(() => loadedRef.current), []);
+
+  /*
+   * 写真を読み込んだあとにページを離れようとしたら（再読み込み・タブを閉じる）確認する。
+   * iOS Safari はこの確認を出さないが、PC では押し間違いで写真と設定を失うのを防げる。
    */
   useEffect(() => {
-    const check = (): void => {
-      if (window.location.hash === '#diag') openSheet('diagnostics');
+    if (!loaded) return;
+    const guard = (e: BeforeUnloadEvent): void => {
+      e.preventDefault();
     };
-    check();
-    window.addEventListener('hashchange', check);
-    return () => window.removeEventListener('hashchange', check);
-  }, [openSheet]);
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
+  }, [loaded]);
 
   useEffect(() => {
     safeStorage.init();
@@ -151,6 +169,7 @@ export function App(): React.ReactElement {
     if (!loaded || !fontsReady) return null;
     const font = fontRefFor(doc.fontKey);
     const facts = collectFacts(loaded.exif, {
+      dateFormat: doc.dateFormat,
       title: doc.title,
       artist: doc.artist,
       fields: doc.fields,
@@ -245,8 +264,56 @@ export function App(): React.ReactElement {
     }
   }, []);
 
+  /*
+   * PC の入口を増やす。窓に落とす・Ctrl/⌘+V で貼る。ボタンは増えない。
+   * 貼り付けは画像のときだけ横取りする（入力欄への文字の貼り付けは邪魔しない）。
+   * 落とすときは、画像でなくても既定の動き（ブラウザがそのファイルを開く）を止める。
+   */
+  useEffect(() => {
+    const imageOf = (files: FileList | undefined | null): File | null => {
+      for (const f of Array.from(files ?? [])) {
+        if (f.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|avif|tiff?)$/i.test(f.name)) return f;
+      }
+      return null;
+    };
+    const hasFiles = (dt: DataTransfer | null): boolean => !!dt && Array.from(dt.types).includes('Files');
+    const onDragOver = (e: DragEvent): void => {
+      if (!hasFiles(e.dataTransfer)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      setDragging(true);
+    };
+    const onDragLeave = (e: DragEvent): void => {
+      // 窓の外へ出たときだけ。子要素の間を移るだけでも leave は飛ぶ
+      if (e.relatedTarget === null) setDragging(false);
+    };
+    const onDrop = (e: DragEvent): void => {
+      setDragging(false);
+      if (!hasFiles(e.dataTransfer)) return;
+      e.preventDefault();
+      const f = imageOf(e.dataTransfer?.files);
+      if (f) void pick(f);
+    };
+    const onPaste = (e: ClipboardEvent): void => {
+      const f = imageOf(e.clipboardData?.files);
+      if (!f) return;
+      e.preventDefault();
+      void pick(f);
+    };
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+    window.addEventListener('paste', onPaste);
+    return () => {
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
+      window.removeEventListener('paste', onPaste);
+    };
+  }, [pick]);
+
   /** 書き出し。原寸を掴むのはここだけ。終わったらすぐ手放す */
-  const renderFull = useCallback(async (): Promise<Blob> => {
+  const renderFull = useCallback(async (): Promise<Exported> => {
     if (!loaded || !scene) throw new Error('写真が選ばれていません');
     const full = await decode(loaded.file);
     try {
@@ -268,7 +335,22 @@ export function App(): React.ReactElement {
                 (canvas.canvas as HTMLCanvasElement).toBlob(ok, 'image/jpeg', 0.92),
               );
         if (!blob) throw new Error('画像を書き出せませんでした');
-        return blob;
+        /*
+         * 撮影情報を書き戻す。canvas から出た JPEG には EXIF が無く、そのままだと
+         * 写真アプリで「今日の写真」に並ぶ。失敗しても写真は返す（おまけは本体を落とさない）。
+         * 名前も撮影日時から付ける。
+         */
+        const written = await reinjectExif(blob, loaded.file, {
+          software: softwareTag(),
+          width: target.widthPx,
+          height: target.heightPx,
+          fallback: minimalExifOf(loaded.exif),
+        });
+        return {
+          blob: written.blob,
+          filename: makeFilename(loaded.exif.dateTaken ?? nowWallClock()),
+          exif: written.status,
+        };
       } finally {
         release(canvas.canvas);
       }
@@ -292,9 +374,9 @@ export function App(): React.ReactElement {
     </div>
   ) : noExif ? (
     <Band
-      fileDate={new Date(loaded.file.lastModified)}
+      fileDate={wallClockFromDate(new Date(loaded.file.lastModified))}
       onUseFileDate={() => {
-        doc.setOverride('date', new Date(loaded.file.lastModified));
+        doc.setOverride('date', wallClockFromDate(new Date(loaded.file.lastModified)));
         setBandDismissed(true);
       }}
       onEdit={() => {
@@ -400,7 +482,13 @@ export function App(): React.ReactElement {
   );
 
   return (
-    <div className="app" data-tab={tab} data-layout={layout} data-empty={loaded ? undefined : 'true'}>
+    <div
+      className="app"
+      data-tab={tab}
+      data-layout={layout}
+      data-empty={loaded ? undefined : 'true'}
+      data-dragging={dragging || undefined}
+    >
       {header}
 
       {desk ? (

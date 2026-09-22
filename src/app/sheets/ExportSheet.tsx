@@ -6,9 +6,10 @@
  * だからシートを開いた時点で書き出しを終わらせ、ボタンの押下では待たずに渡す。
  */
 import { useEffect, useState } from 'react';
+import type { ExifWriteStatus } from '../../platform/exif-write';
 import {
+  inAppBrowser,
   inFrame,
-  makeFilename,
   saveCapabilities,
   saveImage,
   type SaveOutcome,
@@ -38,14 +39,23 @@ function toDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+/** 書き出しの結果。画像と、その名前と、撮影情報を書き戻せたか */
+export interface Exported {
+  readonly blob: Blob;
+  /** 撮影日時から付けた名前（§16.1） */
+  readonly filename: string;
+  readonly exif: ExifWriteStatus;
+}
+
 export function ExportSheet({
   render,
   onClose,
 }: {
-  render: () => Promise<Blob>;
+  render: () => Promise<Exported>;
   onClose: () => void;
 }): React.ReactElement {
-  const [blob, setBlob] = useState<Blob | null>(null);
+  const [exported, setExported] = useState<Exported | null>(null);
+  const blob = exported?.blob ?? null;
   const [url, setUrl] = useState<string | null>(null);
   const [savable, setSavable] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,9 +68,10 @@ export function ExportSheet({
     let objectUrl: string | null = null;
 
     render()
-      .then(async (b) => {
+      .then(async (x) => {
         if (!alive) return;
-        setBlob(b);
+        setExported(x);
+        const b = x.blob;
         // 長押しで保存できるのは data: のときだけ（blob: では保存の項目が出ない）
         if (b.size * 1.37 <= MAX_DATA_URL_BYTES) {
           try {
@@ -90,8 +101,8 @@ export function ExportSheet({
 
   // ここで await を挟まない。挟むと iOS が共有を拒み、PC は保存先の窓を開けない
   const save = (prefer: SavePreference): void => {
-    if (!blob) return;
-    void saveImage(blob, makeFilename(), prefer).then(setOutcome);
+    if (!exported) return;
+    void saveImage(exported.blob, exported.filename, prefer).then(setOutcome);
   };
 
   /*
@@ -117,7 +128,7 @@ export function ExportSheet({
      * 以前は中身の高さに任せていたので、大きな画像だとボタンまで送らないと届かなかった
      * （実機で指摘された）。画像が小さくなっても、保存の導線が見えているほうが先。
      */
-    <Sheet title={blob ? '書き出しました' : '書き出し中…'} size="tall" bodyClass="sheet__body--fit" onClose={onClose}>
+    <Sheet title={blob ? '書き出しました' : '書き出し中…'} size="tall" fill bodyClass="sheet__body--fit" onClose={onClose}>
       <div className="result">
         {url && <img src={url} alt="書き出した画像" className="result-img" />}
       </div>
@@ -139,6 +150,18 @@ export function ExportSheet({
           </p>
         )}
         {outcome && <p className={outcome.ok ? 'e1' : 'band'}>{outcome.detail}</p>}
+        {/* 書き戻しはおまけ。駄目でも写真は保存できている。控えめに1行 */}
+        {exported?.exif === 'failed' && (
+          <p className="e1" style={{ padding: 0 }}>
+            元の撮影情報（EXIF）は書き戻せませんでした。焼き込んだ文字はそのままです。
+          </p>
+        )}
+        {/* LINE などの中のブラウザ。共有も保存も効かないことが多い。出口を1行で */}
+        {blob && inAppBrowser() && (
+          <p className="e1" style={{ padding: 0 }}>
+            アプリの中のブラウザで開いています。保存できないときは、右上の「…」から「ブラウザで開く」を選んでください。
+          </p>
+        )}
         {blob && !inFrame() && (
           <button type="button" className="btn" onClick={() => save(primary.prefer)}>
             {primary.label}

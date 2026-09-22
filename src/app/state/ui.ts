@@ -3,6 +3,7 @@ import { create } from 'zustand';
 
 export type TabId = 'place' | 'layout' | 'color' | 'font' | 'badge' | 'info';
 export type SheetId = 'info' | 'export' | 'diagnostics' | null;
+type OpenSheet = Exclude<SheetId, null>;
 
 export const TABS: { id: TabId; label: string }[] = [
   { id: 'place', label: '配置' },
@@ -19,7 +20,7 @@ interface UiStore {
   /** オプション行の下に1行だけ出る注記。モーダルの代わり */
   hint: string | null;
   setTab(tab: TabId): void;
-  openSheet(id: Exclude<SheetId, null>): void;
+  openSheet(id: OpenSheet): void;
   closeSheet(): void;
   setHint(text: string | null): void;
 }
@@ -28,13 +29,47 @@ interface UiStore {
 const HINT_MS = 2500;
 let hintTimer: ReturnType<typeof setTimeout> | null = null;
 
+/*
+ * 面は URL の印（#info など）と対にして履歴に載せる。
+ * iPhone の戻るスワイプやブラウザの戻るで、アプリごと離れて写真を失うのではなく、
+ * 面が1段閉じるだけになる。自己診断は画面に入口が無いので、この印が唯一の入口でもある。
+ */
+const SHEET_HASH: Record<OpenSheet, string> = { info: '#info', export: '#export', diagnostics: '#diag' };
+const sheetOf = (hash: string): OpenSheet | null =>
+  (Object.keys(SHEET_HASH) as OpenSheet[]).find((k) => SHEET_HASH[k] === hash) ?? null;
+const hasHistory = (): boolean =>
+  typeof window !== 'undefined' && typeof window.history?.pushState === 'function';
+/** 自分で履歴を積んだか。積んでいないのに戻ると、前のページ（LINE など）へ出てしまう */
+let pushed = false;
+
 export const useUi = create<UiStore>((set) => ({
   tab: 'place',
   sheet: null,
   hint: null,
   setTab: (tab) => set({ tab, hint: null }),
-  openSheet: (sheet) => set({ sheet }),
-  closeSheet: () => set({ sheet: null }),
+  openSheet: (sheet) => {
+    set({ sheet });
+    if (!hasHistory()) return;
+    const h = SHEET_HASH[sheet];
+    if (window.location.hash === h) return;
+    // 面から面へ直に移るときは積まない（戻るで前の面に戻るのは変）
+    if (sheetOf(window.location.hash)) {
+      window.history.replaceState(null, '', h);
+    } else {
+      window.history.pushState(null, '', h);
+      pushed = true;
+    }
+  },
+  closeSheet: () => {
+    set({ sheet: null });
+    if (!hasHistory() || !sheetOf(window.location.hash)) return;
+    if (pushed) {
+      window.history.back(); // popstate が来て印が消える（bindSheetHistory）
+    } else {
+      // 印つきの URL で開かれた（しおり・手打ち）。戻ると外へ出るので、印だけ消す
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  },
   /*
    * 注記は自分で消える。以前は次にタブを変えるまで残っていて、
    * レイアウトを変えたあとも古い注記が読めてしまった。
@@ -45,3 +80,29 @@ export const useUi = create<UiStore>((set) => ({
     if (hint) hintTimer = setTimeout(() => set({ hint: null }), HINT_MS);
   },
 }));
+
+/**
+ * URL の印と面を結ぶ。起動時に1度呼ぶ。
+ * 戻る・進む（popstate）で印が変わったら、面をそれに合わせる。
+ * 写真が無いのに #info / #export で開かれたら（しおり・進むボタン）、面は出さず印だけ消す。
+ */
+export function bindSheetHistory(canOpen: () => boolean): () => void {
+  const apply = (): void => {
+    const id = sheetOf(window.location.hash);
+    if (id === null) {
+      pushed = false;
+      useUi.setState({ sheet: null });
+      return;
+    }
+    if (id !== 'diagnostics' && !canOpen()) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      pushed = false;
+      useUi.setState({ sheet: null });
+      return;
+    }
+    useUi.setState({ sheet: id });
+  };
+  apply();
+  window.addEventListener('popstate', apply);
+  return () => window.removeEventListener('popstate', apply);
+}

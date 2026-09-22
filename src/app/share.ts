@@ -25,10 +25,14 @@ const TEXT = '写真に撮影情報のフチを付けるアプリです。開く
 /**
  * 配る URL。
  * 検索語や現在地（?a=1#x）は自分の事情なので落とす。人に渡るのは入口だけでよい。
+ *
+ * `openExternalBrowser=1` は LINE の約束事。LINE で受け取った URL は LINE の中の
+ * ブラウザで開くが、そこでは共有シートも保存も効かず、ホーム画面にも置けない。
+ * この印があると LINE は Safari / Chrome で開く。ほかのアプリはこの印を無視する。
  */
 export function appUrl(): string {
   const { origin, pathname } = window.location;
-  return origin + pathname;
+  return `${origin}${pathname}?openExternalBrowser=1`;
 }
 
 function isAbort(e: unknown): boolean {

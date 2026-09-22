@@ -5,12 +5,15 @@
  * exifr は例外を投げず undefined を返すので、そのまま「情報なし」として扱う。
  */
 import { parse } from 'exifr/dist/lite.esm.mjs';
+import { parseWallClock, toExifDateTime, type WallClock } from '../core/wallclock';
+import type { MinimalExif } from '../platform/exif-write';
 import { parseFujiFilm } from './fuji';
 
 export interface ExifFacts {
   readonly camera: string | null;
   readonly lens: string | null;
-  readonly dateTaken: Date | null;
+  /** 撮った土地の壁時計。タイムゾーンを持たない（§4.4） */
+  readonly dateTaken: WallClock | null;
   readonly fNumber: number | null;
   readonly exposureTime: number | null;
   readonly iso: number | null;
@@ -38,7 +41,7 @@ interface RawExif {
   Make?: string;
   Model?: string;
   LensModel?: string;
-  DateTimeOriginal?: Date | string;
+  DateTimeOriginal?: string;
   FNumber?: number;
   ExposureTime?: number;
   ISO?: number;
@@ -57,13 +60,16 @@ function cameraName(make?: string, model?: string): string | null {
 }
 
 export async function readExif(file: Blob): Promise<ExifFacts> {
-  const raw = (await parse(file, { makerNote: true }).catch(() => undefined)) as RawExif | undefined;
+  // reviveValues: false … 日時を Date にしない。Date にすると端末のタイムゾーンで読み替えられ、
+  // 海外で撮った写真の日付が1日ずれる（§4.4）。文字列のまま受けて壁時計として読む
+  const raw = (await parse(file, { makerNote: true, reviveValues: false }).catch(() => undefined)) as
+    | RawExif
+    | undefined;
   if (!raw) return EMPTY_EXIF;
-  const d = raw.DateTimeOriginal;
   return {
     camera: cameraName(raw.Make, raw.Model),
     lens: raw.LensModel ?? null,
-    dateTaken: d instanceof Date ? d : typeof d === 'string' ? new Date(d) : null,
+    dateTaken: parseWallClock(raw.DateTimeOriginal),
     fNumber: raw.FNumber ?? null,
     exposureTime: raw.ExposureTime ?? null,
     iso: raw.ISO ?? null,
@@ -88,7 +94,21 @@ export const formatAperture = (f: number): string => `F${Number(f.toFixed(1))}`;
 export const formatIso = (iso: number): string => `ISO${iso}`;
 export const formatFocal = (mm: number): string => `${Math.round(mm)}mm`;
 
-export function formatDate(d: Date): string {
-  const p = (n: number): string => String(n).padStart(2, '0');
-  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`;
+/**
+ * 書き戻し（platform/exif-write）の控え。元が HEIC などで EXIF のセグメントを取れないとき、
+ * ここで読めた値から最小限の EXIF を組む。カメラ名は Make と Model を畳んであるので Model に入れる
+ */
+export function minimalExifOf(f: ExifFacts): MinimalExif {
+  const out: {
+    -readonly [K in keyof MinimalExif]: MinimalExif[K];
+  } = {};
+  if (f.camera) out.model = f.camera;
+  if (f.lens) out.lens = f.lens;
+  if (f.dateTaken) out.dateTimeOriginal = toExifDateTime(f.dateTaken);
+  if (f.fNumber) out.fNumber = f.fNumber;
+  if (f.exposureTime) out.exposureTime = f.exposureTime;
+  if (f.iso) out.iso = f.iso;
+  if (f.focalLength) out.focalLength = f.focalLength;
+  if (f.focalLength35) out.focalLength35 = f.focalLength35;
+  return out;
 }

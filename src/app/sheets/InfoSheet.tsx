@@ -1,5 +1,13 @@
 /** 作品の情報と、写真に無かった撮影情報の手入力 */
 import { useState } from 'react';
+import {
+  DATE_FORMATS,
+  formatWallClock,
+  parseWallClock,
+  toDateInput,
+  type DateFormatId,
+  type WallClock,
+} from '../../core/wallclock';
 import { useDoc } from '../state/doc';
 import type { ExifFacts } from '../exif';
 import { FILM_SUGGESTIONS } from '../fuji';
@@ -7,12 +15,9 @@ import { Sheet } from '../ui/Sheet';
 
 /** select の「その他」。候補の名前と衝突しない値 */
 const CUSTOM = '__custom__';
-
-const toInput = (d: Date | null): string => {
-  if (!d) return '';
-  const p = (n: number): string => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-};
+/** 書き方の見本に使う日。写真の日付があればそちらを見本にする */
+const SAMPLE: WallClock = { y: 2026, m: 9, d: 20, hh: 17, mm: 42, ss: 11 };
+const asFormat = (v: string): DateFormatId => DATE_FORMATS.find((f) => f === v) ?? 'dots';
 
 export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => void }): React.ReactElement {
   const doc = useDoc();
@@ -20,17 +25,23 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
   const [artist, setArtist] = useState(doc.artist);
   const [camera, setCamera] = useState(doc.overrides.camera ?? '');
   const [lens, setLens] = useState(doc.overrides.lens ?? '');
-  const [date, setDate] = useState(toInput(doc.overrides.date));
+  const [date, setDate] = useState(doc.overrides.date ? toDateInput(doc.overrides.date) : '');
+  const [dateFormat, setDateFormat] = useState<DateFormatId>(doc.dateFormat);
   const [film, setFilm] = useState(doc.overrides.film ?? '');
   // 候補に無い名前（他社の呼び名など）は「その他」を選んで手で入れる
   const [customFilm, setCustomFilm] = useState(film !== '' && !FILM_SUGGESTIONS.includes(film));
+
+  // 手で入れた日付は時刻を持たない（0時）。書き方の見本もこの日で出す
+  const typed = date ? parseWallClock(date) : null;
+  const sample = typed ?? exif.dateTaken ?? SAMPLE;
 
   const confirm = (): void => {
     doc.set('title', title);
     doc.set('artist', artist);
     doc.setOverride('camera', camera.trim() || null);
     doc.setOverride('lens', lens.trim() || null);
-    doc.setOverride('date', date ? new Date(`${date}T12:00:00`) : null);
+    doc.setOverride('date', typed);
+    doc.set('dateFormat', dateFormat);
     doc.setOverride('film', film.trim() || null);
     onClose();
   };
@@ -41,7 +52,7 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
       <div className="card">
         <label className="card__row">
           <span>タイトル</span>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Untitled" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル（省略できます）" />
         </label>
         <label className="card__row">
           <span>作者</span>
@@ -108,6 +119,17 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
         <label className="card__row">
           <span>日付</span>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </label>
+        <label className="card__row">
+          <span>書き方</span>
+          {/* 選択肢は見本そのもの。「dots」のような名前で選ばせない */}
+          <select aria-label="日付の書き方" value={dateFormat} onChange={(e) => setDateFormat(asFormat(e.target.value))}>
+            {DATE_FORMATS.map((f) => (
+              <option key={f} value={f}>
+                {formatWallClock(sample, f)}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
       <p className="e1" style={{ padding: 0 }}>

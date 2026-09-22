@@ -2,7 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { appUrl, shareApp } from '../../src/app/share';
 
-const URL_ = 'https://example.test/flame/';
+/* LINE で受け取っても Safari / Chrome で開くように、LINE の約束事の印を付ける */
+const URL_ = 'https://example.test/flame/?openExternalBrowser=1';
 
 function setup(o: {
   share?: (d: ShareData) => Promise<void>;
@@ -19,7 +20,7 @@ function setup(o: {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('アプリの共有', () => {
-  it('配るのは入口だけ。検索語や現在地は落とす', () => {
+  it('配るのは入口だけ。検索語や現在地は落とし、LINE の外で開く印だけ付ける', () => {
     setup({});
     expect(appUrl()).toBe(URL_);
   });

@@ -10,6 +10,8 @@
  * そのため「使える手段を順に試し、何が使えたかを返す」形にしてある。
  * 結果は自己診断に出るので、実機で1度触ればどの経路が通ったか分かる。
  */
+import { toStamp, wallClockFromDate, type WallClock } from '../core/wallclock';
+
 
 export type SaveMethod = 'picker' | 'share' | 'download' | 'longpress';
 
@@ -188,11 +190,24 @@ export async function saveImage(
   };
 }
 
-/** fuchidori-20260921-084512.jpg のような名前にする */
-export function makeFilename(at: Date = new Date()): string {
-  const p = (n: number): string => String(n).padStart(2, '0');
-  return (
-    `fuchidori-${at.getFullYear()}${p(at.getMonth() + 1)}${p(at.getDate())}` +
-    `-${p(at.getHours())}${p(at.getMinutes())}${p(at.getSeconds())}.jpg`
-  );
+/** 端末の時計の壁時計。撮影日時が無いときのファイル名に使う */
+export const nowWallClock = (): WallClock => wallClockFromDate(new Date());
+
+/**
+ * fuchidori-20260921-084512.jpg のような名前にする。
+ * 時刻は**撮影日時**（あれば）。書き出した時刻にすると、写真アプリやフォルダで
+ * 旅行の順番が崩れる。撮影日時は壁時計のまま使う（§16.1）
+ */
+export function makeFilename(at: WallClock = nowWallClock()): string {
+  return `fuchidori-${toStamp(at)}.jpg`;
+}
+
+/**
+ * LINE や Instagram の中のブラウザで開いているか。
+ * そこでは共有シートが無く、ダウンロードも不安定で、ホーム画面にも置けない。
+ * 判定は UA の印だけ（それ以外に手掛かりが無い）。外れても案内が1行増えるだけ
+ */
+export function inAppBrowser(): boolean {
+  const ua = typeof navigator !== 'undefined' ? (navigator.userAgent ?? '') : '';
+  return /\bLine\/|Instagram|FBAN|FBAV/.test(ua);
 }

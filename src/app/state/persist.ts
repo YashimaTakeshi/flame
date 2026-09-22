@@ -25,6 +25,7 @@ import type {
   StyleSpec,
   TrackingId,
 } from '../../core/styles/types';
+import { DATE_FORMATS, type DateFormatId } from '../../core/wallclock';
 import { LATIN_FONTS, type LatinFontKey } from '../fonts-catalog';
 import { KEYS, safeStorage } from '../../platform/storage';
 
@@ -39,6 +40,7 @@ export interface Saved {
   readonly size: SizeId;
   readonly bordered: boolean;
   readonly fields: Readonly<Record<FieldId, boolean>>;
+  readonly dateFormat: DateFormatId;
   readonly badge: BadgeMode;
   readonly badgePlace: BandSide;
   readonly badgeAlign: Align;
@@ -120,6 +122,7 @@ export function readSaved(raw: string | null, defaults: Saved): Saved {
     size: one(o['size'], SIZES, defaults.size),
     bordered: bool(o['bordered'], defaults.bordered),
     fields: readFields(o['fields'], defaults.fields),
+    dateFormat: one(o['dateFormat'], DATE_FORMATS, defaults.dateFormat),
     badge: one(o['badge'], BADGES, defaults.badge),
     badgePlace: one(o['badgePlace'], SIDES, defaults.badgePlace),
     badgeAlign: one(o['badgeAlign'], ALIGNS, defaults.badgeAlign),

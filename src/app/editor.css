@@ -1054,7 +1054,11 @@
   animation: none;
 }
 .app[data-layout='desk'] .sheet[data-size='tall'] {
-  /* 高さを決めておく。決めないと中の「残りの高さ」が定まらず、画像が窓からはみ出す（実測） */
+  height: auto;
+  max-height: min(88vh, 900px);
+}
+/* 中身が「残りの高さ」に合わせる面（書き出し）は高さを決めておく。決めないと残りの高さが定まらず画像がはみ出す（実測） */
+.app[data-layout='desk'] .sheet[data-size='tall'][data-fill] {
   height: min(88vh, 900px);
 }
 .app[data-layout='desk'] .sheet[data-size='full'] {
@@ -1103,4 +1107,9 @@
   display: grid;
   gap: var(--s2);
   align-content: start;
+}
+
+/* ── 写真を窓に落とそうとしている最中。縁を光らせて「ここに落とせる」と伝える ── */
+.app[data-dragging] {
+  box-shadow: inset 0 0 0 2px var(--ink);
 }

@@ -3,7 +3,7 @@
  * PC の Chromium も共有にファイルを渡せるので、区別しないと Windows の共有パネルが開く（実機で指摘された）。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { canPickLocation, saveImage } from '../../src/platform/save';
+import { canPickLocation, inAppBrowser, makeFilename, saveImage } from '../../src/platform/save';
 
 const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' });
 
@@ -48,6 +48,23 @@ function setup(o: {
 }
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe('ファイル名とアプリ内ブラウザ', () => {
+  it('名前は撮影日時の壁時計から。端末のタイムゾーンに触らない', () => {
+    expect(makeFilename({ y: 2026, m: 9, d: 21, hh: 8, mm: 45, ss: 12 })).toBe('fuchidori-20260921-084512.jpg');
+  });
+
+  it('LINE / Instagram の中のブラウザは UA の印で見分ける', () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1 Line/14.0.0' });
+    expect(inAppBrowser()).toBe(true);
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36 Instagram 300.0' });
+    expect(inAppBrowser()).toBe(true);
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1' });
+    expect(inAppBrowser()).toBe(false);
+    vi.stubGlobal('navigator', {});
+    expect(inAppBrowser()).toBe(false);
+  });
+});
 
 describe('保存先を選ぶ窓', () => {
   it('窓があれば canPickLocation は真、無ければ偽', () => {

@@ -9,13 +9,15 @@ import { DEFAULT_SPEC, normalize } from '../../core/styles/spec';
 import { CENTER_FOCUS, type Align, type CaptionAlign, type FieldId, type Focus, type SizeId, type StyleSpec, type TrackingId } from '../../core/styles/types';
 import type { BadgeMode, BadgeSize } from '../../core/badge';
 import type { BandSide } from '../../core/styles/layout';
+import type { DateFormatId, WallClock } from '../../core/wallclock';
 import type { LatinFontKey } from '../fonts-catalog';
 import { loadSettings, saveSettings, type Saved } from './persist';
 
 export interface Overrides {
   readonly camera: string | null;
   readonly lens: string | null;
-  readonly date: Date | null;
+  /** 撮影日。タイムゾーンを持たない壁時計（§4.4） */
+  readonly date: WallClock | null;
   /** 仕上がり（フィルムシミュレーション／ピクチャーコントロール等）。FUJIFILM 以外は手入力しかない */
   readonly film: string | null;
 }
@@ -36,6 +38,8 @@ export interface DocState {
   readonly bordered: boolean;
   readonly fields: Readonly<Record<FieldId, boolean>>;
   readonly overrides: Overrides;
+  /** 日付の書き方。好みなので保存する */
+  readonly dateFormat: DateFormatId;
   /** 仕上がりの刻印。帯の中、文字の下に置く。名前が分かるときだけ効く */
   readonly badge: BadgeMode;
   /** 刻印を置く辺。キャプションと同じ辺なら同じ帯を分け合う */
@@ -65,7 +69,11 @@ export const DEFAULT_FIELDS: Record<FieldId, boolean> = {
 const BASE: DocState = {
   style: DEFAULT_SPEC,
   focus: CENTER_FOCUS,
-  title: 'Untitled',
+  /*
+   * タイトルの既定は空。以前は 'Untitled' を毎回フチに焼いていて、
+   * 配られた人の最初の1枚が「Untitled って何？」になった。入れた人だけ出る
+   */
+  title: '',
   artist: '',
   fontKey: 'helvetica',
   colorKey: 'white',
@@ -75,6 +83,7 @@ const BASE: DocState = {
   bordered: false,
   fields: DEFAULT_FIELDS,
   overrides: { camera: null, lens: null, date: null, film: null },
+  dateFormat: 'dots',
   badge: 'logo',
   badgePlace: 'below',
   badgeAlign: 'center',
@@ -94,6 +103,7 @@ const savedOf = (s: DocState): Saved => ({
   size: s.size,
   bordered: s.bordered,
   fields: s.fields,
+  dateFormat: s.dateFormat,
   badge: s.badge,
   badgePlace: s.badgePlace,
   badgeAlign: s.badgeAlign,
@@ -134,6 +144,7 @@ const snapshot = (s: DocState): DocState => ({
   bordered: s.bordered,
   fields: s.fields,
   overrides: s.overrides,
+  dateFormat: s.dateFormat,
   badge: s.badge,
   badgePlace: s.badgePlace,
   badgeAlign: s.badgeAlign,

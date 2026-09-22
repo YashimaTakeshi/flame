@@ -8,6 +8,7 @@ import piexif from 'piexifjs';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'exifr/dist/lite.esm.mjs';
 import { buildFujiNote, parseFujiFilm } from '../../src/app/fuji';
+import { readExif } from '../../src/app/exif';
 
 /**
  * 画素の無い JPEG。SOI・JFIF の APP0・空の SOS・EOI だけ。
@@ -48,5 +49,14 @@ describe('exifr（lite）と FUJIFILM MakerNote', () => {
   it('EXIF の無い写真からは何も出ない', async () => {
     const raw = await parse(toBytes(BARE_JPEG), { makerNote: true });
     expect(parseFujiFilm(raw?.['makerNote'] as Uint8Array | undefined)).toBeNull();
+  });
+});
+
+describe('撮影日時は壁時計（§4.4）', () => {
+  it('★DateTimeOriginal を Date にせず、撮った土地の時刻のまま数字で持つ★', async () => {
+    // Blob の読み手はブラウザの FileReader なので、ここでは素のバイト列を渡す
+    const facts = await readExif(fujiJpeg([{ tag: 0x1401, value: 0x503 }]) as unknown as Blob);
+    expect(facts.dateTaken).toEqual({ y: 2026, m: 9, d: 20, hh: 10, mm: 0, ss: 0 });
+    expect(facts.camera).toBe('FUJIFILM X-M5');
   });
 });

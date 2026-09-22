@@ -8,14 +8,8 @@
  */
 import type { Facts, Gates } from '../core/caption';
 import type { FieldId } from '../core/styles/types';
-import {
-  formatAperture,
-  formatDate,
-  formatFocal,
-  formatIso,
-  formatShutter,
-  type ExifFacts,
-} from './exif';
+import { formatWallClock, type DateFormatId, type WallClock } from '../core/wallclock';
+import { formatAperture, formatFocal, formatIso, formatShutter, type ExifFacts } from './exif';
 
 export interface CaptionParts {
   readonly title: string;
@@ -26,9 +20,11 @@ export interface CaptionParts {
   readonly overrides: {
     readonly camera: string | null;
     readonly lens: string | null;
-    readonly date: Date | null;
+    readonly date: WallClock | null;
     readonly film: string | null;
   };
+  /** 日付の書き方（2026.09.20 / 2026年9月20日 …）。情報シートで選ぶ */
+  readonly dateFormat: DateFormatId;
 }
 
 export function collectFacts(exif: ExifFacts, parts: CaptionParts): Facts {
@@ -41,7 +37,7 @@ export function collectFacts(exif: ExifFacts, parts: CaptionParts): Facts {
   put('artist', parts.artist);
 
   const date = parts.overrides.date ?? exif.dateTaken;
-  if (date) put('date', formatDate(date));
+  if (date) put('date', formatWallClock(date, parts.dateFormat));
 
   put('camera', parts.overrides.camera ?? exif.camera);
   put('lens', parts.overrides.lens ?? exif.lens);

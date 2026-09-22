@@ -14,6 +14,7 @@ export function Sheet({
   onConfirm,
   confirmLabel = '✓',
   bodyClass,
+  fill = false,
   children,
 }: {
   title: string;
@@ -23,6 +24,8 @@ export function Sheet({
   confirmLabel?: string;
   /** 中身の組み方を替える（書き出しの「画像を残りの高さに収める」など） */
   bodyClass?: string;
+  /** PC でも高さを決める（中身が残りの高さに合わせて伸び縮みする面）。既定は中身の高さ */
+  fill?: boolean;
   children: React.ReactNode;
 }): React.ReactElement {
   // 背後の画面がスクロールしないようにする
@@ -45,7 +48,7 @@ export function Sheet({
   return (
     <>
       <button className="scrim" aria-label="閉じる" onClick={onClose} />
-      <section className="sheet" data-size={size} role="dialog" aria-modal="true" aria-label={title}>
+      <section className="sheet" data-size={size} data-fill={fill || undefined} role="dialog" aria-modal="true" aria-label={title}>
         <header className="sheet__hdr">
           <button type="button" onClick={onClose} aria-label="やめる">
             ✕

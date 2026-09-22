@@ -111,6 +111,30 @@ for (const r of ['9:16', '16:9']) {
   await page.waitForTimeout(400);
 }
 console.log('書き出しの窓（スマホ）:', JSON.stringify(phoneDialogs));
+
+/*
+ * 面は履歴に載る。iPhone の戻るスワイプ（＝history.back）で、アプリごと離れるのではなく面が1段閉じる。
+ * ★実測: 以前は面を閉じるつもりで端を払うとページを離れ、写真と設定を失った。★
+ */
+await page.getByRole('tab', { name: '情報' }).click();
+await page.waitForTimeout(250);
+await page.getByRole('button', { name: '編集' }).first().click();
+await page.waitForTimeout(400);
+const sheetOpened = await page.evaluate(() => ({ sheet: !!document.querySelector('.sheet'), hash: location.hash }));
+await page.evaluate(() => history.back());
+await page.waitForTimeout(500);
+const afterBack = await page.evaluate(() => ({
+  sheet: !!document.querySelector('.sheet'),
+  hash: location.hash,
+  photoKept: !!document.querySelector('canvas.stage__canvas'),
+}));
+// ✕ で閉じたときも印が残らない（次の戻るでアプリを離れるのが正しい）
+await page.getByRole('button', { name: '書き出す' }).click();
+await page.waitForTimeout(1500);
+await page.getByRole('button', { name: 'やめる' }).click();
+await page.waitForTimeout(500);
+const afterClose = await page.evaluate(() => ({ sheet: !!document.querySelector('.sheet'), hash: location.hash }));
+console.log('戻るで面が閉じる:', JSON.stringify({ opened: sheetOpened, afterBack, afterClose }));
 console.log('切れている部品:', JSON.stringify(clipped, null, 1));
 
 /*
@@ -173,8 +197,25 @@ const dialog = await desk.evaluate(() => {
   return { centered: Math.abs(cx - window.innerWidth / 2) < 4, width: Math.round(r.width), buttons: [...document.querySelectorAll('.sheet .btn')].map(b => b.textContent?.trim()) };
 });
 const deskFit = await desk.evaluate(fitOf);
+/*
+ * 書き出した JPEG に撮影情報が書き戻されているか。表示用の data: URL の先頭を読む。
+ * ★実測: 以前は canvas の出力そのままで EXIF が無く、写真アプリで「今日」に並んだ。★
+ */
+const exifBack = await desk.evaluate(() => {
+  const src = document.querySelector('.result-img')?.getAttribute('src') ?? '';
+  if (!src.startsWith('data:image/jpeg;base64,')) return { checked: false };
+  const bin = atob(src.slice('data:image/jpeg;base64,'.length, 'data:image/jpeg;base64,'.length + 12000));
+  return {
+    checked: true,
+    hasExif: bin.includes('Exif\u0000\u0000'),
+    hasModel: bin.includes('iPhone 16 Pro'),
+    hasDate: bin.includes('2026:09:21'),
+    hasSoftware: bin.includes('flame '),
+    noGps: !bin.includes('GPSVersion') && !/\x88\x25/.test(bin.slice(0, 200)),
+  };
+});
 await desk.screenshot({ path: '/tmp/d2-desk-export.png' });
-console.log('PC の組み方:', JSON.stringify({ ...deskReport, squareAfterPick: square, dialog: { ...dialog, fit: deskFit } }, null, 1));
+console.log('PC の組み方:', JSON.stringify({ ...deskReport, squareAfterPick: square, dialog: { ...dialog, fit: deskFit, exif: exifBack } }, null, 1));
 
 /*
  * 窓を縮めて PC → スマホの組み方に切り替える。canvas の要素が作り直されるので、
@@ -288,5 +329,38 @@ const revived = await stalePage.evaluate(() => ({
 }));
 console.log('古い HTML から立ち直るか:', JSON.stringify(revived));
 await staleCtx.close(); staleSrv.close();
+
+/*
+ * PC の入口。窓に落とす・貼り付ける。どちらもボタン無しで写真が開く。
+ */
+const FIX_B64 = readFileSync('/home/user/flame/tests/fixtures/iphone-portrait.jpg').toString('base64');
+const entryCtx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+const entry = await entryCtx.newPage();
+await entry.goto(origin, { waitUntil: 'networkidle' });
+const fileHandle = (p) => p.evaluateHandle((b64) => {
+  const bin = atob(b64);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const dt = new DataTransfer();
+  dt.items.add(new File([u8], 'drop.jpg', { type: 'image/jpeg' }));
+  return dt;
+}, FIX_B64);
+await entry.dispatchEvent('.app', 'dragover', { dataTransfer: await fileHandle(entry) });
+const highlighted = await entry.evaluate(() => document.querySelector('.app')?.hasAttribute('data-dragging'));
+await entry.dispatchEvent('.app', 'drop', { dataTransfer: await fileHandle(entry) });
+const dropped = await entry.waitForSelector('canvas.stage__canvas', { timeout: 15000 }).then(() => true).catch(() => false);
+const unhighlighted = await entry.evaluate(() => !document.querySelector('.app')?.hasAttribute('data-dragging'));
+await entry.reload({ waitUntil: 'networkidle' });
+await entry.evaluate((b64) => {
+  const bin = atob(b64);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const dt = new DataTransfer();
+  dt.items.add(new File([u8], 'paste.jpg', { type: 'image/jpeg' }));
+  window.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }));
+}, FIX_B64);
+const pasted = await entry.waitForSelector('canvas.stage__canvas', { timeout: 15000 }).then(() => true).catch(() => false);
+console.log('PC の入口:', JSON.stringify({ highlighted, dropped, unhighlighted, pasted }));
+await entryCtx.close();
 
 await b.close(); server.close();
