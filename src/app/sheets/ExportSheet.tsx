@@ -12,7 +12,9 @@ import {
   saveCapabilities,
   saveImage,
   type SaveOutcome,
+  type SavePreference,
 } from '../../platform/save';
+import { useLayoutMode } from '../layout';
 import { Sheet } from '../ui/Sheet';
 import { ShareApp } from '../ui/ShareApp';
 
@@ -49,6 +51,7 @@ export function ExportSheet({
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<SaveOutcome | null>(null);
   const caps = saveCapabilities();
+  const desk = useLayoutMode() === 'desk';
 
   useEffect(() => {
     let alive = true;
@@ -85,13 +88,28 @@ export function ExportSheet({
     };
   }, [render]);
 
-  // ここで await を挟まない。挟むと iOS が共有を拒む
-  const save = (): void => {
+  // ここで await を挟まない。挟むと iOS が共有を拒み、PC は保存先の窓を開けない
+  const save = (prefer: SavePreference): void => {
     if (!blob) return;
-    void saveImage(blob, makeFilename()).then(setOutcome);
+    void saveImage(blob, makeFilename(), prefer).then(setOutcome);
   };
 
-  const mainLabel = caps.canShareFiles ? '写真に保存 / 共有' : 'ダウンロード';
+  /*
+   * PC では「保存先を選ぶ」が第一。無ければダウンロード。共有は脇に置く。
+   * スマホでは共有シート（写真アプリに入る）が第一。
+   * PC の Chromium も共有にファイルを渡せるので、区別しないと Windows の共有パネルが開く。
+   */
+  const primary: { prefer: SavePreference; label: string } = desk
+    ? caps.canPickLocation
+      ? { prefer: 'picker', label: '名前を付けて保存…' }
+      : { prefer: 'download', label: 'ダウンロード' }
+    : { prefer: 'auto', label: caps.canShareFiles ? '写真に保存 / 共有' : 'ダウンロード' };
+  const secondary: { prefer: SavePreference; label: string } | null = desk
+    ? caps.canPickLocation && caps.hasDownloadAttribute
+      ? { prefer: 'download', label: '既定の場所にダウンロード' }
+      : null
+    : null;
+  const share = desk && caps.canShareFiles ? { prefer: 'share' as const, label: '共有…' } : null;
 
   return (
     <Sheet title={blob ? '書き出しました' : '書き出し中…'} size="auto" onClose={onClose}>
@@ -99,7 +117,8 @@ export function ExportSheet({
       {url && <img src={url} alt="書き出した画像" className="result-img" />}
       {url && savable && (
         <p className="e1" style={{ padding: 0 }}>
-          ↑ 画像を長押しして「写真に保存」
+          {/* 長押しはスマホの作法。PC では右クリック */}
+          {desk ? '↑ 画像を右クリックして保存することもできます' : '↑ 画像を長押しして「写真に保存」'}
           {inFrame() && '（この画面は枠の中で動いているため、これが唯一の保存方法です）'}
         </p>
       )}
@@ -113,9 +132,23 @@ export function ExportSheet({
       )}
       {outcome && <p className={outcome.ok ? 'e1' : 'band'}>{outcome.detail}</p>}
       {blob && !inFrame() && (
-        <button type="button" className="btn" onClick={save}>
-          {mainLabel}
+        <button type="button" className="btn" onClick={() => save(primary.prefer)}>
+          {primary.label}
         </button>
+      )}
+      {blob && !inFrame() && (secondary || share) && (
+        <div className="btnrow">
+          {secondary && (
+            <button type="button" className="btn btn--sec" onClick={() => save(secondary.prefer)}>
+              {secondary.label}
+            </button>
+          )}
+          {share && (
+            <button type="button" className="btn btn--sec" onClick={() => save(share.prefer)}>
+              {share.label}
+            </button>
+          )}
+        </div>
       )}
       <button type="button" className="btn btn--sec" onClick={onClose}>
         続けて編集する

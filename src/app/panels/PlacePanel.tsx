@@ -8,7 +8,7 @@
  */
 import { RATIO_IDS, RATIOS } from '../../core/styles/spec';
 import { useDoc } from '../state/doc';
-import { Wheel } from '../ui/Wheel';
+import { Choice } from '../ui/Choice';
 import { CAPTION_ALIGN_OPTIONS, CAPTION_PLACE_OPTIONS, MARGIN_OPTIONS, PHOTO_PLACE_OPTIONS } from './constants';
 
 const RATIO_OPTIONS = RATIO_IDS.map((id) => ({ value: id, label: RATIOS[id].label }));
@@ -31,11 +31,11 @@ export function PlacePanel(): React.ReactElement {
 
   return (
     <div className="wheels">
-      <Wheel caption="比率" label="キャンバスの比率" options={RATIO_OPTIONS} value={style.ratio} onChange={(v) => setStyle({ ratio: v })} />
-      <Wheel caption="写真" label="写真の位置" options={photoOptions} value={style.photo} onChange={(v) => setStyle({ photo: v })} disabled={bleed} />
-      <Wheel caption="文字" label="文字の位置" options={captionOptions} value={style.caption} onChange={(v) => setStyle({ caption: v })} />
-      <Wheel caption="寄せ" label="文字の寄せ" options={CAPTION_ALIGN_OPTIONS} value={style.captionAlign} onChange={(v) => setStyle({ captionAlign: v })} disabled={overlay} />
-      <Wheel caption="余白" label="余白の広さ" options={MARGIN_OPTIONS} value={style.margin} onChange={(v) => setStyle({ margin: v })} />
+      <Choice caption="比率" label="キャンバスの比率" options={RATIO_OPTIONS} value={style.ratio} onChange={(v) => setStyle({ ratio: v })} />
+      <Choice caption="写真" label="写真の位置" options={photoOptions} value={style.photo} onChange={(v) => setStyle({ photo: v })} disabled={bleed} />
+      <Choice caption="文字" label="文字の位置" options={captionOptions} value={style.caption} onChange={(v) => setStyle({ caption: v })} />
+      <Choice caption="寄せ" label="文字の寄せ" options={CAPTION_ALIGN_OPTIONS} value={style.captionAlign} onChange={(v) => setStyle({ captionAlign: v })} disabled={overlay} />
+      <Choice caption="余白" label="余白の広さ" options={MARGIN_OPTIONS} value={style.margin} onChange={(v) => setStyle({ margin: v })} />
     </div>
   );
 }

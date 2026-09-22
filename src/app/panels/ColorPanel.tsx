@@ -4,7 +4,7 @@
  */
 import { cssColor } from '../../core/scene/ops';
 import { useDoc } from '../state/doc';
-import { Wheel } from '../ui/Wheel';
+import { Choice } from '../ui/Choice';
 import { BORDER_OPTIONS, COLORS } from './constants';
 
 const COLOR_OPTIONS = COLORS.map((c) => ({
@@ -26,8 +26,8 @@ export function ColorPanel(): React.ReactElement {
 
   return (
     <div className="wheels">
-      <Wheel caption="地色" label="地色" options={COLOR_OPTIONS} value={colorKey} onChange={(v) => set('colorKey', v)} disabled={bleed} wide />
-      <Wheel caption="枠線" label="写真の枠線" options={BORDER_OPTIONS} value={bordered ? 'on' : 'off'} onChange={(v) => set('bordered', v === 'on')} />
+      <Choice caption="地色" label="地色" options={COLOR_OPTIONS} value={colorKey} onChange={(v) => set('colorKey', v)} disabled={bleed} wide />
+      <Choice caption="枠線" label="写真の枠線" options={BORDER_OPTIONS} value={bordered ? 'on' : 'off'} onChange={(v) => set('bordered', v === 'on')} />
     </div>
   );
 }

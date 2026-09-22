@@ -1,7 +1,7 @@
 /** 組み。行数・揃え・字間・大きさ・組み方向の5本のホイール */
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
-import { Wheel } from '../ui/Wheel';
+import { Choice } from '../ui/Choice';
 import { ALIGN_OPTIONS, DIRECTION_OPTIONS, LINE_OPTIONS, SIZE_OPTIONS, TRACK_OPTIONS } from './constants';
 
 export function LayoutPanel(): React.ReactElement {
@@ -16,11 +16,11 @@ export function LayoutPanel(): React.ReactElement {
 
   return (
     <div className="wheels">
-      <Wheel caption="行数" label="行数" options={LINE_OPTIONS} value={lines} onChange={(v) => setStyle({ lines: v })} />
-      <Wheel caption="揃え" label="揃え" options={ALIGN_OPTIONS} value={align} onChange={(v) => set('align', v)} />
-      <Wheel caption="字間" label="字間" options={TRACK_OPTIONS} value={tracking} onChange={(v) => set('tracking', v)} />
-      <Wheel caption="文字" label="文字の大きさ" options={SIZE_OPTIONS} value={size} onChange={(v) => set('size', v)} />
-      <Wheel
+      <Choice caption="行数" label="行数" options={LINE_OPTIONS} value={lines} onChange={(v) => setStyle({ lines: v })} />
+      <Choice caption="揃え" label="揃え" options={ALIGN_OPTIONS} value={align} onChange={(v) => set('align', v)} />
+      <Choice caption="字間" label="字間" options={TRACK_OPTIONS} value={tracking} onChange={(v) => set('tracking', v)} />
+      <Choice caption="文字" label="文字の大きさ" options={SIZE_OPTIONS} value={size} onChange={(v) => set('size', v)} />
+      <Choice
         caption="方向"
         label="組み方向"
         options={DIRECTION_OPTIONS}

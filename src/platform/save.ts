@@ -11,7 +11,31 @@
  * 結果は自己診断に出るので、実機で1度触ればどの経路が通ったか分かる。
  */
 
-export type SaveMethod = 'share' | 'download' | 'longpress';
+export type SaveMethod = 'picker' | 'share' | 'download' | 'longpress';
+
+/**
+ * どの経路を先に試すか。
+ *   auto    … 端末に任せる（スマホ: 共有シート→ダウンロード）
+ *   picker  … 保存先を選ぶ窓（エクスプローラー / Finder）。PC の第一候補
+ *   share   … 共有シート
+ *   download… 既定の保存先へ
+ *
+ * PC の Chromium は navigator.share にファイルを渡せるので、auto のままだと
+ * Windows の共有パネルが開く（実機で指摘された）。PC では保存先を選ぶ窓が期待される。
+ */
+export type SavePreference = 'auto' | 'picker' | 'share' | 'download';
+
+/** File System Access API。Chromium 系の PC にしか無いので、あるときだけ使う */
+interface PickerWindow {
+  showSaveFilePicker?: (opts: {
+    suggestedName?: string;
+    types?: { description?: string; accept: Record<string, string[]> }[];
+  }) => Promise<{ createWritable(): Promise<{ write(b: Blob): Promise<void>; close(): Promise<void> }> }>;
+}
+
+export function canPickLocation(): boolean {
+  return typeof (window as Window & PickerWindow).showSaveFilePicker === 'function' && !inFrame();
+}
 
 /**
  * 枠の中（iframe）で動いているか。
@@ -38,6 +62,8 @@ export interface SaveCapabilities {
   readonly hasShare: boolean;
   readonly canShareFiles: boolean;
   readonly hasDownloadAttribute: boolean;
+  /** 保存先を選ぶ窓（エクスプローラー / Finder）を開けるか */
+  readonly canPickLocation: boolean;
   readonly inFrame: boolean;
 }
 
@@ -58,8 +84,38 @@ export function saveCapabilities(): SaveCapabilities {
     hasShare: typeof nav.share === 'function',
     canShareFiles,
     hasDownloadAttribute: 'download' in document.createElement('a'),
+    canPickLocation: canPickLocation(),
     inFrame: inFrame(),
   };
+}
+
+/**
+ * 保存先を選んで書く。**利用者の操作から同期的に呼ぶこと**（窓を開く権利は操作に紐づく）。
+ * 取りやめは失敗ではない。窓を閉じただけの人に落ち度があるように見せない。
+ */
+async function saveWithPicker(blob: Blob, filename: string): Promise<SaveOutcome | null> {
+  const w = window as Window & PickerWindow;
+  if (typeof w.showSaveFilePicker !== 'function') return null;
+  let handle: Awaited<ReturnType<NonNullable<PickerWindow['showSaveFilePicker']>>>;
+  try {
+    handle = await w.showSaveFilePicker({
+      suggestedName: filename,
+      types: [{ description: 'JPEG 画像', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } }],
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      return { method: 'picker', ok: false, detail: '保存を取りやめました' };
+    }
+    return null; // 窓を開けない環境（枠の中・権限なし）。下の経路へ
+  }
+  try {
+    const out = await handle.createWritable();
+    await out.write(blob);
+    await out.close();
+    return { method: 'picker', ok: true, detail: '保存しました' };
+  } catch (e) {
+    return { method: 'picker', ok: false, detail: `書き込めませんでした: ${e instanceof Error ? e.message : String(e)}` };
+  }
 }
 
 /**
@@ -67,9 +123,19 @@ export function saveCapabilities(): SaveCapabilities {
  * iOS の共有は「利用者の操作から始まった処理」でないと拒否される。
  * 書き出しを待ってから呼ぶと、その繋がりが切れて失敗しうる。
  */
-export async function saveImage(blob: Blob, filename: string): Promise<SaveOutcome> {
+export async function saveImage(
+  blob: Blob,
+  filename: string,
+  prefer: SavePreference = 'auto',
+): Promise<SaveOutcome> {
   const caps = saveCapabilities();
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+
+  // 保存先を選ぶ窓。開けたらそれで完結し、開けなければ下へ落ちる
+  if (prefer === 'picker' && caps.canPickLocation) {
+    const r = await saveWithPicker(blob, filename);
+    if (r) return r;
+  }
 
   // 枠の中では共有もダウンロードも遮断される。押しても何も起きない、という
   // いちばん分かりにくい失敗になるので、試さずに長押し保存へ案内する
@@ -81,7 +147,8 @@ export async function saveImage(blob: Blob, filename: string): Promise<SaveOutco
     };
   }
 
-  if (caps.canShareFiles) {
+  // 共有は「頼まれたとき」か「任せる」のとき。ダウンロードを頼まれたら飛ばす
+  if (caps.canShareFiles && (prefer === 'auto' || prefer === 'share')) {
     try {
       const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
       await nav.share!({ files: [file] });

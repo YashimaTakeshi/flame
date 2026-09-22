@@ -7,7 +7,8 @@ import type { BadgeMode, BadgeSize } from '../../core/badge';
 import type { BandSide } from '../../core/styles/layout';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
-import { Wheel, type WheelOption } from '../ui/Wheel';
+import { Choice } from '../ui/Choice';
+import type { WheelOption } from '../ui/Wheel';
 import { ALIGN_OPTIONS, BORDER_OPTIONS, CAPTION_ALIGN_OPTIONS } from './constants';
 
 const MODE_OPTIONS: readonly WheelOption<BadgeMode>[] = [
@@ -45,12 +46,12 @@ export function BadgePanel(): React.ReactElement {
 
   return (
     <div className="wheels">
-      <Wheel caption="刻印" label="刻印の見せ方" options={MODE_OPTIONS} value={mode} onChange={(v) => set('badge', v)} disabled={bleed} onDisabledPick={why} />
-      <Wheel caption="辺" label="刻印を置く辺" options={PLACE_OPTIONS} value={place} onChange={(v) => set('badgePlace', v)} disabled={off} onDisabledPick={why} />
-      <Wheel caption="横" label="刻印の左右" options={ALIGN_OPTIONS} value={align} onChange={(v) => set('badgeAlign', v)} disabled={off} onDisabledPick={why} />
-      <Wheel caption="縦" label="刻印の上下" options={CAPTION_ALIGN_OPTIONS} value={valign} onChange={(v) => set('badgeValign', v)} disabled={off} onDisabledPick={why} />
-      <Wheel caption="大" label="刻印の大きさ" options={SIZE_OPTIONS} value={size} onChange={(v) => set('badgeSize', v)} disabled={off} onDisabledPick={why} />
-      <Wheel
+      <Choice caption="刻印" label="刻印の見せ方" options={MODE_OPTIONS} value={mode} onChange={(v) => set('badge', v)} disabled={bleed} onDisabledPick={why} />
+      <Choice caption="辺" label="刻印を置く辺" options={PLACE_OPTIONS} value={place} onChange={(v) => set('badgePlace', v)} disabled={off} onDisabledPick={why} />
+      <Choice caption="横" label="刻印の左右" options={ALIGN_OPTIONS} value={align} onChange={(v) => set('badgeAlign', v)} disabled={off} onDisabledPick={why} />
+      <Choice caption="縦" label="刻印の上下" options={CAPTION_ALIGN_OPTIONS} value={valign} onChange={(v) => set('badgeValign', v)} disabled={off} onDisabledPick={why} />
+      <Choice caption="大" label="刻印の大きさ" options={SIZE_OPTIONS} value={size} onChange={(v) => set('badgeSize', v)} disabled={off} onDisabledPick={why} />
+      <Choice
         caption="枠"
         label="刻印の枠線"
         options={BORDER_OPTIONS}

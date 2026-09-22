@@ -858,3 +858,216 @@
   overflow-wrap: anywhere;
   user-select: text;
 }
+
+/* ═══════════════ PC（desk）の組み方 ═══════════════
+ * 左にプレビュー、右に設定の欄。設定は全部見えていて、押しボタンで選ぶ。
+ * スマホの画面をそのまま横に伸ばすと、プレビューが小さく設定は1タブずつしか見えない
+ * （実機で指摘された）。幅で切り替える（app/layout.ts）。
+ */
+.app[data-layout='desk'] {
+  grid-template-rows: calc(var(--header-h) + var(--safe-top)) minmax(0, 1fr);
+}
+
+.desk {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  border-top: 1px solid var(--line);
+}
+
+/* 写真が無いときは欄が無い。プレビューが全幅 */
+.app[data-layout='desk'][data-empty='true'] .desk {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.desk__main {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.app[data-layout='desk'] .stage {
+  padding: var(--s4);
+}
+
+.app[data-layout='desk'] .stage__canvas {
+  /* 影は少し深く。大きな暗い面の中で写真の縁が立つ */
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+
+/* ── 設定の欄 ── */
+.side {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-left: 1px solid var(--line);
+  background: var(--bg);
+  padding-bottom: var(--s4);
+}
+
+.side__sec {
+  padding: var(--s2) var(--s3);
+}
+.side__sec + .side__sec {
+  border-top: 1px solid var(--line);
+}
+
+.side__hd {
+  margin: 0 0 var(--s2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t1);
+  line-height: var(--t1-lh);
+  letter-spacing: var(--t1-ls);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.side__hd svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* パネルの器はスマホでは横並びのホイール列。欄の中では縦に積む */
+.side .wheels {
+  height: auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 0;
+}
+
+/* 情報: 一覧は全部見せる（スマホでは3行で送る） */
+.side .p-info {
+  height: auto;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0;
+  gap: var(--s2);
+}
+.side .checklist {
+  height: auto;
+}
+.side .p-info__acts {
+  grid-template-columns: auto auto;
+  justify-content: start;
+}
+
+/* ── 押しボタンの並び（Segmented） ── */
+.seg {
+  display: grid;
+  grid-template-columns: 3.5em minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+.seg[data-wide='true'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.seg__cap {
+  padding-top: 8px;
+  font-size: var(--t1);
+  line-height: var(--t1-lh);
+  letter-spacing: var(--t1-ls);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.seg[data-wide='true'] .seg__cap {
+  padding-top: 0;
+}
+
+.seg__opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.seg__opt {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--t2);
+  letter-spacing: var(--t2-ls);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.seg__opt:hover {
+  color: var(--ink);
+  border-color: var(--ink-2);
+}
+/* 選択は塗りの反転。ホイールの中央の帯と同じ言葉 */
+.seg__opt[aria-checked='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+  font-weight: 600;
+}
+.seg__opt[aria-disabled='true'],
+.seg[data-disabled='true'] .seg__opt {
+  color: var(--ink-3);
+  border-color: var(--line);
+  cursor: default;
+}
+.seg[data-disabled='true'] .seg__opt[aria-checked='true'] {
+  background: var(--line);
+  border-color: var(--line);
+  color: var(--ink-3);
+}
+.seg__opt svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 書体・地色: 2列の升に。名前は書体自身で、色は丸と名前で */
+.seg[data-wide='true'] .seg__opts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.seg[data-wide='true'] .seg__opt {
+  justify-content: flex-start;
+  min-height: 36px;
+  overflow: hidden;
+}
+.seg[data-wide='true'] .seg__opt .swatchrow__dot {
+  width: 16px;
+  height: 16px;
+}
+.seg__opt[aria-checked='true'] .swatchrow__dot {
+  box-shadow: inset 0 0 0 1px var(--bg);
+}
+
+/* ── 面（Sheet）は PC では真ん中の窓 ── */
+.app[data-layout='desk'] .sheet {
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  top: 50%;
+  translate: -50% -50%;
+  width: min(560px, 92vw);
+  max-height: min(88vh, 900px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  animation: none;
+}
+.app[data-layout='desk'] .sheet[data-size='tall'] {
+  height: auto;
+  max-height: min(88vh, 900px);
+}
+.app[data-layout='desk'] .sheet[data-size='full'] {
+  top: 50%;
+  height: min(90vh, 960px);
+  width: min(920px, 94vw);
+  padding-top: 0;
+}
+
+/* 書き出しの脇の選択肢。PC で「既定の場所へ」と「共有」を横に並べる */
+.btnrow {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--s1);
+}

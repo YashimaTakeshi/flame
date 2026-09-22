@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
 import { ensureJapaneseFont, JP_FAMILY, LATIN_FONTS, type LatinFontKey } from '../fonts-catalog';
-import { Wheel } from '../ui/Wheel';
+import { Choice } from '../ui/Choice';
 
 type Key = LatinFontKey | 'jp';
 
@@ -43,7 +43,7 @@ export function FontPanel(): React.ReactElement {
 
   return (
     <div className="wheels" aria-busy={loading || undefined}>
-      <Wheel label="書体" options={OPTIONS} value={fontKey} onChange={pick} wide />
+      <Choice label="書体" options={OPTIONS} value={fontKey} onChange={pick} wide />
     </div>
   );
 }

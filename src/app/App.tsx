@@ -16,6 +16,8 @@ import { OptionRow } from './editor/OptionRow';
 import { TabBar } from './editor/TabBar';
 import { EMPTY_EXIF, readExif, type ExifFacts } from './exif';
 import { ShareApp } from './ui/ShareApp';
+import { Side } from './editor/Side';
+import { useLayoutMode } from './layout';
 import { ensureFilmLogo, filmLogoImage } from './film-logos';
 import type { BadgeImage } from '../core/badge';
 import { flushSettings } from './state/persist';
@@ -270,9 +272,38 @@ export function App(): React.ReactElement {
 
   const exif = loaded?.exif ?? EMPTY_EXIF;
   const noExif = loaded !== null && !exif.camera && !exif.dateTaken && !bandDismissed;
+  const layout = useLayoutMode();
+  const desk = layout === 'desk';
 
-  return (
-    <div className="app" data-tab={tab} data-empty={loaded ? undefined : 'true'}>
+  /* 撮影情報が無いときの案内。phone では帯の行、desk ではプレビューの下に置く */
+  const band = loadError ? (
+    <div className="band" role="alert">
+      <p>{loadError}</p>
+      <div className="band__acts">
+        <button type="button" className="btn--s" onClick={() => fileRef.current?.click()}>
+          別の写真を選ぶ
+        </button>
+      </div>
+    </div>
+  ) : noExif ? (
+    <Band
+      fileDate={new Date(loaded.file.lastModified)}
+      onUseFileDate={() => {
+        doc.setOverride('date', new Date(loaded.file.lastModified));
+        setBandDismissed(true);
+      }}
+      onEdit={() => {
+        setBandDismissed(true);
+        openSheet('info');
+      }}
+      onSkip={() => {
+        doc.set('fields', { ...DEFAULT_FIELDS, date: false, camera: false, lens: false, exposure: false, focalLength: false });
+        setBandDismissed(true);
+      }}
+    />
+  ) : null;
+
+  const header = (
       <header className="hdr">
         {loaded ? (
           <button
@@ -315,8 +346,10 @@ export function App(): React.ReactElement {
           }}
         />
       </header>
+  );
 
-      <div className="stage" ref={stageRef}>
+  const stage = (
+    <div className="stage" ref={stageRef}>
         {loaded ? (
           preview.error || sceneError ? (
             <div className="stage__e3">
@@ -359,38 +392,32 @@ export function App(): React.ReactElement {
           </div>
         )}
       </div>
+  );
 
-      {loadError ? (
-        <div className="band" role="alert">
-          <p>{loadError}</p>
-          <div className="band__acts">
-            <button type="button" className="btn--s" onClick={() => fileRef.current?.click()}>
-              別の写真を選ぶ
-            </button>
+  return (
+    <div className="app" data-tab={tab} data-layout={layout} data-empty={loaded ? undefined : 'true'}>
+      {header}
+
+      {desk ? (
+        /*
+         * PC: 左にプレビュー、右に設定の欄。
+         * 設定は全部見えていて、プレビューを見ながらどこでも触れる。タブは要らない。
+         */
+        <div className="desk">
+          <div className="desk__main">
+            {stage}
+            {band}
           </div>
+          {loaded && <Side />}
         </div>
-      ) : noExif ? (
-        <Band
-          fileDate={new Date(loaded.file.lastModified)}
-          onUseFileDate={() => {
-            doc.setOverride('date', new Date(loaded.file.lastModified));
-            setBandDismissed(true);
-          }}
-          onEdit={() => {
-            setBandDismissed(true);
-            openSheet('info');
-          }}
-          onSkip={() => {
-            doc.set('fields', { ...DEFAULT_FIELDS, date: false, camera: false, lens: false, exposure: false, focalLength: false });
-            setBandDismissed(true);
-          }}
-        />
       ) : (
-        <span />
+        <>
+          {stage}
+          {band ?? <span />}
+          {loaded && <OptionRow />}
+          {loaded && <TabBar />}
+        </>
       )}
-
-      {loaded && <OptionRow />}
-      {loaded && <TabBar />}
 
       {sheet === 'info' && <InfoSheet exif={exif} onClose={closeSheet} />}
       {sheet === 'export' && <ExportSheet render={renderFull} onClose={closeSheet} />}

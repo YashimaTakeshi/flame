@@ -77,6 +77,66 @@ for (const r of ratios) {
   await page.screenshot({ path: `/tmp/u7-place-${r.replace(/[:\/]/g, '-')}.png` });
 }
 console.log('切れている部品:', JSON.stringify(clipped, null, 1));
+
+/*
+ * PC の組み方（desk）。幅 1440 で開き直し、
+ *   - 設定の欄に 6 つの節が全部あり、押しボタンの並びが出ていること
+ *   - 欄の中の部品が欄の横幅からはみ出さないこと
+ *   - 書き出しの窓が真ん中に出ること
+ * を見る。ホイールは出ていてはいけない（鼠には向かない）。
+ */
+const deskCtx = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+const desk = await deskCtx.newPage();
+const deskErrs = [];
+desk.on('pageerror', e => deskErrs.push(String(e)));
+desk.on('console', m => { if (m.type()==='error' && !m.text().includes('404')) deskErrs.push('[console] '+m.text()); });
+await desk.goto(origin, { waitUntil: 'networkidle' });
+await desk.setInputFiles('input[type=file]', '/home/user/flame/tests/fixtures/iphone-portrait.jpg');
+await desk.waitForSelector('canvas.stage__canvas', { timeout: 15000 });
+await desk.waitForTimeout(700);
+await desk.screenshot({ path: '/tmp/d1-desk.png' });
+const deskReport = await desk.evaluate(() => {
+  const side = document.querySelector('.side');
+  const sideR = side?.getBoundingClientRect();
+  const overflow = [];
+  if (sideR) {
+    for (const el of document.querySelectorAll('.side .seg__opt, .side .check, .side .iconbtn')) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0) continue;
+      if (r.left < sideR.left - 0.5 || r.right > sideR.right + 0.5) {
+        overflow.push(`${el.className.split(' ')[0]}「${(el.textContent ?? '').trim().slice(0, 12)}」が欄の横からはみ出す`);
+      }
+    }
+  }
+  const c = document.querySelector('canvas.stage__canvas')?.getBoundingClientRect();
+  return {
+    layout: document.querySelector('.app')?.getAttribute('data-layout'),
+    sections: document.querySelectorAll('.side__sec').length,
+    segments: document.querySelectorAll('.side .seg').length,
+    wheels: document.querySelectorAll('.wheel').length,
+    tabbar: !!document.querySelector('.tabbar'),
+    canvasW: c ? Math.round(c.width) : 0,
+    overflow,
+  };
+});
+// 押しボタンで選べるか（比率 1:1 → キャンバスが正方形になる）
+await desk.locator('.side .seg__opt', { hasText: '1:1' }).first().click();
+await desk.waitForTimeout(500);
+const square = await desk.evaluate(() => { const c = document.querySelector('canvas.stage__canvas')?.getBoundingClientRect(); return c ? Math.abs(c.width - c.height) < 2 : false; });
+// 書き出しの窓
+await desk.getByRole('button', { name: '書き出す' }).click();
+await desk.waitForTimeout(2500);
+const dialog = await desk.evaluate(() => {
+  const r = document.querySelector('.sheet')?.getBoundingClientRect();
+  if (!r) return null;
+  const cx = r.left + r.width / 2;
+  return { centered: Math.abs(cx - window.innerWidth / 2) < 4, width: Math.round(r.width), buttons: [...document.querySelectorAll('.sheet .btn')].map(b => b.textContent?.trim()) };
+});
+await desk.screenshot({ path: '/tmp/d2-desk-export.png' });
+console.log('PC の組み方:', JSON.stringify({ ...deskReport, squareAfterPick: square, dialog }, null, 1));
+console.log('PC のエラー:', deskErrs.length ? deskErrs : 'なし');
+await deskCtx.close();
+
 console.log('比率ごとの配置行:', JSON.stringify(perRatio, null, 1));
 
 // スクロールが発生していないか
