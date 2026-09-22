@@ -251,4 +251,42 @@ const scrolls = await page.evaluate(() => ({
 }));
 console.log('レイアウト検査:', JSON.stringify(scrolls, null, 1));
 console.log('ページ内のエラー:', errs.length ? errs.join('\n') : 'なし');
+
+/*
+ * 公開し直した直後、ブラウザが**古い index.html** を持っていると、
+ * 消えた名前の部品が 404 になり、題だけ出て真っ黒な画面になる（実機で発生）。
+ * 古い HTML を掴んだ状態を作り、自力で取り直して立ち直ることを見る。
+ */
+const staleHtml = readFileSync(resolve(DIST, 'index.html'), 'utf8')
+  .replace(/assets\/index-[\w-]+\.js/, 'assets/index-OLDOLDOL.js')
+  .replace(/assets\/index-[\w-]+\.css/, 'assets/index-OLDOLDOL.css');
+const staleSrv = createServer((req, res) => {
+  let p = decodeURIComponent((req.url ?? '/').split('?')[0]);
+  const busted = (req.url ?? '').includes('?');
+  if (p === '/') p = '/index.html';
+  if (p === '/index.html') {
+    // 問い合わせが付くまでは古い HTML を返す（ブラウザのキャッシュを模す）
+    res.writeHead(200, { 'content-type': TYPES['.html'] });
+    res.end(busted ? readFileSync(resolve(DIST, 'index.html')) : staleHtml);
+    return;
+  }
+  const f = resolve(DIST, '.' + p);
+  if (!f.startsWith(DIST) || !existsSync(f)) { res.writeHead(404).end('nf'); return; }
+  res.writeHead(200, { 'content-type': TYPES[extname(f)] ?? 'application/octet-stream' });
+  res.end(readFileSync(f));
+});
+await new Promise(ok => staleSrv.listen(0, '127.0.0.1', ok));
+const staleCtx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+const stalePage = await staleCtx.newPage();
+await stalePage.goto(`http://127.0.0.1:${staleSrv.address().port}`, { waitUntil: 'networkidle' });
+await stalePage.waitForTimeout(5000);
+const revived = await stalePage.evaluate(() => ({
+  mounted: (document.getElementById('root')?.childElementCount ?? 0) > 0,
+  header: !!document.querySelector('.hdr'),
+  // 取り直しの印は人に見せない
+  urlClean: location.search === '',
+}));
+console.log('古い HTML から立ち直るか:', JSON.stringify(revived));
+await staleCtx.close(); staleSrv.close();
+
 await b.close(); server.close();
