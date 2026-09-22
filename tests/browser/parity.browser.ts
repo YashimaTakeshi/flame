@@ -427,6 +427,15 @@ await test('仕上がりの刻印を置いても一致する（文字・札・�
   const img = { id: 'film:PROVIA', aspect: 300 / 220 };
   expectParity('刻印 札', parityOf(sceneFor({ badge: { text: 'PROVIA', mode: 'logo', ...B, image: img } })));
   expectParity(
+    '刻印 重ね',
+    parityOf(
+      sceneFor({
+        badge: { text: 'Velvia', mode: 'logo', place: 'below', align: 'right', valign: 'end', size: 'M', framed: true, image: img },
+        style: { ratio: 'SQ', photo: 'center', caption: 'overlay', captionAlign: 'center', lines: 2, margin: 'none' },
+      }),
+    ),
+  );
+  expectParity(
     '刻印 札 段',
     parityOf(
       sceneFor({

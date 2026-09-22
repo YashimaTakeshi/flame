@@ -202,11 +202,18 @@ export function App(): React.ReactElement {
     }
   }, [sceneInput]);
 
+  /*
+   * 画面の組み方。PC と スマホで canvas の置き場所（親）が違うので、切り替わると
+   * canvas の要素が作り直される。描く側と指で動かす側に、その合図として渡す。
+   */
+  const layout = useLayoutMode();
+  const desk = layout === 'desk';
+
   /* 全面のとき、プレビューを指で動かして切り取りの位置を決める */
   const bleed = doc.style.margin === 'none';
   const beginDrag = useDoc((s) => s.beginDrag);
   const dragFocus = useDoc((s) => s.dragFocus);
-  usePan(canvasRef, scene, bleed && loaded !== null, readFocus, beginDrag, dragFocus);
+  usePan(canvasRef, scene, bleed && loaded !== null, readFocus, beginDrag, dragFocus, layout);
 
   /** 描くときに識別子から画像を引く。写真は1枚、札は名前ごと */
   const previewImage = useCallback(
@@ -215,7 +222,7 @@ export function App(): React.ReactElement {
     [loaded],
   );
 
-  const preview = usePreview(canvasRef, stageRef, scene, previewImage, EXPORT_LONG_EDGE);
+  const preview = usePreview(canvasRef, stageRef, scene, previewImage, EXPORT_LONG_EDGE, layout);
 
   const pick = useCallback(async (file: File) => {
     setBusy('写真を読み込んでいます');
@@ -272,8 +279,6 @@ export function App(): React.ReactElement {
 
   const exif = loaded?.exif ?? EMPTY_EXIF;
   const noExif = loaded !== null && !exif.camera && !exif.dateTaken && !bandDismissed;
-  const layout = useLayoutMode();
-  const desk = layout === 'desk';
 
   /* 撮影情報が無いときの案内。phone では帯の行、desk ではプレビューの下に置く */
   const band = loadError ? (

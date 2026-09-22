@@ -32,6 +32,12 @@ export function usePreview(
   /** 識別子から画像を引く。写真のほかに仕上がりの札も載るので、1枚では足りない */
   image: (id: PhotoId) => CanvasImageSource | null,
   exportLongEdge: number,
+  /**
+   * canvas の要素が作り直されたことを知らせる値（画面の組み方など）。
+   * ref は同じまま中身だけ差し替わるので、これが無いと新しい canvas に一度も描かれない。
+   * ★実測: 全画面から窓を縮めて PC → スマホの組み方に切り替わると、プレビューが真っ暗のままだった。★
+   */
+  mountKey: string,
 ): PreviewState {
   const [error, setError] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
@@ -104,7 +110,7 @@ export function usePreview(
       if (raf.current) cancelAnimationFrame(raf.current);
       raf.current = 0;
     };
-  }, [canvasRef, hostRef, scene, image, exportLongEdge]);
+  }, [canvasRef, hostRef, scene, image, exportLongEdge, mountKey]);
 
   useEffect(
     () => () => {

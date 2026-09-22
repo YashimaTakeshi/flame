@@ -517,9 +517,39 @@ describe('Scene の組み立て', () => {
       }
     });
 
-    it('重ね（全面）には帯が無いので刻まない', () => {
-      const scene = buildScene(inputFor({ style: sp({ margin: 'none', caption: 'overlay' }), badge: LOGO }), measurer);
-      expect(badgeOps(scene)).toHaveLength(0);
+    it('重ね（全面）でも刻む。写真の上、キャンバスの内側で、キャプションと重ならない', () => {
+      const IMG = { id: 'film:PROVIA', aspect: 300 / 220 };
+      const style = sp({ margin: 'none', caption: 'overlay' });
+      for (const aspect of [0.75, 1.5]) {
+        for (const align of ['left', 'center', 'right'] as const) {
+          for (const valign of ['start', 'center', 'end'] as const) {
+            for (const badge of [
+              { ...LOGO, align, valign, image: IMG },
+              { ...TEXT, align, valign },
+            ]) {
+              const scene = buildScene(inputFor({ style, photo: { id: 'p', aspect }, badge }), measurer);
+              const name = `重ね @${aspect} ${badge.mode} ${align}/${valign}`;
+              const mark =
+                scene.ops.find((o) => o.op === 'photo' && String(o.photo).startsWith('film:')) ??
+                scene.ops.find((o) => o.op === 'strokeRect');
+              expect(mark, name).toBeDefined();
+              if (!mark) continue;
+              const r = mark.op === 'photo' ? mark.dst : mark.op === 'strokeRect' ? mark.rect : null;
+              if (!r) continue;
+              const W = scene.canvas.widthLu as number;
+              const H = scene.canvas.heightLu as number;
+              expect(r.x, name).toBeGreaterThanOrEqual(-0.01);
+              expect(r.y, name).toBeGreaterThanOrEqual(-0.01);
+              expect(r.x + r.w, name).toBeLessThanOrEqual(W + 0.01);
+              expect(r.y + r.h, name).toBeLessThanOrEqual(H + 0.01);
+              for (const c of scene.ops) {
+                if (c.op !== 'text' || c.id.startsWith('badge')) continue;
+                expect(overlaps(r, c.boundsLu), `${name}: キャプション ${c.id} と重なる`).toBe(false);
+              }
+            }
+          }
+        }
+      }
     });
 
     it('刻印のぶん帯が伸び、キャプションが無くても刻印だけ置ける', () => {

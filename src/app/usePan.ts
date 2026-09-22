@@ -21,6 +21,8 @@ export function usePan(
   getFocus: () => Focus,
   onBegin: () => void,
   onMove: (f: Focus) => void,
+  /** canvas の要素が作り直されたことを知らせる値。ref は同じまま中身が差し替わる */
+  mountKey = '',
 ): void {
   /*
    * 切り取りの幅（w, h）は Scene から読むが、リスナーは Scene に依存させない。
@@ -89,5 +91,5 @@ export function usePan(
       el.removeEventListener('pointerup', up);
       el.removeEventListener('pointercancel', up);
     };
-  }, [canvasRef, enabled, getFocus, onBegin, onMove]);
+  }, [canvasRef, enabled, getFocus, onBegin, onMove, mountKey]);
 }

@@ -76,6 +76,27 @@ for (const r of ratios) {
   perRatio[r] = await clippedIn(null);
   await page.screenshot({ path: `/tmp/u7-place-${r.replace(/[:\/]/g, '-')}.png` });
 }
+/*
+ * 書き出しの窓（スマホ）。画像が残りの高さに収まり、ボタンまで**スクロールせずに**見えること。
+ * ★実測: 以前は画像が幅いっぱいで、保存のボタンが窓の下に隠れていた。★
+ */
+const fitOf = () => {
+  const body = document.querySelector('.sheet__body');
+  const img = document.querySelector('.result-img');
+  if (!body || !img) return { ok: false, reason: '窓か画像が無い' };
+  const b = body.getBoundingClientRect(), i = img.getBoundingClientRect();
+  const inside = i.top >= b.top - 0.5 && i.bottom <= b.bottom + 0.5 && i.left >= b.left - 0.5 && i.right <= b.right + 0.5;
+  const scrolls = body.scrollHeight > body.clientHeight + 1;
+  const buttonsVisible = [...document.querySelectorAll('.sheet .btn')].every((el) => { const r = el.getBoundingClientRect(); return r.top >= b.top - 0.5 && r.bottom <= b.bottom + 0.5; });
+  return { ok: inside && !scrolls && buttonsVisible, scrolls, imgInside: inside, buttonsVisible, imgW: Math.round(i.width), imgH: Math.round(i.height) };
+};
+await page.getByRole('button', { name: '書き出す' }).click();
+await page.waitForTimeout(2500);
+const phoneDialog = await page.evaluate(fitOf);
+await page.screenshot({ path: '/tmp/u8-export.png' });
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+console.log('書き出しの窓（スマホ）:', JSON.stringify(phoneDialog));
 console.log('切れている部品:', JSON.stringify(clipped, null, 1));
 
 /*
@@ -132,8 +153,41 @@ const dialog = await desk.evaluate(() => {
   const cx = r.left + r.width / 2;
   return { centered: Math.abs(cx - window.innerWidth / 2) < 4, width: Math.round(r.width), buttons: [...document.querySelectorAll('.sheet .btn')].map(b => b.textContent?.trim()) };
 });
+const deskFit = await desk.evaluate(fitOf);
 await desk.screenshot({ path: '/tmp/d2-desk-export.png' });
-console.log('PC の組み方:', JSON.stringify({ ...deskReport, squareAfterPick: square, dialog }, null, 1));
+console.log('PC の組み方:', JSON.stringify({ ...deskReport, squareAfterPick: square, dialog: { ...dialog, fit: deskFit } }, null, 1));
+
+/*
+ * 窓を縮めて PC → スマホの組み方に切り替える。canvas の要素が作り直されるので、
+ * 新しい canvas にも描かれていること（真っ暗でないこと）を画素で見る。
+ * ★実測: 以前は ref が同じまま中身だけ差し替わり、一度も描かれずに真っ暗だった。★
+ */
+await desk.keyboard.press('Escape');
+await desk.waitForTimeout(300);
+await desk.setViewportSize({ width: 480, height: 900 });
+await desk.waitForTimeout(900);
+const afterShrink = await desk.evaluate(() => {
+  const c = document.querySelector('canvas.stage__canvas');
+  if (!c) return { layout: null, painted: false, reason: 'canvas が無い' };
+  const ctx = c.getContext('2d');
+  const d = ctx.getImageData(0, 0, c.width, c.height).data;
+  const seen = new Set();
+  for (let i = 0; i < d.length; i += 4 * 97) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+  return { layout: document.querySelector('.app')?.getAttribute('data-layout'), painted: seen.size > 8, colors: seen.size, w: c.width, h: c.height };
+});
+await desk.screenshot({ path: '/tmp/d3-shrunk.png' });
+// 戻しても描かれること
+await desk.setViewportSize({ width: 1440, height: 900 });
+await desk.waitForTimeout(900);
+const afterGrow = await desk.evaluate(() => {
+  const c = document.querySelector('canvas.stage__canvas');
+  if (!c) return { painted: false };
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  const seen = new Set();
+  for (let i = 0; i < d.length; i += 4 * 97) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+  return { layout: document.querySelector('.app')?.getAttribute('data-layout'), painted: seen.size > 8 };
+});
+console.log('縮めたあと:', JSON.stringify(afterShrink), ' 戻したあと:', JSON.stringify(afterGrow));
 console.log('PC のエラー:', deskErrs.length ? deskErrs : 'なし');
 await deskCtx.close();
 

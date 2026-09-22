@@ -1,7 +1,7 @@
 /**
  * 刻印。仕上がり（PROVIA / ビビッド …）を帯の中にどう置くか。
  * 文字と同じ数の軸: どの辺（上下左右）・横（左中右）・縦（上中下）。それに見せ方・大きさ・枠。
- * キャプションの設定とは独立。余白なし（重ね）には帯が無いので、列ごと止める。
+ * キャプションの設定とは独立。余白なし（重ね）には帯が無いので辺だけ止め、写真の上に置く。
  */
 import type { BadgeMode, BadgeSize } from '../../core/badge';
 import type { BandSide } from '../../core/styles/layout';
@@ -41,13 +41,15 @@ export function BadgePanel(): React.ReactElement {
   const bleed = useDoc((s) => s.style.margin === 'none');
   const set = useDoc((s) => s.set);
   const setHint = useUi((s) => s.setHint);
-  const off = bleed || mode === 'none';
-  const why = (): void => setHint(bleed ? '余白なしでは刻印を置けません' : '刻印を「文字」か「ロゴ」にしてください');
+  const off = mode === 'none';
+  const why = (): void => setHint('刻印を「文字」か「ロゴ」にしてください');
+  // 重ね（全面）には帯が無い。辺は選べず、写真の上に左右と上下だけで置く
+  const noSide = (): void => setHint('余白なしでは写真の上に置きます。辺は選べません');
 
   return (
     <div className="wheels">
-      <Choice caption="刻印" label="刻印の見せ方" options={MODE_OPTIONS} value={mode} onChange={(v) => set('badge', v)} disabled={bleed} onDisabledPick={why} />
-      <Choice caption="辺" label="刻印を置く辺" options={PLACE_OPTIONS} value={place} onChange={(v) => set('badgePlace', v)} disabled={off} onDisabledPick={why} />
+      <Choice caption="刻印" label="刻印の見せ方" options={MODE_OPTIONS} value={mode} onChange={(v) => set('badge', v)} />
+      <Choice caption="辺" label="刻印を置く辺" options={PLACE_OPTIONS} value={place} onChange={(v) => set('badgePlace', v)} disabled={off || bleed} onDisabledPick={bleed ? noSide : why} />
       <Choice caption="横" label="刻印の左右" options={ALIGN_OPTIONS} value={align} onChange={(v) => set('badgeAlign', v)} disabled={off} onDisabledPick={why} />
       <Choice caption="縦" label="刻印の上下" options={CAPTION_ALIGN_OPTIONS} value={valign} onChange={(v) => set('badgeValign', v)} disabled={off} onDisabledPick={why} />
       <Choice caption="大" label="刻印の大きさ" options={SIZE_OPTIONS} value={size} onChange={(v) => set('badgeSize', v)} disabled={off} onDisabledPick={why} />

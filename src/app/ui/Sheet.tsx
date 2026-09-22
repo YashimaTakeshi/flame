@@ -13,6 +13,7 @@ export function Sheet({
   onClose,
   onConfirm,
   confirmLabel = '✓',
+  bodyClass,
   children,
 }: {
   title: string;
@@ -20,6 +21,8 @@ export function Sheet({
   onClose: () => void;
   onConfirm?: () => void;
   confirmLabel?: string;
+  /** 中身の組み方を替える（書き出しの「画像を残りの高さに収める」など） */
+  bodyClass?: string;
   children: React.ReactNode;
 }): React.ReactElement {
   // 背後の画面がスクロールしないようにする
@@ -56,7 +59,7 @@ export function Sheet({
             <span />
           )}
         </header>
-        <div className="sheet__body">{children}</div>
+        <div className={bodyClass ? `sheet__body ${bodyClass}` : 'sheet__body'}>{children}</div>
       </section>
     </>
   );

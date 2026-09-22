@@ -122,25 +122,34 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   if (typeset.lines.length === 0) warnings.push({ kind: 'caption-empty' });
 
   const overlay = def.caption.place === 'overlay';
+  const ink = overlay ? OVERLAY_INK : input.ink;
+  const muted = overlay ? mix(ink, rgba(0, 0, 0), 0.22) : mix(ink, input.background, 0.42);
 
-  /* 1b. 刻印。帯の大きさを決める前に組む。重ねには帯が無い */
+  /*
+   * 1b. 刻印。帯の大きさを決める前に組む。
+   * 重ね（全面）には帯が無いので、写真の上に置く（余白のときは写真の中に置かない、という
+   * 決まりは「帯があるなら帯へ」の意。全面では写真しか無い）。辺は効かず、左右と上下だけで置く。
+   */
   const baseSize = SIZE_LU[input.size] * def.typeScale;
-  const bspec = input.badge && !overlay ? input.badge : null;
+  const bspec = input.badge ?? null;
   const capPlace = def.caption.place;
-  const shared = bspec !== null && bspec.place === capPlace; // キャプションと同じ帯を分け合う
-  const sideBand = bspec !== null && (bspec.place === 'left' || bspec.place === 'right');
-  const badgeMaxW = shared
-    ? boxW
-    : sideBand
-      ? SIDE_BADGE_BAND_LU
-      : (CANVAS_WIDTH_LU as number) - (def.caption.sideInsetLu as number) * 2;
+  const shared = bspec !== null && !overlay && bspec.place === capPlace; // キャプションと同じ帯を分け合う
+  const sideBand = bspec !== null && !overlay && (bspec.place === 'left' || bspec.place === 'right');
+  const W = CANVAS_WIDTH_LU as number;
+  const badgeMaxW = overlay
+    ? W - (def.caption.outerInsetLu as number) * 2
+    : shared
+      ? boxW
+      : sideBand
+        ? SIDE_BADGE_BAND_LU
+        : W - (def.caption.sideInsetLu as number) * 2;
   const badge = bspec
     ? buildBadge(
         bspec,
         {
           baseSize,
           maxW: badgeMaxW,
-          ink: input.ink,
+          ink, // 重ねでは暗幕の上なので明色
           background: input.background,
           family: input.family,
           weight: input.weight,
@@ -163,7 +172,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   const stackGap = badge && textH > 0 ? baseSize * 0.6 : 0;
   const need = badge && shared ? (crossX ? textH + stackGap + badge.h : Math.max(textH, badge.h)) : textH;
   const extra: ExtraBand | null =
-    badge && bspec && !shared ? { place: bspec.place, sizeLu: sideBand ? badge.w : badge.h } : null;
+    badge && bspec && !shared && !overlay ? { place: bspec.place, sizeLu: sideBand ? badge.w : badge.h } : null;
 
   /* 2. 組み上がった高さで矩形を決める */
   const layout = resolveLayout(def, input.photo.aspect, need, input.focus ?? CENTER_FOCUS, extra);
@@ -175,7 +184,31 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
    */
   let textTop = layout.captionBox.y as number;
   let badgeAt: { x: number; y: number } | null = null;
-  if (badge && bspec) {
+  if (badge && bspec && overlay) {
+    /*
+     * 重ね: 写真の上、端から outer だけ内側の面で、左右と上下だけで置く。
+     * キャプション（下端）と重なるなら、その上へ逃がす。
+     */
+    const outer = def.caption.outerInsetLu as number;
+    const canvasH = layout.canvas.h as number;
+    const rx = outer;
+    const rw = W - outer * 2;
+    const ry = outer;
+    const rh = Math.max(0, canvasH - outer * 2);
+    const bx = rx + hRange(bspec.align, badge.w, rw)[0];
+    let by = valignIn(ry, rh, badge.h, bspec.valign);
+    const cap = layout.captionBox;
+    const capY = cap.y as number;
+    const capH = cap.h as number;
+    if (textH > 0 && by + badge.h > capY && by < capY + capH) {
+      const capRange = hRangeOfLines(typeset.lines, cap.w as number);
+      const capX = cap.x as number;
+      const crossCap =
+        capRange !== null && rangesCross([capX + capRange[0], capX + capRange[1]], [bx, bx + badge.w]);
+      if (crossCap) by = Math.max(ry, capY - stackGap - badge.h);
+    }
+    badgeAt = { x: bx, y: by };
+  } else if (badge && bspec) {
     const region = shared ? layout.band : layout.extraBand;
     if (region) {
       const rx = region.x as number;
@@ -199,9 +232,6 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
       badgeAt = { x: bx, y: by };
     }
   }
-
-  const ink = overlay ? OVERLAY_INK : input.ink;
-  const muted = overlay ? mix(ink, rgba(0, 0, 0), 0.22) : mix(ink, input.background, 0.42);
 
   /* 3. 写真 */
   b.add({

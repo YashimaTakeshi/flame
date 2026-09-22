@@ -112,49 +112,58 @@ export function ExportSheet({
   const share = desk && caps.canShareFiles ? { prefer: 'share' as const, label: '共有…' } : null;
 
   return (
-    <Sheet title={blob ? '書き出しました' : '書き出し中…'} size="auto" onClose={onClose}>
-      {error && <p className="band">{error}</p>}
-      {url && <img src={url} alt="書き出した画像" className="result-img" />}
-      {url && savable && (
-        <p className="e1" style={{ padding: 0 }}>
-          {/* 長押しはスマホの作法。PC では右クリック */}
-          {desk ? '↑ 画像を右クリックして保存することもできます' : '↑ 画像を長押しして「写真に保存」'}
-          {inFrame() && '（この画面は枠の中で動いているため、これが唯一の保存方法です）'}
-        </p>
-      )}
-      {url && !savable && (
-        <p className="band">
-          この画像は大きすぎて、長押しでは保存できません。
-          {inFrame()
-            ? 'この画面は枠の中で動いているため、ほかの保存方法も使えません。書き出しの大きさを下げるか、アプリを直接開いてください。'
-            : '下のボタンから保存してください。'}
-        </p>
-      )}
-      {outcome && <p className={outcome.ok ? 'e1' : 'band'}>{outcome.detail}</p>}
-      {blob && !inFrame() && (
-        <button type="button" className="btn" onClick={() => save(primary.prefer)}>
-          {primary.label}
+    /*
+     * 高さは決めて（tall）、画像は残りの高さに収める。
+     * 以前は中身の高さに任せていたので、大きな画像だとボタンまで送らないと届かなかった
+     * （実機で指摘された）。画像が小さくなっても、保存の導線が見えているほうが先。
+     */
+    <Sheet title={blob ? '書き出しました' : '書き出し中…'} size="tall" bodyClass="sheet__body--fit" onClose={onClose}>
+      <div className="result">
+        {url && <img src={url} alt="書き出した画像" className="result-img" />}
+      </div>
+      <div className="result__rest">
+        {error && <p className="band">{error}</p>}
+        {url && savable && (
+          <p className="e1" style={{ padding: 0 }}>
+            {/* 長押しはスマホの作法。PC では右クリック */}
+            {desk ? '↑ 画像を右クリックして保存することもできます' : '↑ 画像を長押しして「写真に保存」'}
+            {inFrame() && '（この画面は枠の中で動いているため、これが唯一の保存方法です）'}
+          </p>
+        )}
+        {url && !savable && (
+          <p className="band">
+            この画像は大きすぎて、長押しでは保存できません。
+            {inFrame()
+              ? 'この画面は枠の中で動いているため、ほかの保存方法も使えません。書き出しの大きさを下げるか、アプリを直接開いてください。'
+              : '下のボタンから保存してください。'}
+          </p>
+        )}
+        {outcome && <p className={outcome.ok ? 'e1' : 'band'}>{outcome.detail}</p>}
+        {blob && !inFrame() && (
+          <button type="button" className="btn" onClick={() => save(primary.prefer)}>
+            {primary.label}
+          </button>
+        )}
+        {blob && !inFrame() && (secondary || share) && (
+          <div className="btnrow">
+            {secondary && (
+              <button type="button" className="btn btn--sec" onClick={() => save(secondary.prefer)}>
+                {secondary.label}
+              </button>
+            )}
+            {share && (
+              <button type="button" className="btn btn--sec" onClick={() => save(share.prefer)}>
+                {share.label}
+              </button>
+            )}
+          </div>
+        )}
+        <button type="button" className="btn btn--sec" onClick={onClose}>
+          続けて編集する
         </button>
-      )}
-      {blob && !inFrame() && (secondary || share) && (
-        <div className="btnrow">
-          {secondary && (
-            <button type="button" className="btn btn--sec" onClick={() => save(secondary.prefer)}>
-              {secondary.label}
-            </button>
-          )}
-          {share && (
-            <button type="button" className="btn btn--sec" onClick={() => save(share.prefer)}>
-              {share.label}
-            </button>
-          )}
-        </div>
-      )}
-      <button type="button" className="btn btn--sec" onClick={onClose}>
-        続けて編集する
-      </button>
-      {/* 作ったものを見せた直後が、人に教えたくなるとき */}
-      <ShareApp variant="button" />
+        {/* 作ったものを見せた直後が、人に教えたくなるとき */}
+        <ShareApp variant="button" />
+      </div>
     </Sheet>
   );
 }

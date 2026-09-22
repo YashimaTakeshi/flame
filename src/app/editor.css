@@ -1054,8 +1054,8 @@
   animation: none;
 }
 .app[data-layout='desk'] .sheet[data-size='tall'] {
-  height: auto;
-  max-height: min(88vh, 900px);
+  /* 高さを決めておく。決めないと中の「残りの高さ」が定まらず、画像が窓からはみ出す（実測） */
+  height: min(88vh, 900px);
 }
 .app[data-layout='desk'] .sheet[data-size='full'] {
   top: 50%;
@@ -1070,4 +1070,28 @@
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   gap: var(--s1);
+}
+
+/* ── 書き出しの窓: 画像は残りの高さに収め、ボタンは常に見えている ── */
+.sheet__body--fit {
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-content: stretch;
+}
+.result {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.result .result-img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.result__rest {
+  display: grid;
+  gap: var(--s2);
+  align-content: start;
 }
