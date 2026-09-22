@@ -389,7 +389,11 @@ describe('Scene の組み立て', () => {
       expect(l.ops.filter((o) => o.op === 'fillRect').length).toBeGreaterThan(1);
     });
 
-    it('★写真の中には置かない★ 全組み合わせ × 全比で、帯の中・写真の外・文字と非重複', () => {
+    /*
+     * 2,610 通り × 7 比 × 2 見せ方 = 3.6 万 Scene。既定の 5 秒に収まったり収まらなかったりして
+     * 揺れたので、時間の上限を明示する。決定的な計算であり、揺れの原因は上限だけ。
+     */
+    it('★写真の中には置かない★ 全組み合わせ × 全比で、帯の中・写真の外・文字と非重複', { timeout: 60_000 }, () => {
       for (const spec of SPECS) {
         if (spec.caption === 'overlay') continue;
         for (const aspect of ASPECTS) {
