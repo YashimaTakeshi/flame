@@ -158,9 +158,15 @@ export function typesetCaption(
       }
     }
 
+    /*
+     * 折るときは項目の切れ目で折り、行末に区切り（「,」など）を残さない。
+     * 以前は区切りごとつないだ文字列を空白で折っていて、「yashima takeshi,」のように行末に「,」が残った
+     */
+    const texts = working.map((p) => p.text);
+
     /* 段2: 折り返しが許されているなら折る */
     if (maxWrap > 1) {
-      const wrapped = wrap(text, nominal, boxWidthLu, metricsOf);
+      const wrapped = wrapFields(texts, sep, nominal, boxWidthLu, metricsOf);
       if (wrapped !== null && wrapped.length <= maxWrap) {
         if (wrapped.length > 1) {
           warnings.push({ kind: 'caption-wrapped', line: index, extraLines: wrapped.length - 1 });
@@ -174,7 +180,7 @@ export function typesetCaption(
     for (let f = 1 - SHRINK_STEP; f >= MIN_SHRINK; f -= SHRINK_STEP) {
       const s = nominal * f;
       if (maxWrap > 1) {
-        const wrapped = wrap(text, s, boxWidthLu, metricsOf);
+        const wrapped = wrapFields(texts, sep, s, boxWidthLu, metricsOf);
         if (wrapped !== null && wrapped.length <= maxWrap) {
           warnings.push({ kind: 'caption-shrunk', line: index, factor: Number(f.toFixed(2)) });
           for (const w of wrapped) emit(w, s);
@@ -216,6 +222,41 @@ export function typesetCaption(
 
   const heightLu = lines.reduce((a, l) => a + l.lineHeight, 0);
   return { lines, heightLu, warnings };
+}
+
+/**
+ * 項目の切れ目で貪欲に折る。**行をまたぐ区切りは落とす**（行末に「,」を残さない）。
+ * 1項目が1行に入らないときだけ、その項目の中を空白（和文は1文字）で折る。
+ * 入らない単語が1つでもあれば null。
+ */
+function wrapFields(
+  texts: readonly string[],
+  sep: string,
+  sizeLu: number,
+  boxWidthLu: number,
+  metricsOf: (t: string) => { w: (s: number) => number },
+): string[] | null {
+  const fits = (t: string): boolean => metricsOf(t).w(sizeLu) <= boxWidthLu;
+  const out: string[] = [];
+  let line = '';
+  for (const t of texts) {
+    const next = line === '' ? t : line + sep + t;
+    if (fits(next)) {
+      line = next;
+      continue;
+    }
+    if (line !== '') out.push(line);
+    if (fits(t)) {
+      line = t;
+      continue;
+    }
+    const inner = wrap(t, sizeLu, boxWidthLu, metricsOf);
+    if (inner === null) return null;
+    out.push(...inner.slice(0, -1));
+    line = inner[inner.length - 1] ?? '';
+  }
+  if (line !== '') out.push(line);
+  return out.length > 0 ? out : null;
 }
 
 /**

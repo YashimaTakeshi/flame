@@ -692,6 +692,27 @@
   color: var(--ink-3);
 }
 
+/* 選択肢の多いもの（仕上がりの名前）は OS の選択に任せる。見た目は部品に揃える */
+.pselect {
+  width: 100%;
+  max-width: 280px;
+  min-height: var(--tap);
+  padding: 0 32px 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-2)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23a8a39c' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E")
+    no-repeat right 12px center;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t2);
+  appearance: none;
+  -webkit-appearance: none;
+}
+.pselect option {
+  color: #111;
+}
+
 /* 3×3 の点 */
 .anchor {
   flex: none;

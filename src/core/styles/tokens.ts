@@ -50,6 +50,8 @@ export const L = (n: number): Lu => lu(n);
 
 export const LINE_ALL_IN_ONE: readonly FieldToken[] = [
   F('title'),
+  // 1行の組みにも作者を入れる。以前は入っておらず、情報で作者を載せても1行だと出なかった
+  F('artist', 'artistEnabled'),
   F('date'),
   F('camera'),
   F('lens'),

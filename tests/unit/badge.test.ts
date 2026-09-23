@@ -40,7 +40,10 @@ describe('同梱した札を置く', () => {
   });
 
   it('高さは大きさの指定で決まり、幅は札の比に従う', () => {
-    const h = (size: 'S' | 'M' | 'L'): number => buildBadge(spec({ image: IMAGE, size }), ctx, measurer)!.h;
+    const h = (size: 'XXS' | 'XS' | 'S' | 'M' | 'L'): number => buildBadge(spec({ image: IMAGE, size }), ctx, measurer)!.h;
+    // 小さい2段（依頼者の要望）
+    expect(h('XXS')).toBeLessThan(h('XS'));
+    expect(h('XS')).toBeLessThan(h('S'));
     expect(h('S')).toBeLessThan(h('M'));
     expect(h('M')).toBeLessThan(h('L'));
     const b = buildBadge(spec({ image: IMAGE }), ctx, measurer)!;

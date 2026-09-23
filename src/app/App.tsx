@@ -173,8 +173,8 @@ export function App(): React.ReactElement {
    * こうしないと、仕上がりを切り替えた直後の一瞬だけ前の札が新しい名前で出る。
    */
   useEffect(() => {
-    useUi.setState({ hasFilm: filmName !== null });
-  }, [filmName]);
+    useUi.setState({ hasFilm: filmName !== null, photoFilm: loaded?.exif.film ?? null });
+  }, [filmName, loaded]);
   const filmBadge = loadedLogo && loadedLogo.name === filmName ? loadedLogo.logo : null;
 
   /* 情報の一覧に出す中身。載せる／載せないに関係なく、写真の値と手入力から */

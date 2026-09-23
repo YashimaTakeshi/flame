@@ -4,7 +4,8 @@
  * 以前は辺・横・縦・大・枠の6列を独自の並びで回していた。
  *
  * 余白なし（全面）には帯が無いので、辺は選べず写真の上に 3×3 で置く。
- * 仕上がりの記録が無い写真（iPhone など）では刻印は出せない。すべて止めて理由を出す。
+ * 仕上がり（何の名前を刻むか）もここで選べる。選んだ値は情報（手入力の仕上がり）と同じもの。
+ * 以前は情報シートで仕上がりを入れてからでないと刻印が効かず、どこで何をすればよいか分からなかった。
  */
 import type { BadgeMode, BadgeSize } from '../../core/badge';
 import type { BandSide } from '../../core/styles/layout';
@@ -12,6 +13,7 @@ import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
 import { Anchor, Pics, Row, Stepper, Switch, type Opt } from '../ui/controls';
 import { PlacePic } from '../ui/pics';
+import { FILM_SUGGESTIONS } from '../fuji';
 import { CAPTION_PLACE_JA, CAPTION_PLACES_UI } from './constants';
 
 const MODE_OPTIONS: readonly Opt<BadgeMode>[] = [
@@ -21,10 +23,15 @@ const MODE_OPTIONS: readonly Opt<BadgeMode>[] = [
 ];
 
 const SIZE_OPTIONS: readonly Opt<BadgeSize>[] = [
+  { value: 'XXS', label: '極小' },
+  { value: 'XS', label: 'より小' },
   { value: 'S', label: '小' },
   { value: 'M', label: '中' },
   { value: 'L', label: '大' },
 ];
+
+/** select の「その他」。候補の名前と衝突しない値 */
+const OTHER = '__other__';
 
 const PLACES: readonly Opt<BandSide>[] = CAPTION_PLACES_UI.map((p) => ({
   value: p,
@@ -42,20 +49,47 @@ export function BadgePanel(): React.ReactElement {
   const bleed = useDoc((s) => s.style.margin === 'none');
   const set = useDoc((s) => s.set);
   const setBadgePos = useDoc((s) => s.setBadgePos);
+  const override = useDoc((s) => s.overrides.film);
+  const setOverride = useDoc((s) => s.setOverride);
+  const photoFilm = useUi((s) => s.photoFilm);
+  const openInfo = useUi((s) => s.openInfo);
   const setHint = useUi((s) => s.setHint);
-  /*
-   * 仕上がりの記録が無い写真（iPhone など）では刻印は出せない。
-   * 以前は押せる見た目のまま何も起きず、タブごと壊れて見えた
-   */
+  /* 仕上がりが無ければ刻むものが無い。すぐ上の「仕上がり」で選べば、その場で効く */
   const noFilm = !useUi((s) => s.hasFilm);
   const off = mode === 'none' || noFilm;
   const why = (): void =>
-    setHint(noFilm ? '仕上がりの記録がない写真です（✎で選べます）' : '刻印を「文字」か「ロゴ」にしてください');
+    setHint(noFilm ? '先に「仕上がり」を選んでください' : '刻印を「文字」か「ロゴ」にしてください');
+  // 手で入れた名前が候補に無い（他社の呼び名など）ときも、選んでいる値として見せる
+  const custom = override !== null && !FILM_SUGGESTIONS.includes(override);
 
   return (
     <div className="pnl">
-      <Row label="刻印" dim={noFilm}>
-        <Pics label="刻印の見せ方" variant="text" options={MODE_OPTIONS} value={mode} onChange={(v) => set('badge', v)} disabled={noFilm} onDisabledPick={why} />
+      <Row label="仕上がり">
+        <select
+          className="pselect"
+          aria-label="仕上がり（刻む名前）"
+          value={override === null ? '' : override}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === OTHER) {
+              openInfo('film');
+              return;
+            }
+            setOverride('film', v === '' ? null : v);
+          }}
+        >
+          <option value="">{photoFilm ? `${photoFilm}（写真の値）` : '選んでください'}</option>
+          {custom && <option value={override}>{override}</option>}
+          {FILM_SUGGESTIONS.map((f) => (
+            <option key={f} value={f}>
+              {f}
+            </option>
+          ))}
+          <option value={OTHER}>その他（手で入れる）…</option>
+        </select>
+      </Row>
+      <Row label="刻印">
+        <Pics label="刻印の見せ方" variant="text" options={MODE_OPTIONS} value={mode} onChange={(v) => set('badge', v)} />
       </Row>
       <Row label="置き場所" dim={off || bleed}>
         <div className="pair">

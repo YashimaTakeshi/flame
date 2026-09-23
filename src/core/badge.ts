@@ -22,7 +22,8 @@ import type { Align, CaptionAlign } from './styles/types';
 import { hairline, lu, point, px, rect, type RectLu } from './units';
 
 export type BadgeMode = 'none' | 'text' | 'logo';
-export type BadgeSize = 'S' | 'M' | 'L';
+/** 刻印の大きさ。小さい2段（XXS・XS）は依頼者の要望で足した（写真の脇に控えめに置きたい） */
+export type BadgeSize = 'XXS' | 'XS' | 'S' | 'M' | 'L';
 
 /** 同梱した札。実体は実行層が持つ。core は名札と形だけを知る */
 export interface BadgeImage {
@@ -69,10 +70,10 @@ export interface BadgeBlock {
 
 /* ── 寸法 ───────────────────────────────────────────────── */
 
-/** 札の高さ。基準サイズの倍。Medium(16lu) で 小64 / 中96 / 大128 lu */
-const LOGO_EM: Readonly<Record<BadgeSize, number>> = { S: 4, M: 6, L: 8 };
+/** 札の高さ。基準サイズの倍。Medium(16lu) で 極小32 / より小48 / 小64 / 中96 / 大128 lu */
+const LOGO_EM: Readonly<Record<BadgeSize, number>> = { XXS: 2, XS: 3, S: 4, M: 6, L: 8 };
 /** 文字の札の文字サイズ。基準サイズの倍 */
-const TEXT_EM: Readonly<Record<BadgeSize, number>> = { S: 0.7, M: 0.85, L: 1.05 };
+const TEXT_EM: Readonly<Record<BadgeSize, number>> = { XXS: 0.5, XS: 0.6, S: 0.7, M: 0.85, L: 1.05 };
 const TEXT_TRACK_EM = 0.1;
 const TEXT_PAD_X_EM = 0.6;
 const TEXT_PAD_Y_EM = 0.35;

@@ -32,6 +32,8 @@ interface UiStore {
    * 写真は App が持つので、そこから知らせてもらう
    */
   hasFilm: boolean;
+  /** 写真に記録された仕上がり（手入力ではない方）。刻印タブの選択肢に「写真の値」として出す */
+  photoFilm: string | null;
   /** 写真の位置・文字の寄せが効くか（Scene の freedom）。効かない点を薄くする */
   freedom: { photoX: boolean; photoY: boolean; textY: boolean };
   /**
@@ -70,6 +72,7 @@ export const useUi = create<UiStore>((set) => ({
   sheet: null,
   hint: null,
   hasFilm: false,
+  photoFilm: null,
   freedom: { photoX: true, photoY: true, textY: true },
   facts: {},
   infoFocus: null,

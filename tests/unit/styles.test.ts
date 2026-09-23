@@ -340,6 +340,29 @@ describe('欠損の扱い', () => {
     expect(joined).not.toMatch(/不明|undefined|null|N\/A/);
   });
 
+  it('★折るときは項目の切れ目で折り、行末に区切りを残さない★（「yashima takeshi,」）', () => {
+    const side = styleFor(sp({ ratio: 'SQ', caption: 'right', lines: 2 }));
+    // 1行に入らない狭さで組む（実機では段の幅 300lu に大きな字で入らなかった）
+    const t = typesetCaption(side, { facts: { artist: 'yashima takeshi', date: '2026.02.07' }, gates: ALL_ON, ...TYPO }, 200, measurer);
+    const texts = t.lines.map((l) => l.text);
+    expect(texts.length).toBeGreaterThan(1);
+    for (const x of texts) expect(x).not.toMatch(/,\s*$|^,/);
+    expect(texts.join(' ')).toContain('yashima takeshi');
+    expect(texts.join(' ')).toContain('2026.02.07');
+  });
+
+  it('1行の組みでも作者が載る（以前は1行だと作者だけ落ちていた）', () => {
+    const one = styleFor(sp({ lines: 1 }));
+    const t = typesetCaption(one, { facts: { artist: 'yashima takeshi', date: '2026.02.07' }, gates: ALL_ON, ...TYPO }, captionWidthLu(one), measurer);
+    expect(t.lines.map((l) => l.text).join(' ')).toContain('yashima takeshi');
+  });
+
+  it('入る項目は途中で割らない（項目ごと次の行へ送る）', () => {
+    const side = styleFor(sp({ ratio: 'SQ', caption: 'right', lines: 1 }));
+    const t = typesetCaption(side, { facts: REFERENCE, gates: ALL_ON, ...TYPO }, captionWidthLu(side), measurer);
+    for (const l of t.lines) expect(l.text).not.toMatch(/,\s*$/);
+  });
+
   it('項目が全部無い行は行ごと消える', () => {
     const t = ts({ camera: 'FUJIFILM X-M5' });
     expect(t.lines).toHaveLength(1);

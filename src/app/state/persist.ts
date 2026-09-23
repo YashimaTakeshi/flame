@@ -72,7 +72,7 @@ const ALIGNS = ['left', 'center', 'right'] as const satisfies readonly Align[];
 const TRACKS = ['Tight', 'Normal', 'Wide', 'Widest'] as const satisfies readonly TrackingId[];
 const SIZES = ['Small', 'Medium', 'Large'] as const satisfies readonly SizeId[];
 const BADGES = ['none', 'text', 'logo'] as const satisfies readonly BadgeMode[];
-const BADGE_SIZES = ['S', 'M', 'L'] as const satisfies readonly BadgeSize[];
+const BADGE_SIZES = ['XXS', 'XS', 'S', 'M', 'L'] as const satisfies readonly BadgeSize[];
 const SIDES = ['above', 'below', 'left', 'right'] as const satisfies readonly BandSide[];
 /** 書体は目録が正。目録から消えた書体が保存に残っていても、既定に戻るだけで済む */
 const FONT_KEYS: readonly (LatinFontKey | 'jp')[] = [...LATIN_FONTS.map((f) => f.key), 'jp'];
