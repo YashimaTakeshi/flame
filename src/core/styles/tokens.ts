@@ -3,6 +3,7 @@ import { lu, type Lu } from '../units';
 import type {
   FieldId,
   FieldToken,
+  LineLayout,
   InsetLu,
   SeparatorId,
   SettingGate,
@@ -46,40 +47,35 @@ export const ins = (top: number, right: number, bottom: number, left: number): I
 
 export const L = (n: number): Lu => lu(n);
 
-/* ── よく使う行構成の断片 ───────────────────────────────── */
+/* ── 行の割り振り（利用者が情報タブで並べ替える） ─────────── */
 
-export const LINE_ALL_IN_ONE: readonly FieldToken[] = [
-  F('title'),
-  // 1行の組みにも作者を入れる。以前は入っておらず、情報で作者を載せても1行だと出なかった
-  F('artist', 'artistEnabled'),
-  F('date'),
-  F('camera'),
-  F('lens'),
-  F('film'),
-  F('focalLength', 'focalEnabled'),
-  F('exposure', 'exposureEnabled'),
-  F('place', 'placeEnabled'),
+/** 設定で切れる項目と、そのゲート。行に並べるときに付ける */
+export const GATE_OF: Readonly<Partial<Record<FieldId, SettingGate>>> = {
+  artist: 'artistEnabled',
+  focalLength: 'focalEnabled',
+  exposure: 'exposureEnabled',
+  place: 'placeEnabled',
+};
+
+/**
+ * 既定の割り振り。以前の固定の組みをそのまま再現する
+ *   3行: タイトル・作者・日付 ／ カメラ ／ レンズ・仕上がり・焦点距離・露出・撮影地
+ *   2行: 1行目はそのまま、2行目に残り全部（以前は焦点距離が抜けていた）
+ *   1行: 全部を1行（LINE_ALL_IN_ONE と同じ順）
+ */
+export const DEFAULT_LINE_LAYOUT: LineLayout = [
+  ['title', 'artist', 'date'],
+  ['camera'],
+  ['lens', 'film', 'focalLength', 'exposure', 'place'],
 ];
 
-export const LINE_TITLE_DATE: readonly FieldToken[] = [
-  F('title'),
-  F('artist', 'artistEnabled'),
-  F('date'),
-];
+/** 行数 n に合わせた組。n を超える組は最後の行に続ける */
+export function groupsFor(layout: LineLayout, n: number): FieldId[][] {
+  const out: FieldId[][] = [];
+  for (let k = 0; k < n; k++) out.push([...(layout[k] ?? [])]);
+  for (let k = n; k < layout.length; k++) out[n - 1]!.push(...(layout[k] ?? []));
+  return out;
+}
 
-export const LINE_CAMERA: readonly FieldToken[] = [F('camera')];
-
-export const LINE_LENS_TECH: readonly FieldToken[] = [
-  F('lens'),
-  F('film'),
-  F('focalLength', 'focalEnabled'),
-  F('exposure', 'exposureEnabled'),
-];
-
-export const LINE_TECH_PLACE: readonly FieldToken[] = [
-  F('camera'),
-  F('lens'),
-  F('film'),
-  F('exposure', 'exposureEnabled'),
-  F('place', 'placeEnabled'),
-];
+/** 組の項目を、行に並べる字句に直す（ゲートを付ける） */
+export const tokensOf = (ids: readonly FieldId[]): FieldToken[] => ids.map((id) => F(id, GATE_OF[id]));

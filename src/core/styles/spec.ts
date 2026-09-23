@@ -7,20 +7,13 @@
  * ここで寸法に落とす。手で書いたプリセットの値は、比率ごとの基準としてだけ残っている。
  */
 import { lu } from '../units';
-import {
-  F,
-  ins,
-  LINE_ALL_IN_ONE,
-  LINE_CAMERA,
-  LINE_LENS_TECH,
-  LINE_TECH_PLACE,
-  LINE_TITLE_DATE,
-} from './tokens';
+import { DEFAULT_LINE_LAYOUT, F, groupsFor, ins, tokensOf } from './tokens';
 import type {
   CaptionAlign,
   CaptionLineSpec,
   CaptionPlace,
   LineCount,
+  LineLayout,
   MarginId,
   PhotoPlace,
   Ratio,
@@ -64,11 +57,11 @@ export const PHOTO_PLACES: readonly PhotoPlace[] = [
 ];
 export const CAPTION_PLACES: readonly CaptionPlace[] = ['above', 'below', 'left', 'right'];
 export const LINE_COUNTS: readonly LineCount[] = [1, 2, 3];
-export const MARGINS: readonly MarginId[] = ['narrow', 'normal', 'wide', 'none'];
+export const MARGINS: readonly MarginId[] = ['thin', 'narrow', 'normal', 'wide', 'none'];
 export const CAPTION_ALIGNS: readonly CaptionAlign[] = ['start', 'center', 'end'];
 
 /** 余白の倍率。比率ごとの基準（RATIOS.insetLu）に掛ける。none は全面 */
-export const MARGIN_SCALE: Readonly<Record<MarginId, number>> = { narrow: 0.45, normal: 0.7, wide: 1.0, none: 0 };
+export const MARGIN_SCALE: Readonly<Record<MarginId, number>> = { thin: 0.22, narrow: 0.45, normal: 0.7, wide: 1.0, none: 0 };
 
 /** 重ね文字の、キャンバス端からの距離。余白の倍率に**依らない**（余白なしでも文字は端に寄らない） */
 export const OVERLAY_INSET_LU = 34;
@@ -82,7 +75,9 @@ export const SIDE_BAND_LU = 300;
  * 行数ごとの行構成。参考アプリの観測（1行: 全部カンマ区切り／3行: 2行目ボールド・3行目グレー）を基準にした。
  * 左右の段では折り返しを許す。段が狭いので折らないと入らない。
  */
-function linesFor(n: LineCount, side: boolean): readonly CaptionLineSpec[] {
+function linesFor(n: LineCount, side: boolean, layout: LineLayout): readonly CaptionLineSpec[] {
+  // どの項目を何行目に置くかは利用者の割り振り（既定は以前の固定の組みと同じ）
+  const g = groupsFor(layout, n).map(tokensOf);
   const wrap = (k: number): { maxWrap?: number } => (side ? { maxWrap: k } : {});
   /*
    * 左右の段でも揃えは利用者の選択に従う。
@@ -94,18 +89,18 @@ function linesFor(n: LineCount, side: boolean): readonly CaptionLineSpec[] {
   switch (n) {
     case 1:
       return [
-        { id: 'l1', fields: LINE_ALL_IN_ONE, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.32, ...wrap(4), ...alignSide },
+        { id: 'l1', fields: g[0]!, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.32, ...wrap(4), ...alignSide },
       ];
     case 2:
       return [
-        { id: 'l1', fields: LINE_TITLE_DATE, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
-        { id: 'l2', fields: LINE_TECH_PLACE, separator: 'comma', emphasis: 'muted', relSize: 0.9, leading: 1.42, ...wrap(3), ...alignSide },
+        { id: 'l1', fields: g[0]!, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
+        { id: 'l2', fields: g[1]!, separator: 'comma', emphasis: 'muted', relSize: 0.9, leading: 1.42, ...wrap(3), ...alignSide },
       ];
     case 3:
       return [
-        { id: 'l1', fields: LINE_TITLE_DATE, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
-        { id: 'l2', fields: LINE_CAMERA, separator: 'comma', emphasis: 'bold', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
-        { id: 'l3', fields: LINE_LENS_TECH, separator: 'comma', emphasis: 'muted', relSize: 0.92, leading: 1.42, ...wrap(3), ...alignSide },
+        { id: 'l1', fields: g[0]!, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
+        { id: 'l2', fields: g[1]!, separator: 'comma', emphasis: 'bold', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
+        { id: 'l3', fields: g[2]!, separator: 'comma', emphasis: 'muted', relSize: 0.92, leading: 1.42, ...wrap(3), ...alignSide },
       ];
   }
 }
@@ -134,7 +129,7 @@ export const sameSpec = (a: StyleSpec, b: StyleSpec): boolean =>
   a.lines === b.lines &&
   a.margin === b.margin;
 
-export function styleFor(raw: StyleSpec): StyleDef {
+export function styleFor(raw: StyleSpec, layout: LineLayout = DEFAULT_LINE_LAYOUT): StyleDef {
   const spec = normalize(raw);
   const r = RATIOS[spec.ratio];
   const base = Math.round(r.insetLu * MARGIN_SCALE[spec.margin]);
@@ -152,7 +147,7 @@ export function styleFor(raw: StyleSpec): StyleDef {
       sideInsetLu: lu(overlay ? OVERLAY_INSET_LU : base),
       outerInsetLu: lu(overlay ? OVERLAY_INSET_LU : Math.round(base * 1.1)),
       bandLu: lu(SIDE_BAND_LU),
-      lines: linesFor(spec.lines, side),
+      lines: linesFor(spec.lines, side, layout),
       ...(overlay
         ? {
             // 0.58 は「白い写真の上でも本文コントラストが 4.5:1 を超える」最小の濃さ（§4.6）

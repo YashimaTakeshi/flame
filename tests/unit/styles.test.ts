@@ -13,7 +13,7 @@ import { typesetCaption, type Gates } from '../../src/core/caption';
 import type { TextMeasurer } from '../../src/core/ports';
 import { captionWidthLu, focusCrop, layoutViolations, resolveLayout } from '../../src/core/styles/layout';
 import { allSpecs, FRMM_PRESETS, MARGINS, normalize, specKey, styleFor } from '../../src/core/styles/spec';
-import type { StyleSpec } from '../../src/core/styles/types';
+import type { FieldId, StyleSpec } from '../../src/core/styles/types';
 
 /**
  * 代用の測定器。
@@ -127,9 +127,33 @@ describe('組み合わせの空間', () => {
     expect(s2.captionBox.y).toBeCloseTo(s2.photo.y as number, 6);
   });
 
-  it('総当たりの数: 6比率 × 3行 × (余白3 × 写真9 × 文字4 × 寄せ3 + 全面 4辺 × 寄せ3) = 6,048', () => {
+  it('総当たりの数: 6比率 × 3行 × (余白4 × 写真9 × 文字4 × 寄せ3 + 全面 4辺 × 寄せ3) = 7,992', () => {
+    // 余白は 極狭・狭い・標準・広い の4段（極狭は依頼者の要望で足した）
     // 全面（余白なし）: 写真の位置は効かない（指で決める）ので1通り。文字は4辺に重ね、寄せは3通り
-    expect(SPECS).toHaveLength(6 * 3 * (3 * 9 * 4 * 3 + 4 * 3));
+    expect(SPECS).toHaveLength(6 * 3 * (4 * 9 * 4 * 3 + 4 * 3));
+  });
+
+  it('余白の段は なし < 極狭 < 狭い < 標準 < 広い', () => {
+    const area = (margin: 'thin' | 'narrow' | 'normal' | 'wide') => {
+      const l = resolveLayout(styleFor(sp({ ratio: 'SQ', margin })), 1, 30);
+      return (l.photo.w as number) * (l.photo.h as number);
+    };
+    expect(area('thin')).toBeGreaterThan(area('narrow'));
+    expect(area('narrow')).toBeGreaterThan(area('normal'));
+    expect(area('normal')).toBeGreaterThan(area('wide'));
+  });
+
+  it('★行の割り振り★ 既定は以前の固定の組みと同じ。並べ替えた順・行で組む', () => {
+    const facts = { title: 'Kyoto', date: '2026.09.20', camera: 'X-M5', lens: 'XF35', focalLength: '35mm' };
+    const lines = (n: 1 | 2 | 3, layout?: readonly (readonly FieldId[])[]) =>
+      typesetCaption(styleFor(sp({ lines: n }), layout), { facts, gates: ALL_ON, ...TYPO }, 5000, measurer).lines.map((l) => l.text);
+    expect(lines(3)).toEqual(['Kyoto, 2026.09.20', 'X-M5', 'XF35, 35mm']);
+    expect(lines(1)).toEqual(['Kyoto, 2026.09.20, X-M5, XF35, 35mm']);
+    // 2行では、はみ出した3行目を2行目に続ける（以前は焦点距離が抜けていた）
+    expect(lines(2)).toEqual(['Kyoto, 2026.09.20', 'X-M5, XF35, 35mm']);
+    const custom = [['camera', 'lens'], ['focalLength', 'date'], ['artist', 'title', 'film', 'exposure', 'place']] as const;
+    expect(lines(3, custom)).toEqual(['X-M5, XF35', '35mm, 2026.09.20', 'Kyoto']);
+    expect(lines(2, custom)).toEqual(['X-M5, XF35', '35mm, 2026.09.20, Kyoto']);
   });
 
   it('全面では写真の位置は効かない（値は覚えている）。同じ絵になる', () => {

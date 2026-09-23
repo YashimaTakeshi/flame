@@ -43,7 +43,7 @@ export type CaptionPlace = 'above' | 'below' | 'left' | 'right';
 export type LineCount = 1 | 2 | 3;
 
 /** 余白の広さ。none は写真がキャンバスの端まで届く（全面） */
-export type MarginId = 'narrow' | 'normal' | 'wide' | 'none';
+export type MarginId = 'thin' | 'narrow' | 'normal' | 'wide' | 'none';
 
 /**
  * 文字を、その帯の中で上下どこに寄せるか。
@@ -84,6 +84,13 @@ export type FieldId =
   | 'focalLength'
   | 'film'
   | 'place';
+
+/**
+ * どの項目を何行目に置くか。**いつも3組**（1行目・2行目・3行目）で、組の中は左からの順。
+ * 行数が3より少ないときは、はみ出した組を最後の行に続ける（groupsFor）。
+ * 利用者が情報タブでドラッグして決める。
+ */
+export type LineLayout = readonly (readonly FieldId[])[];
 
 /** 利用者の設定で項目ごと消えるもの。欠損（値が無い）とは区別する */
 export type SettingGate = 'exposureEnabled' | 'focalEnabled' | 'placeEnabled' | 'artistEnabled';

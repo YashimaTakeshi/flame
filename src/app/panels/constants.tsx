@@ -31,6 +31,8 @@ export const RATIO_OPTIONS: readonly Opt<Ratio>[] = RATIO_IDS.map((id) => ({
 /** 余白。なし→広 の順に、スライダーの左から右へ */
 export const MARGIN_OPTIONS: readonly Opt<MarginId>[] = [
   { value: 'none', label: 'なし' },
+  // 依頼者の要望で足した、狭いよりさらに細い段
+  { value: 'thin', label: '極狭' },
   { value: 'narrow', label: '狭い' },
   { value: 'normal', label: '標準' },
   { value: 'wide', label: '広い' },

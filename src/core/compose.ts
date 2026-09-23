@@ -20,7 +20,7 @@ import type { Scene, SceneWarning } from './scene/scene';
 import { captionWidthLu, layoutViolations, resolveLayout, type ExtraBand } from './styles/layout';
 import { styleFor } from './styles/spec';
 import { SIZE_LU } from './styles/tokens';
-import { CENTER_FOCUS, type Align, type CaptionAlign, type Focus, type SizeId, type StyleSpec, type TrackingId } from './styles/types';
+import { CENTER_FOCUS, type Align, type CaptionAlign, type Focus, type LineLayout, type SizeId, type StyleSpec, type TrackingId } from './styles/types';
 
 export interface SceneInput {
   /** 比率 × 写真の位置 × 文字の位置 × 寄せ × 行数 × 余白 */
@@ -56,6 +56,8 @@ export interface SceneInput {
    * 重ね（全面）には帯が無いので置かない。
    */
   readonly badge?: BadgeSpec | null;
+  /** どの項目を何行目に置くか（情報タブで並べ替える）。無ければ既定 */
+  readonly lineLayout?: LineLayout;
 }
 
 /** 枠線の太さ。プレビューで消えないよう下限1pxを持つ */
@@ -97,7 +99,7 @@ const mix = (a: Rgba, b: Rgba, t: number): Rgba =>
   );
 
 export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
-  const def = styleFor(input.style);
+  const def = styleFor(input.style, input.lineLayout);
   const b = new SceneBuilder();
   const warnings: SceneWarning[] = [];
 

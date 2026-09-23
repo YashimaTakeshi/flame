@@ -8,6 +8,7 @@ import { collectFacts, effectiveFields } from '../../src/app/caption';
 import { EMPTY_EXIF } from '../../src/app/exif';
 import { COALESCE_MS, DEFAULT_FIELDS, HISTORY_MAX, __resetHistoryForTest, useDoc } from '../../src/app/state/doc';
 import { DEFAULT_SPEC } from '../../src/core/styles/spec';
+import { DEFAULT_LINE_LAYOUT } from '../../src/core/styles/tokens';
 
 describe('既定値', () => {
   it('タイトルは空で始まり、空ならキャプションに行そのものが出ない', () => {
@@ -173,5 +174,45 @@ describe('この写真では撮影情報を入れない', () => {
     expect(f.title && f.artist && f.film).toBe(true);
     expect(DEFAULT_FIELDS.camera).toBe(true);
     expect(effectiveFields(DEFAULT_FIELDS, false)).toBe(DEFAULT_FIELDS);
+  });
+});
+
+describe('行の割り振り（ドラッグ）', () => {
+  const reset = (): void => {
+    useDoc.getState().startPhoto();
+    useDoc.setState({ lineLayout: DEFAULT_LINE_LAYOUT, style: { ...DEFAULT_SPEC, lines: 3 } });
+    __resetHistoryForTest();
+  };
+
+  it('別の行へ動かせて、取り消せる', () => {
+    reset();
+    useDoc.getState().moveField('camera', 0, 0);
+    expect(useDoc.getState().lineLayout[0]).toEqual(['camera', 'title', 'artist', 'date']);
+    expect(useDoc.getState().lineLayout[1]).toEqual([]);
+    useDoc.getState().undo();
+    expect(useDoc.getState().lineLayout).toEqual(DEFAULT_LINE_LAYOUT);
+  });
+
+  it('同じ行の中で後ろへ動かす', () => {
+    reset();
+    useDoc.getState().moveField('title', 0, 3);
+    expect(useDoc.getState().lineLayout[0]).toEqual(['artist', 'date', 'title']);
+  });
+
+  it('行数が少ないときは見えている行の上で動かし、はみ出していた項目は最後の行に書き戻す', () => {
+    reset();
+    useDoc.setState({ style: { ...DEFAULT_SPEC, lines: 2 } });
+    useDoc.getState().moveField('lens', 0, 0);
+    const l = useDoc.getState().lineLayout;
+    expect(l[0]![0]).toBe('lens');
+    expect(l[1]).toEqual(['camera', 'film', 'focalLength', 'exposure', 'place']);
+    expect(l[2]).toEqual([]);
+  });
+
+  it('情報を戻すと割り振りも既定に戻る', () => {
+    reset();
+    useDoc.getState().moveField('camera', 0, 0);
+    useDoc.getState().resetInfo();
+    expect(useDoc.getState().lineLayout).toEqual(DEFAULT_LINE_LAYOUT);
   });
 });

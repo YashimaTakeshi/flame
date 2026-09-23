@@ -34,7 +34,8 @@ import { ExportSheet, type Render } from './sheets/ExportSheet';
 import { InfoSheet } from './sheets/InfoSheet';
 import { useDoc } from './state/doc';
 import { bindSheetHistory, useUi } from './state/ui';
-import { IconMuted, IconPhoto, IconPlay, IconRedo, IconShare, IconSound, IconUndo } from './ui/icons';
+import { IconExpand, IconMuted, IconPhoto, IconPlay, IconRedo, IconShare, IconSound, IconUndo } from './ui/icons';
+import { Viewer } from './Viewer';
 import { Sheet } from './ui/Sheet';
 import { usePan } from './usePan';
 import { usePreview } from './usePreview';
@@ -208,6 +209,7 @@ export function App(): React.ReactElement {
       photo: { id: 'photo', aspect: loaded.decoded.natural.w / loaded.decoded.natural.h },
       // 「文字を入れる」を切ったら文字は1つも載せない（帯ごと消え、写真は余白の中央に収まる）
       facts: doc.captionOn ? applyFieldSwitches(facts, fields) : {},
+      lineLayout: doc.lineLayout,
       gates: gatesFrom(fields),
       family: font.family,
       weight: font.weight,
@@ -362,7 +364,7 @@ export function App(): React.ReactElement {
   const playback = useVideoPlayback(
     loaded?.video ? loaded.file : null,
     loaded?.video ? loaded.decoded.natural : null,
-    sheet === null && pageVisible,
+    (sheet === null || sheet === 'view') && pageVisible,
   );
 
   /* 音のある動画が流れ始めたら、起動ごとに1回だけ「音を出せる」と知らせる（印だけでは押せると分からない） */
@@ -487,16 +489,24 @@ export function App(): React.ReactElement {
   }, [pick]);
 
   /*
-   * PC のキー。Ctrl/⌘+Z で取り消し、Shift を足すか Ctrl+Y でやり直し、Ctrl/⌘+S で書き出し。
+   * PC のキー。Ctrl/⌘+Z で取り消し、Shift を足すか Ctrl+Y でやり直し、Ctrl/⌘+S で書き出し、F で全画面。
    * 文字を打っている欄の中では横取りしない（欄の中の取り消しはブラウザに任せる）。
    */
   useEffect(() => {
     if (!loaded) return;
     const onKey = (e: KeyboardEvent): void => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       const k = e.key.toLowerCase();
+      const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+      // F で全画面を開け閉めする（修飾キー付きはブラウザの検索などに任せる）
+      if (plain && k === 'f') {
+        const sheet = useUi.getState().sheet;
+        if (sheet === 'view') closeSheet();
+        else if (sheet === null) openSheet('view');
+        return;
+      }
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       if (useUi.getState().sheet !== null) return;
       if (k === 'z' || k === 'y') {
         e.preventDefault();
@@ -509,7 +519,7 @@ export function App(): React.ReactElement {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [loaded, busy, openSheet]);
+  }, [loaded, busy, openSheet, closeSheet]);
 
   /** 書き出し。原寸を掴むのはここだけ。終わったらすぐ手放す */
   const renderFull: Render = useCallback(async ({ onProgress, onFrame, signal }) => {
@@ -660,19 +670,34 @@ export function App(): React.ReactElement {
         ) : (
           <span className="hdr__title">Fuchidori</span>
         )}
-        {/* PC は欄の下に「書き出す」がいつも見えているので、見出しには置かない */}
-        {loaded && !desk ? (
-          <button
-            type="button"
-            className="iconbtn hdr__right"
-            aria-label="書き出す"
-            title="書き出す"
-            aria-busy={busy !== null || undefined}
-            disabled={busy !== null}
-            onClick={() => openSheet('export')}
-          >
-            <IconShare />
-          </button>
+        {loaded ? (
+          <span className="hdr__right hdr__acts">
+            {/* 仕上がりを画面いっぱいで確かめる */}
+            <button
+              type="button"
+              className="iconbtn"
+              aria-label="全画面で見る"
+              title="全画面で見る（F）"
+              disabled={scene === null}
+              onClick={() => openSheet('view')}
+            >
+              <IconExpand />
+            </button>
+            {/* PC は欄の下に「書き出す」がいつも見えているので、見出しには置かない */}
+            {!desk && (
+              <button
+                type="button"
+                className="iconbtn"
+                aria-label="書き出す"
+                title="書き出す"
+                aria-busy={busy !== null || undefined}
+                disabled={busy !== null}
+                onClick={() => openSheet('export')}
+              >
+                <IconShare />
+              </button>
+            )}
+          </span>
         ) : (
           <span />
         )}
@@ -830,6 +855,15 @@ export function App(): React.ReactElement {
       )}
 
       {sheet === 'info' && <InfoSheet exif={exif} onClose={closeSheet} />}
+      {sheet === 'view' && scene && (
+        <Viewer
+          scene={scene}
+          image={previewImage}
+          exportLongEdge={EXPORT_LONG_EDGE}
+          subscribe={loaded?.video ? playback.subscribe : null}
+          onClose={closeSheet}
+        />
+      )}
       {sheet === 'export' && <ExportSheet
           render={renderFull}
           video={loaded?.video != null}

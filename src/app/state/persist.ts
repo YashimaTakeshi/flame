@@ -18,6 +18,7 @@ import type {
   CaptionPlace,
   FieldId,
   LineCount,
+  LineLayout,
   MarginId,
   PhotoPlace,
   Ratio,
@@ -48,6 +49,7 @@ export interface Saved {
   readonly badgeSize: BadgeSize;
   readonly badgeFramed: boolean;
   readonly captionOn: boolean;
+  readonly lineLayout: LineLayout;
 }
 
 /* ── 1項目ずつの検証 ───────────────────────────────────── */
@@ -67,7 +69,7 @@ const PHOTOS = [
 const CAPTIONS = ['above', 'below', 'left', 'right'] as const satisfies readonly CaptionPlace[];
 const CAP_ALIGNS = ['start', 'center', 'end'] as const satisfies readonly CaptionAlign[];
 const LINES = [1, 2, 3] as const satisfies readonly LineCount[];
-const MARGINS = ['narrow', 'normal', 'wide', 'none'] as const satisfies readonly MarginId[];
+const MARGINS = ['thin', 'narrow', 'normal', 'wide', 'none'] as const satisfies readonly MarginId[];
 const ALIGNS = ['left', 'center', 'right'] as const satisfies readonly Align[];
 const TRACKS = ['Tight', 'Normal', 'Wide', 'Widest'] as const satisfies readonly TrackingId[];
 const SIZES = ['Small', 'Medium', 'Large'] as const satisfies readonly SizeId[];
@@ -114,6 +116,28 @@ function readFields(
   return out as Record<FieldId, boolean>;
 }
 
+/**
+ * 行の割り振り。3組で、項目がちょうど1回ずつ入っていなければ既定に戻す。
+ * 版が上がって項目が増えたら、足りない項目は最後の行の末尾に足す（消えない）
+ */
+function readLayout(v: unknown, fallback: LineLayout): LineLayout {
+  if (!Array.isArray(v) || v.length !== 3 || !v.every(Array.isArray)) return fallback;
+  const known = new Set(fallback.flat());
+  const seen = new Set<string>();
+  const out: FieldId[][] = [];
+  for (const g of v as unknown[][]) {
+    const row: FieldId[] = [];
+    for (const id of g) {
+      if (typeof id !== 'string' || !known.has(id as FieldId) || seen.has(id)) return fallback;
+      seen.add(id);
+      row.push(id as FieldId);
+    }
+    out.push(row);
+  }
+  for (const id of known) if (!seen.has(id)) out[2]!.push(id);
+  return out;
+}
+
 export function readSaved(raw: string | null, defaults: Saved): Saved {
   if (!raw) return defaults;
   let parsed: unknown;
@@ -141,6 +165,7 @@ export function readSaved(raw: string | null, defaults: Saved): Saved {
     badgeSize: one(o['badgeSize'], BADGE_SIZES, defaults.badgeSize),
     badgeFramed: bool(o['badgeFramed'], defaults.badgeFramed),
     captionOn: bool(o['captionOn'], defaults.captionOn),
+    lineLayout: readLayout(o['lineLayout'], defaults.lineLayout),
   };
 }
 

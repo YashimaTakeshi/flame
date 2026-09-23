@@ -204,3 +204,10 @@ export const IconText = ({ size = 22 }: P): React.ReactElement => (
     <path d="M5 6h14M12 6v13M8.5 19h7" />
   </svg>
 );
+
+/** 全画面で見る（四隅へ広がる矢印） */
+export const IconExpand = ({ size = 22 }: P): React.ReactElement => (
+  <svg {...base(size)}>
+    <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+  </svg>
+);

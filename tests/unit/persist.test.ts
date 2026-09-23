@@ -6,6 +6,7 @@
  * 利用者から見れば設定が消えたのと同じになる。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_LINE_LAYOUT } from '../../src/core/styles/tokens';
 import {
   __resetSaveForTest,
   flushSettings,
@@ -34,6 +35,7 @@ const DEFAULTS: Saved = {
   badgeSize: 'M',
   badgeFramed: false,
   captionOn: true,
+  lineLayout: DEFAULT_LINE_LAYOUT,
 };
 
 const saved = (o: unknown): Saved => readSaved(JSON.stringify(o), DEFAULTS);

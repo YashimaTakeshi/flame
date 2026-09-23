@@ -13,7 +13,8 @@
  */
 import { create } from 'zustand';
 import { DEFAULT_SPEC, normalize } from '../../core/styles/spec';
-import { CENTER_FOCUS, type Align, type CaptionAlign, type FieldId, type Focus, type SizeId, type StyleSpec, type TrackingId } from '../../core/styles/types';
+import { DEFAULT_LINE_LAYOUT, groupsFor } from '../../core/styles/tokens';
+import { CENTER_FOCUS, type Align, type CaptionAlign, type FieldId, type Focus, type LineLayout, type SizeId, type StyleSpec, type TrackingId } from '../../core/styles/types';
 import type { BadgeMode, BadgeSize } from '../../core/badge';
 import type { BandSide } from '../../core/styles/layout';
 import type { DateFormatId, WallClock } from '../../core/wallclock';
@@ -63,6 +64,8 @@ export interface DocState {
    * 文字の設定（置き場所・大きさ…）は残り、入れ直せば元どおり。好みなので保存する
    */
   readonly captionOn: boolean;
+  /** どの項目を何行目に置くか（情報タブでドラッグして決める）。好みなので保存する */
+  readonly lineLayout: LineLayout;
   /**
    * この写真では撮影情報（日付・カメラ・レンズ・露出・焦点距離）を載せない。
    * 撮影情報が無い写真の帯で「入れない」を選んだとき。**その1枚だけ**に効き、保存しない。
@@ -109,6 +112,7 @@ const BASE: DocState = {
   badgeSize: 'M',
   badgeFramed: false,
   captionOn: true,
+  lineLayout: DEFAULT_LINE_LAYOUT,
   skipShotFacts: false,
 };
 
@@ -131,6 +135,7 @@ const savedOf = (s: DocState): Saved => ({
   badgeSize: s.badgeSize,
   badgeFramed: s.badgeFramed,
   captionOn: s.captionOn,
+  lineLayout: s.lineLayout,
 });
 
 const INITIAL: DocState = { ...BASE, ...loadSettings(savedOf(BASE)) };
@@ -149,6 +154,11 @@ interface DocStore extends DocState {
   setCaptionPos(align: Align, v: CaptionAlign): void;
   /** 刻印の位置（3×3 の点）。1段で変える */
   setBadgePos(align: Align, v: CaptionAlign): void;
+  /**
+   * 項目を行 group（0..2）の index 番目へ動かす。いまの行数で見えている組の上で動かし、
+   * 見えていない行（行数より後ろ）にあった項目は最後の行に続けて書き戻す
+   */
+  moveField(id: FieldId, group: number, index: number): void;
   /** 情報シートの ✓。何欄変えても1段の取り消しにまとめる */
   applyInfo(patch: Partial<Pick<DocState, 'title' | 'artist' | 'dateFormat' | 'overrides'>>): void;
   /** 情報だけを初期値に戻す（載せる項目・日付の書き方・タイトル・手入力）。取り消せる */
@@ -193,6 +203,7 @@ const snapshot = (s: DocState): DocState => ({
   badgeSize: s.badgeSize,
   badgeFramed: s.badgeFramed,
   captionOn: s.captionOn,
+  lineLayout: s.lineLayout,
   skipShotFacts: s.skipShotFacts,
 });
 
@@ -263,6 +274,22 @@ export const useDoc = create<DocStore>((set, get) => ({
     set({ ...remember(get(), `override.${key}`), overrides: { ...get().overrides, [key]: value } });
   },
 
+  moveField(id, group, index) {
+    const cur = get();
+    const n = cur.style.lines;
+    const shown = groupsFor(cur.lineLayout, n);
+    const from = shown.findIndex((g) => g.includes(id));
+    if (from < 0 || group < 0 || group >= n) return;
+    const fromIdx = shown[from]!.indexOf(id);
+    shown[from]!.splice(fromIdx, 1);
+    // 同じ組の中で後ろへ動かすときは、抜いたぶん1つ詰まる
+    const at = from === group && index > fromIdx ? index - 1 : index;
+    shown[group]!.splice(Math.max(0, Math.min(at, shown[group]!.length)), 0, id);
+    const next: FieldId[][] = [0, 1, 2].map((k) => shown[k] ?? []);
+    if (JSON.stringify(next) === JSON.stringify(cur.lineLayout)) return;
+    set({ ...remember(cur, 'layout', true), lineLayout: next });
+  },
+
   setCaptionPos(align, v) {
     const cur = get();
     if (cur.align === align && cur.style.captionAlign === v) return;
@@ -298,6 +325,7 @@ export const useDoc = create<DocStore>((set, get) => ({
       dateFormat: BASE.dateFormat,
       title: BASE.title,
       overrides: BASE.overrides,
+      lineLayout: BASE.lineLayout,
       skipShotFacts: false,
     });
   },

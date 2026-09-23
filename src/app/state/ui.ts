@@ -7,7 +7,7 @@ import type { FieldId } from '../../core/styles/types';
  * 余白・地色・枠線はどれも「額」の性質なのでフレームに、文字の置き場所・揃え・寄せ・大きさ・字間は文字に
  */
 export type TabId = 'frame' | 'text' | 'font' | 'badge' | 'info';
-export type SheetId = 'info' | 'export' | 'diagnostics' | null;
+export type SheetId = 'info' | 'export' | 'diagnostics' | 'view' | null;
 type OpenSheet = Exclude<SheetId, null>;
 
 export const TABS: { id: TabId; label: string }[] = [
@@ -59,7 +59,7 @@ let hintTimer: ReturnType<typeof setTimeout> | null = null;
  * iPhone の戻るスワイプやブラウザの戻るで、アプリごと離れて写真を失うのではなく、
  * 面が1段閉じるだけになる。自己診断は画面に入口が無いので、この印が唯一の入口でもある。
  */
-const SHEET_HASH: Record<OpenSheet, string> = { info: '#info', export: '#export', diagnostics: '#diag' };
+const SHEET_HASH: Record<OpenSheet, string> = { info: '#info', export: '#export', diagnostics: '#diag', view: '#view' };
 const sheetOf = (hash: string): OpenSheet | null =>
   (Object.keys(SHEET_HASH) as OpenSheet[]).find((k) => SHEET_HASH[k] === hash) ?? null;
 const hasHistory = (): boolean =>
