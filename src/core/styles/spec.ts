@@ -38,9 +38,11 @@ export const RATIOS: Readonly<
   OR: { label: '元比', aspect: null, insetLu: 26, typeScale: 1.0 },
   FF: { label: '4:5', aspect: [4, 5], insetLu: 64, typeScale: 1.0 },
   TF: { label: '3:4', aspect: [3, 4], insetLu: 64, typeScale: 1.0 },
+  TT: { label: '2:3', aspect: [2, 3], insetLu: 64, typeScale: 1.0 },
   SQ: { label: '1:1', aspect: [1, 1], insetLu: 56, typeScale: 1.0 },
   NST: { label: '9:16', aspect: [9, 16], insetLu: 56, typeScale: 1.05 },
   STN: { label: '16:9', aspect: [16, 9], insetLu: 40, typeScale: 0.88 },
+  IGL: { label: '1.91:1', aspect: [191, 100], insetLu: 38, typeScale: 0.86 },
 };
 
 export const RATIO_IDS = Object.keys(RATIOS) as readonly Ratio[];
@@ -56,7 +58,7 @@ export const PHOTO_PLACES: readonly PhotoPlace[] = [
   'bottom-right',
 ];
 export const CAPTION_PLACES: readonly CaptionPlace[] = ['above', 'below', 'left', 'right'];
-export const LINE_COUNTS: readonly LineCount[] = [1, 2, 3];
+export const LINE_COUNTS: readonly LineCount[] = [1, 2, 3, 4];
 export const MARGINS: readonly MarginId[] = ['thin', 'narrow', 'normal', 'wide', 'none'];
 export const CAPTION_ALIGNS: readonly CaptionAlign[] = ['start', 'center', 'end'];
 
@@ -101,6 +103,14 @@ function linesFor(n: LineCount, side: boolean, layout: LineLayout): readonly Cap
         { id: 'l1', fields: g[0]!, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
         { id: 'l2', fields: g[1]!, separator: 'comma', emphasis: 'bold', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
         { id: 'l3', fields: g[2]!, separator: 'comma', emphasis: 'muted', relSize: 0.92, leading: 1.42, ...wrap(3), ...alignSide },
+      ];
+    case 4:
+      // 3行の組みに、小さく薄い行をもう1つ。行が増えるぶん行間は少し詰める
+      return [
+        { id: 'l1', fields: g[0]!, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.38, ...wrap(2), ...alignSide },
+        { id: 'l2', fields: g[1]!, separator: 'comma', emphasis: 'bold', relSize: 1.0, leading: 1.38, ...wrap(2), ...alignSide },
+        { id: 'l3', fields: g[2]!, separator: 'comma', emphasis: 'muted', relSize: 0.92, leading: 1.38, ...wrap(2), ...alignSide },
+        { id: 'l4', fields: g[3]!, separator: 'comma', emphasis: 'muted', relSize: 0.92, leading: 1.38, ...wrap(2), ...alignSide },
       ];
   }
 }

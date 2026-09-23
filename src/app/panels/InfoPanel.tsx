@@ -11,8 +11,8 @@ import type { FieldId, LineCount } from '../../core/styles/types';
 import { SHOT_FACTS, effectiveFields } from '../caption';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
-import { Pics, Row, Switch } from '../ui/controls';
-import { LINE_OPTIONS } from './constants';
+import { Row, Switch } from '../ui/controls';
+import { LinesPicker, useLinesUsed } from './LinesPicker';
 import { IconEdit, IconReset } from '../ui/icons';
 
 /** 一覧に出す項目。撮影地（place）は未実装なので出さない（割り振りの中には残る） */
@@ -28,7 +28,12 @@ const FIELDS: { id: FieldId; label: string; editable: boolean; empty: string }[]
 ];
 
 /** 行ごとの見え方（spec.ts の linesFor と同じ）。組の見出しに小さく添える */
-const LOOK: Record<LineCount, readonly string[]> = { 1: ['標準'], 2: ['標準', '小さく薄く'], 3: ['標準', '太字', '小さく薄く'] };
+const LOOK: Record<LineCount, readonly string[]> = {
+  1: ['標準'],
+  2: ['標準', '小さく薄く'],
+  3: ['標準', '太字', '小さく薄く'],
+  4: ['標準', '太字', '小さく薄く', '小さく薄く'],
+};
 
 type Target = { g: number; i: number };
 
@@ -39,8 +44,8 @@ export function InfoPanel(): React.ReactElement {
   const set = useDoc((s) => s.set);
   const resetInfo = useDoc((s) => s.resetInfo);
   const layout = useDoc((s) => s.lineLayout);
-  const lines = useDoc((s) => s.style.lines);
-  const setStyle = useDoc((s) => s.setStyle);
+  // 組の数は実際に組まれている行数（入らない行数は最後の行に続く）
+  const lines = useLinesUsed();
   const moveField = useDoc((s) => s.moveField);
   const facts = useUi((s) => s.facts);
   const openInfo = useUi((s) => s.openInfo);
@@ -129,7 +134,7 @@ export function InfoPanel(): React.ReactElement {
   const onHandleUp = (): void => {
     if (drag?.target) {
       const g = drag.target.g;
-      moveField(drag.id, g, drag.target.i);
+      moveField(drag.id, g, drag.target.i, lines);
     }
     setDrag(null);
   };
@@ -139,10 +144,10 @@ export function InfoPanel(): React.ReactElement {
     e.preventDefault();
     refocus.current = id;
     if (e.key === 'ArrowUp') {
-      if (i > 0) moveField(id, g, i - 1);
-      else if (g > 0) moveField(id, g - 1, groups[g - 1]!.length);
-    } else if (i < groups[g]!.length - 1) moveField(id, g, i + 2);
-    else if (g < groups.length - 1) moveField(id, g + 1, 0);
+      if (i > 0) moveField(id, g, i - 1, lines);
+      else if (g > 0) moveField(id, g - 1, groups[g - 1]!.length, lines);
+    } else if (i < groups[g]!.length - 1) moveField(id, g, i + 2, lines);
+    else if (g < groups.length - 1) moveField(id, g + 1, 0, lines);
   };
 
   return (
@@ -154,7 +159,7 @@ export function InfoPanel(): React.ReactElement {
         </button>
       )}
       <Row label="行数">
-        <Pics label="行数" options={LINE_OPTIONS} value={`${lines}`} onChange={(v) => setStyle({ lines: Number(v) as LineCount })} />
+        <LinesPicker />
       </Row>
       <p className="irows__how">⠿ をドラッグして、項目を出す行や順番を変えられます</p>
       {groups.map((g, gi) => (

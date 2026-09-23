@@ -158,7 +158,7 @@ interface DocStore extends DocState {
    * 項目を行 group（0..2）の index 番目へ動かす。いまの行数で見えている組の上で動かし、
    * 見えていない行（行数より後ろ）にあった項目は最後の行に続けて書き戻す
    */
-  moveField(id: FieldId, group: number, index: number): void;
+  moveField(id: FieldId, group: number, index: number, lines?: number): void;
   /** 情報シートの ✓。何欄変えても1段の取り消しにまとめる */
   applyInfo(patch: Partial<Pick<DocState, 'title' | 'artist' | 'dateFormat' | 'overrides'>>): void;
   /** 情報だけを初期値に戻す（載せる項目・日付の書き方・タイトル・手入力）。取り消せる */
@@ -274,9 +274,10 @@ export const useDoc = create<DocStore>((set, get) => ({
     set({ ...remember(get(), `override.${key}`), overrides: { ...get().overrides, [key]: value } });
   },
 
-  moveField(id, group, index) {
+  moveField(id, group, index, lines) {
     const cur = get();
-    const n = cur.style.lines;
+    // 画面に出ている組の数（入らない行数は減らして見せる）。渡されなければ選んだ行数
+    const n = lines ?? cur.style.lines;
     const shown = groupsFor(cur.lineLayout, n);
     const from = shown.findIndex((g) => g.includes(id));
     if (from < 0 || group < 0 || group >= n) return;
@@ -285,7 +286,7 @@ export const useDoc = create<DocStore>((set, get) => ({
     // 同じ組の中で後ろへ動かすときは、抜いたぶん1つ詰まる
     const at = from === group && index > fromIdx ? index - 1 : index;
     shown[group]!.splice(Math.max(0, Math.min(at, shown[group]!.length)), 0, id);
-    const next: FieldId[][] = [0, 1, 2].map((k) => shown[k] ?? []);
+    const next: FieldId[][] = [0, 1, 2, 3].map((k) => shown[k] ?? []);
     if (JSON.stringify(next) === JSON.stringify(cur.lineLayout)) return;
     set({ ...remember(cur, 'layout', true), lineLayout: next });
   },

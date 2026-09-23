@@ -12,7 +12,7 @@ import type {
 } from './types';
 
 /** ブロック基準の em サイズ（論理単位）。推定値 */
-export const SIZE_LU: Record<SizeId, number> = { Small: 13, Medium: 16, Large: 20 };
+export const SIZE_LU: Record<SizeId, number> = { Tiny: 10.5, Small: 13, Medium: 16, Large: 20 };
 
 /**
  * 字間を em 比で持つ。実行時に実サイズを掛けて lu に落とす。
@@ -59,6 +59,7 @@ export const GATE_OF: Readonly<Partial<Record<FieldId, SettingGate>>> = {
 
 /**
  * 既定の割り振り。以前の固定の組みをそのまま再現する
+ *   4行: タイトル・作者・日付 ／ カメラ ／ レンズ・仕上がり ／ 焦点距離・露出・撮影地
  *   3行: タイトル・作者・日付 ／ カメラ ／ レンズ・仕上がり・焦点距離・露出・撮影地
  *   2行: 1行目はそのまま、2行目に残り全部（以前は焦点距離が抜けていた）
  *   1行: 全部を1行（LINE_ALL_IN_ONE と同じ順）
@@ -66,7 +67,9 @@ export const GATE_OF: Readonly<Partial<Record<FieldId, SettingGate>>> = {
 export const DEFAULT_LINE_LAYOUT: LineLayout = [
   ['title', 'artist', 'date'],
   ['camera'],
-  ['lens', 'film', 'focalLength', 'exposure', 'place'],
+  ['lens', 'film'],
+  // 4行のときだけ別の行。3行以下では3行目に続く（以前の3行の組みと同じ並び）
+  ['focalLength', 'exposure', 'place'],
 ];
 
 /** 行数 n に合わせた組。n を超える組は最後の行に続ける */

@@ -480,11 +480,18 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 6px var(--gutter) var(--s2);
-  display: grid;
-  align-content: start;
+  /*
+   * 縦に積む。★行は中身の高さまで伸びる★（以前は grid で行が 44px に潰れ、
+   * 3×3 の点や比率の形が次の行に重なった。スマホで実機に指摘された）
+   */
+  display: flex;
+  flex-direction: column;
   gap: 4px;
   /* 下に続きがあることを、消え際で知らせる */
   mask-image: linear-gradient(#000 calc(100% - 20px), transparent);
+}
+.pnl > * {
+  flex: none;
 }
 .prow {
   display: grid;
@@ -574,6 +581,9 @@
 /* 比率: 形の下に数字 */
 .pics[data-variant='shape'] {
   gap: 2px;
+  /* 比率は数が多い。欄が狭くても切らずに折り返す（全部見える） */
+  flex-wrap: wrap;
+  overflow: visible;
 }
 .pics[data-variant='shape'] .pic {
   width: 44px;
@@ -674,7 +684,7 @@
   position: absolute;
   left: 2px;
   right: 2px;
-  bottom: -2px;
+  bottom: 1px;
   display: flex;
   justify-content: space-between;
   font-size: 0.625rem;
@@ -749,23 +759,46 @@
   inset: -3px;
 }
 .anchor__pt i {
+  /*
+   * 3つの見え方をはっきり分ける（以前は灰の濃さの違いだけで、どこが押せるか分からなかった）
+   *   押せる … 白に近い輪
+   *   選んでいる … 白く塗った四角
+   *   押せない（その向きに動けない）… 小さな点
+   */
   width: 11px;
   height: 11px;
   border-radius: 3px;
-  background: var(--line-strong);
+  box-shadow: inset 0 0 0 1.5px var(--ink-2);
+  background: transparent;
+  transition: background 0.12s;
+}
+.anchor__pt:hover i {
+  background: color-mix(in srgb, var(--ink) 25%, transparent);
 }
 .anchor__pt[aria-checked='true'] i {
   width: 13px;
   height: 13px;
+  box-shadow: none;
   background: var(--ink);
 }
 .anchor__pt[data-off] i {
-  opacity: 0.35;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  box-shadow: none;
+  background: var(--line-strong);
 }
 .anchor[data-disabled] .anchor__pt i {
-  opacity: 0.4;
+  box-shadow: none;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--line-strong);
 }
 .anchor[data-disabled] .anchor__pt[aria-checked='true'] i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
   background: var(--ink-3);
 }
 
@@ -1328,7 +1361,8 @@
 .desk {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  /* 設定の欄の幅は利用者がつまみで変えられる（Side.tsx、--side-w） */
+  grid-template-columns: minmax(0, 1fr) var(--side-w, 440px);
   border-top: 1px solid var(--line);
 }
 
@@ -1379,13 +1413,49 @@
  * 「書き出す」は欄の下にいつも見えている（長い欄を下まで送らなくてよい）
  */
 .side {
+  position: relative;
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   border-left: 1px solid var(--line);
   background: var(--bg);
 }
+/* 欄の幅を変えるつまみ。左の縁をドラッグ（ダブルクリックで既定の幅） */
+.side__grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  width: 10px;
+  z-index: 3;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: col-resize;
+  touch-action: none;
+}
+.side__grip::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 4px;
+  height: 36px;
+  translate: 0 -50%;
+  border-radius: 2px;
+  background: var(--line-strong);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.side__grip:hover::after,
+.side__grip:focus-visible::after,
+.side__grip[data-active]::after {
+  opacity: 1;
+}
 .side__scroll {
+  /* スクロールバーは細く、欄の地に溶かす（太い既定のバーが目立っていた） */
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1451,7 +1521,7 @@
   padding: 0;
 }
 .side .pics[data-variant='shape'] .pic {
-  width: 42px;
+  width: 40px;
 }
 .side .swatches {
   flex-wrap: wrap;
@@ -1670,8 +1740,13 @@
   padding: calc(var(--safe-top) + 12px) 12px calc(var(--safe-bottom) + 12px);
 }
 .viewer__canvas {
-  max-width: 100%;
-  max-height: 100%;
+  /*
+   * ★画面いっぱいまで拡大する★。以前は max-width/max-height だけで、描いた大きさ（最大 1400px）より
+   * 大きくならず、見出しが消えるだけで拡大されて見えなかった（依頼者に指摘された）
+   */
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 .viewer__close {
   position: absolute;
@@ -1691,4 +1766,17 @@
   margin: 0;
   text-align: center;
   color: var(--ink-2);
+}
+
+/* WebKit の太いスクロールバーも細く */
+.side__scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.side__scroll::-webkit-scrollbar-thumb {
+  border: 2px solid var(--bg);
+  border-radius: 4px;
+  background: var(--line-strong);
+}
+.side__scroll::-webkit-scrollbar-track {
+  background: transparent;
 }

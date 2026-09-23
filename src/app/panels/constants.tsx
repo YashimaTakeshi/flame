@@ -21,9 +21,20 @@ export const colorOf = (key: string): Rgba =>
   COLORS.find((c) => c.key === key)?.value ?? COLORS[0]!.value;
 
 /** 比率は形で選ぶ。元比は写真の形なので破線 */
+/** 比率ごとの使いどころ。押す前に分かるよう、読み上げと title に添える */
+const RATIO_USE: Partial<Record<Ratio, string>> = {
+  FF: 'Instagram の縦',
+  TF: 'Instagram のプロフィール・Threads',
+  TT: 'Threads・X の縦長',
+  SQ: 'Instagram・X の正方形',
+  NST: 'TikTok・リール・ストーリーズ',
+  STN: 'X・YouTube の横長',
+  IGL: 'Instagram の横',
+};
+
 export const RATIO_OPTIONS: readonly Opt<Ratio>[] = RATIO_IDS.map((id) => ({
   value: id,
-  label: id === 'OR' ? '元の比率' : `${RATIOS[id].label} の比率`,
+  label: id === 'OR' ? '元の比率' : `${RATIOS[id].label} の比率${RATIO_USE[id] ? `（${RATIO_USE[id]}）` : ''}`,
   text: RATIOS[id].label,
   icon: <RatioPic aspect={RATIOS[id].aspect} />,
 }));
@@ -59,13 +70,14 @@ export function photoOfHv(h: 'left' | 'center' | 'right', v: 'start' | 'center' 
 export const CAPTION_PLACES_UI: readonly CaptionPlace[] = ['above', 'below', 'left', 'right'];
 export const CAPTION_PLACE_JA: Record<CaptionPlace, string> = { above: '上', below: '下', left: '左', right: '右' };
 
-export const LINE_OPTIONS: readonly Opt<`${LineCount}`>[] = ([1, 2, 3] as const).map((n) => ({
+export const LINE_OPTIONS: readonly Opt<`${LineCount}`>[] = ([1, 2, 3, 4] as const).map((n) => ({
   value: `${n}` as const,
   label: `${n}行`,
   icon: <LinesPic n={n} />,
 }));
 
 export const SIZE_OPTIONS: readonly Opt<SizeId>[] = [
+  { value: 'Tiny', label: '極小' },
   { value: 'Small', label: '小' },
   { value: 'Medium', label: '中' },
   { value: 'Large', label: '大' },

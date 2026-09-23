@@ -18,9 +18,9 @@ import { SceneBuilder } from './scene/builder';
 import { photoId, rgba, type PhotoId, type Rgba } from './scene/ops';
 import type { Scene, SceneWarning } from './scene/scene';
 import { captionWidthLu, layoutViolations, resolveLayout, type ExtraBand } from './styles/layout';
-import { styleFor } from './styles/spec';
+import { RATIOS, styleFor } from './styles/spec';
 import { SIZE_LU } from './styles/tokens';
-import { CENTER_FOCUS, type Align, type CaptionAlign, type Focus, type LineLayout, type SizeId, type StyleSpec, type TrackingId } from './styles/types';
+import { CENTER_FOCUS, type Align, type CaptionAlign, type Focus, type LineCount, type StyleDef, type LineLayout, type SizeId, type StyleSpec, type TrackingId } from './styles/types';
 
 export interface SceneInput {
   /** 比率 × 写真の位置 × 文字の位置 × 寄せ × 行数 × 余白 */
@@ -98,28 +98,76 @@ const mix = (a: Rgba, b: Rgba, t: number): Rgba =>
     1,
   );
 
+/**
+ * 文字が入ってよい高さの目安（lu）。これを超える行数は減らす。
+ * 写真の比率・キャンバスの比率・文字の辺で変わる（依頼者:「画像の大きさと比率で入る行数も変わるので制御して」）
+ *   上下の帯・上下に重ね … キャンバスの高さの 1/3（超えると写真が潰れる／写真を覆う）
+ *   左右の段・左右に重ね … キャンバスの高さの 85%（段は写真の高さの範囲）
+ */
+function captionLimit(style: StyleSpec, photoAspect: number): number {
+  const W = CANVAS_WIDTH_LU as number;
+  const r = RATIOS[style.ratio];
+  const aspect = photoAspect > 0 && Number.isFinite(photoAspect) ? photoAspect : 1;
+  const H = r.aspect ? (W * r.aspect[1]) / r.aspect[0] : W / aspect;
+  const side = style.caption === 'left' || style.caption === 'right';
+  return side ? H * 0.85 : H / 3;
+}
+
+/**
+ * 暗幕の奥行き。文字が平らな濃さの範囲に収まるよう、文字の高さに合わせて伸ばす
+ * （4行・大きい字では既定の奥行きだと端の行が薄い所に出た）。
+ * 上下: 辺から outer＋文字の高さ まで平ら。左右: 段の幅で決まるので既定のまま
+ */
+export function scrimDepth(def: StyleDef, textH: number): number {
+  const s = def.caption.scrim;
+  if (!s) return 0;
+  const base = s.depthLu as number;
+  const side = def.caption.place === 'left' || def.caption.place === 'right';
+  if (side) return base;
+  const need = ((def.caption.outerInsetLu as number) + textH) / (1 - s.plateauAt) + 1;
+  return Math.max(base, need);
+}
+
 export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
-  const def = styleFor(input.style, input.lineLayout);
   const b = new SceneBuilder();
   const warnings: SceneWarning[] = [];
 
-  /* 1. 文字を組む。幅は高さを知らなくても決まるので循環しない */
-  const boxW = captionWidthLu(def);
-  const typeset = typesetCaption(
-    def,
-    {
-      facts: input.facts,
-      gates: input.gates,
-      size: input.size,
-      tracking: input.tracking,
-      align: input.align,
-      family: input.family,
-      weight: input.weight,
-      hasBold: input.hasBold,
-    },
-    boxW,
-    measurer,
-  );
+  /*
+   * 1. 文字を組む。幅は高さを知らなくても決まるので循環しない。
+   * 行数ごとに組んでみて、入る行数（linesFit）を調べる。選んだ行数が入らなければ、入る行数まで減らす
+   */
+  const typeOf = (n: LineCount) => {
+    const d = styleFor({ ...input.style, lines: n }, input.lineLayout);
+    const w = captionWidthLu(d);
+    const t = typesetCaption(
+      d,
+      {
+        facts: input.facts,
+        gates: input.gates,
+        size: input.size,
+        tracking: input.tracking,
+        align: input.align,
+        family: input.family,
+        weight: input.weight,
+        hasBold: input.hasBold,
+      },
+      w,
+      measurer,
+    );
+    return { def: d, boxW: w, typeset: t };
+  };
+  const limit = captionLimit(input.style, input.photo.aspect);
+  const tries = new Map<LineCount, ReturnType<typeof typeOf>>();
+  let linesFit: LineCount = 1;
+  for (const n of [1, 2, 3, 4] as const) {
+    const t = typeOf(n);
+    tries.set(n, t);
+    if (n > 1 && t.typeset.heightLu > limit) break;
+    linesFit = n;
+  }
+  const used = (Math.min(input.style.lines, linesFit) as LineCount);
+  if (used < input.style.lines) warnings.push({ kind: 'caption-lines-reduced', from: input.style.lines, to: used });
+  const { def, boxW, typeset } = tries.get(used) ?? typeOf(used);
   warnings.push(...typeset.warnings);
   if (typeset.lines.length === 0) warnings.push({ kind: 'caption-empty' });
 
@@ -182,10 +230,20 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
    */
   const longest = typeset.lines.reduce((m, l) => Math.max(m, l.widthLu), 0);
   const textW = badge && shared ? Math.max(longest, badge.w) : longest;
-  const layout = resolveLayout(def, input.photo.aspect, need, input.focus ?? CENTER_FOCUS, extra, {
-    w: textW,
-    align: input.align,
-  });
+  const span = { w: textW, align: input.align };
+  let layout = resolveLayout(def, input.photo.aspect, need, input.focus ?? CENTER_FOCUS, extra, span);
+  /*
+   * 文字は写真の幅に揃えるので、実際の帯は組んだ幅（額の幅）より狭くなることがある。
+   * 狭い帯では文字と刻印が横に重なり、縦に積む高さが要る。★足りないまま置くと刻印が
+   * キャンバスの外に出た（16:9・3行・大きい字・刻印は右下で実測）。★ 実際の帯で見直し、要れば組み直す
+   */
+  if (badge && bspec && shared && textH > 0 && !crossX) {
+    const rw = layout.band.w as number;
+    const nowRange = hRangeOfLines(typeset.lines, rw);
+    if (nowRange !== null && rangesCross(nowRange, hRange(bspec.align, badge.w, rw))) {
+      layout = resolveLayout(def, input.photo.aspect, textH + stackGap + badge.h, input.focus ?? CENTER_FOCUS, extra, span);
+    }
+  }
 
   /*
    * 2b. 文字と刻印の置き場所。
@@ -280,7 +338,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
    */
   const scrim = def.caption.scrim;
   if (overlay && scrim && textH > 0) {
-    const d = scrim.depthLu as number;
+    const d = scrimDepth(def, textH);
     const cw = layout.canvas.w as number;
     const ch = layout.canvas.h as number;
     // from が暗幕の内側の端（t=0）、to がキャンバスの辺（t=1）
@@ -343,6 +401,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
       fontsUsed: built.fontsUsed,
       warnings,
       freedom: layout.freedom,
+      linesFit,
     },
   };
 }

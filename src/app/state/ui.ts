@@ -36,6 +36,8 @@ interface UiStore {
   photoFilm: string | null;
   /** 写真の位置・文字の寄せが効くか（Scene の freedom）。効かない点を薄くする */
   freedom: { photoX: boolean; photoY: boolean; textY: boolean };
+  /** この比率・写真・文字の大きさで入る行数（Scene の linesFit） */
+  linesFit: number;
   /**
    * 写真から取れた（または手で入れた）項目の中身。情報の一覧に「何が載るか」を見せるため。
    * 載せる／載せないのスイッチとは無関係に、値そのもの
@@ -74,6 +76,7 @@ export const useUi = create<UiStore>((set) => ({
   hasFilm: false,
   photoFilm: null,
   freedom: { photoX: true, photoY: true, textY: true },
+  linesFit: 4,
   facts: {},
   infoFocus: null,
   openInfo: (focus = null) => {

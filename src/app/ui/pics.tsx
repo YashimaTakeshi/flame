@@ -37,7 +37,14 @@ export function PlacePic({ place, overlay }: { place: CaptionPlace; overlay: boo
 
 /** 行数 */
 export function LinesPic({ n }: { n: LineCount }): React.ReactElement {
-  const d = n === 1 ? 'M6 14h16' : n === 2 ? 'M6 11h16M9 17h10' : 'M6 8.5h16M8 14h12M10 19.5h8';
+  const d =
+    n === 1
+      ? 'M6 14h16'
+      : n === 2
+        ? 'M6 11h16M9 17h10'
+        : n === 3
+          ? 'M6 8.5h16M8 14h12M10 19.5h8'
+          : 'M6 7h16M8 11.7h12M8 16.3h12M10 21h8';
   return svg(<path d={d} strokeWidth="1.8" />);
 }
 

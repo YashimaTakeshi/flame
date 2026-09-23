@@ -253,9 +253,13 @@ export function App(): React.ReactElement {
 
   /* 写真の位置・文字の寄せが効くかを操作面へ（効かない点を薄くする） */
   const freedom = scene?.meta.freedom;
+  const linesFit = scene?.meta.linesFit;
   useEffect(() => {
     if (freedom) useUi.setState({ freedom });
   }, [freedom]);
+  useEffect(() => {
+    if (linesFit) useUi.setState({ linesFit });
+  }, [linesFit]);
 
 
   /*

@@ -12,7 +12,11 @@
 import type { Lu } from '../units';
 
 /** キャンバスの比率 */
-export type Ratio = 'OR' | 'SQ' | 'TF' | 'FF' | 'NST' | 'STN';
+/**
+ * キャンバスの比率。SNS で使う比率を揃えた（依頼者の要望で 2:3 と 1.91:1 を足した）
+ *   OR 元比 / FF 4:5 / TF 3:4 / TT 2:3 / SQ 1:1 / NST 9:16 / STN 16:9 / IGL 1.91:1
+ */
+export type Ratio = 'OR' | 'SQ' | 'TF' | 'FF' | 'TT' | 'NST' | 'STN' | 'IGL';
 
 /**
  * 写真を額の中でどちらに寄せるか。3×3 の9通り（UI も 3×3 の点）。
@@ -40,7 +44,7 @@ export type PhotoPlace =
  */
 export type CaptionPlace = 'above' | 'below' | 'left' | 'right';
 
-export type LineCount = 1 | 2 | 3;
+export type LineCount = 1 | 2 | 3 | 4;
 
 /** 余白の広さ。none は写真がキャンバスの端まで届く（全面） */
 export type MarginId = 'thin' | 'narrow' | 'normal' | 'wide' | 'none';
@@ -86,7 +90,7 @@ export type FieldId =
   | 'place';
 
 /**
- * どの項目を何行目に置くか。**いつも3組**（1行目・2行目・3行目）で、組の中は左からの順。
+ * どの項目を何行目に置くか。**いつも4組**（1行目〜4行目）で、組の中は左からの順。
  * 行数が3より少ないときは、はみ出した組を最後の行に続ける（groupsFor）。
  * 利用者が情報タブでドラッグして決める。
  */
@@ -102,7 +106,7 @@ export type FieldToken =
 export type SeparatorId = 'comma' | 'middot' | 'slash' | 'emdash' | 'pipe' | 'space' | 'none';
 
 export type TrackingId = 'Tight' | 'Normal' | 'Wide' | 'Widest';
-export type SizeId = 'Small' | 'Medium' | 'Large';
+export type SizeId = 'Tiny' | 'Small' | 'Medium' | 'Large';
 export type Align = 'left' | 'center' | 'right';
 
 export type CanvasSpec =

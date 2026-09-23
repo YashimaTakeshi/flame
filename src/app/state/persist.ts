@@ -54,7 +54,7 @@ export interface Saved {
 
 /* ── 1項目ずつの検証 ───────────────────────────────────── */
 
-const RATIOS = ['OR', 'SQ', 'TF', 'FF', 'NST', 'STN'] as const satisfies readonly Ratio[];
+const RATIOS = ['OR', 'SQ', 'TF', 'FF', 'TT', 'NST', 'STN', 'IGL'] as const satisfies readonly Ratio[];
 const PHOTOS = [
   'center',
   'top',
@@ -68,11 +68,11 @@ const PHOTOS = [
 ] as const satisfies readonly PhotoPlace[];
 const CAPTIONS = ['above', 'below', 'left', 'right'] as const satisfies readonly CaptionPlace[];
 const CAP_ALIGNS = ['start', 'center', 'end'] as const satisfies readonly CaptionAlign[];
-const LINES = [1, 2, 3] as const satisfies readonly LineCount[];
+const LINES = [1, 2, 3, 4] as const satisfies readonly LineCount[];
 const MARGINS = ['thin', 'narrow', 'normal', 'wide', 'none'] as const satisfies readonly MarginId[];
 const ALIGNS = ['left', 'center', 'right'] as const satisfies readonly Align[];
 const TRACKS = ['Tight', 'Normal', 'Wide', 'Widest'] as const satisfies readonly TrackingId[];
-const SIZES = ['Small', 'Medium', 'Large'] as const satisfies readonly SizeId[];
+const SIZES = ['Tiny', 'Small', 'Medium', 'Large'] as const satisfies readonly SizeId[];
 const BADGES = ['none', 'text', 'logo'] as const satisfies readonly BadgeMode[];
 const BADGE_SIZES = ['XXS', 'XS', 'S', 'M', 'L'] as const satisfies readonly BadgeSize[];
 const SIDES = ['above', 'below', 'left', 'right'] as const satisfies readonly BandSide[];
@@ -121,7 +121,8 @@ function readFields(
  * 版が上がって項目が増えたら、足りない項目は最後の行の末尾に足す（消えない）
  */
 function readLayout(v: unknown, fallback: LineLayout): LineLayout {
-  if (!Array.isArray(v) || v.length !== 3 || !v.every(Array.isArray)) return fallback;
+  // 以前は3組だった。3組の保存は4組目を空で足して読む（並べた順はそのまま）
+  if (!Array.isArray(v) || (v.length !== 3 && v.length !== 4) || !v.every(Array.isArray)) return fallback;
   const known = new Set(fallback.flat());
   const seen = new Set<string>();
   const out: FieldId[][] = [];
@@ -134,7 +135,8 @@ function readLayout(v: unknown, fallback: LineLayout): LineLayout {
     }
     out.push(row);
   }
-  for (const id of known) if (!seen.has(id)) out[2]!.push(id);
+  while (out.length < 4) out.push([]);
+  for (const id of known) if (!seen.has(id)) out[3]!.push(id);
   return out;
 }
 

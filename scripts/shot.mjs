@@ -52,6 +52,16 @@ async function clippedIn(tabName) {
     if (!row) return ['操作面が無い'];
     const out = [];
     const rows = [...document.querySelectorAll('.optrow .prow')];
+    // ★行の中身が次の行に重ならない★（以前は3×3の点が地色の行に重なった。スマホで実機に指摘された）
+    for (const el of rows) {
+      const r = el.getBoundingClientRect();
+      for (const k of el.querySelectorAll('.pic, .anchor, .swatch, .switch, .stepper, .pselect')) {
+        const b = k.getBoundingClientRect();
+        if (b.height > 0 && (b.top < r.top - 3 || b.bottom > r.bottom + 3)) {
+          out.push(`「${(el.textContent ?? '').trim().slice(0, 6)}」の ${k.className.split(' ')[0]} が行からはみ出して次の行に重なる`);
+        }
+      }
+    }
     rows.slice(0, 4).forEach((el, i) => {
       const r = el.getBoundingClientRect();
       if (r.top < row.top - 0.5 || r.bottom > row.bottom + 0.5) {
@@ -63,7 +73,7 @@ async function clippedIn(tabName) {
 }
 
 const clipped = {};
-for (const t of ['フレーム', '文字']) clipped[t] = await clippedIn(t);
+for (const t of ['フレーム', '文字', '刻印']) clipped[t] = await clippedIn(t);
 
 // フレームの6比率を順に選んで、どの比率でも行が切れないか
 await page.getByRole('tab', { name: 'フレーム' }).click();

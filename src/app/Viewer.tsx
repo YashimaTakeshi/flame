@@ -25,7 +25,32 @@ export function Viewer({
 }): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const state = usePreview(canvasRef, hostRef, scene, image, exportLongEdge, 'view', subscribe);
+  // 画面いっぱいに描くので細かく描く（拡大の上限まで）
+  const state = usePreview(canvasRef, hostRef, scene, image, exportLongEdge, 'view', subscribe, 1.6);
+
+  /*
+   * PC はブラウザ自体も全画面にする（見出しやタブの帯まで消す）。使えない端末（iPhone）は黙って窓の中だけ
+   */
+  useEffect(() => {
+    const el = document.documentElement;
+    let entered = false;
+    if (typeof el.requestFullscreen === 'function' && !document.fullscreenElement) {
+      el.requestFullscreen()
+        .then(() => {
+          entered = true;
+        })
+        .catch(() => {});
+    }
+    // 利用者が Esc でブラウザの全画面を抜けたら、この表示も閉じる
+    const onChange = (): void => {
+      if (entered && !document.fullscreenElement) onClose();
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    };
+  }, [onClose]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {

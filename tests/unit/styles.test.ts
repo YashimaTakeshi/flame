@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { BadgeSpec } from '../../src/core/badge';
-import { buildScene, INK, OVERLAY_INK, scrimAlphaAt, WHITE } from '../../src/core/compose';
+import { buildScene, INK, OVERLAY_INK, scrimAlphaAt, scrimDepth, WHITE } from '../../src/core/compose';
 import { typesetCaption, type Gates } from '../../src/core/caption';
 import type { TextMeasurer } from '../../src/core/ports';
 import { captionWidthLu, focusCrop, layoutViolations, resolveLayout } from '../../src/core/styles/layout';
@@ -127,10 +127,26 @@ describe('組み合わせの空間', () => {
     expect(s2.captionBox.y).toBeCloseTo(s2.photo.y as number, 6);
   });
 
-  it('総当たりの数: 6比率 × 3行 × (余白4 × 写真9 × 文字4 × 寄せ3 + 全面 4辺 × 寄せ3) = 7,992', () => {
-    // 余白は 極狭・狭い・標準・広い の4段（極狭は依頼者の要望で足した）
+  it('総当たりの数: 8比率 × 4行 × (余白4 × 写真9 × 文字4 × 寄せ3 + 全面 4辺 × 寄せ3) = 14,208', () => {
+    // 比率は SNS 向けに 2:3・1.91:1 を足して8つ。行数は4行まで。余白は 極狭・狭い・標準・広い の4段
     // 全面（余白なし）: 写真の位置は効かない（指で決める）ので1通り。文字は4辺に重ね、寄せは3通り
-    expect(SPECS).toHaveLength(6 * 3 * (4 * 9 * 4 * 3 + 4 * 3));
+    expect(SPECS).toHaveLength(8 * 4 * (4 * 9 * 4 * 3 + 4 * 3));
+  });
+
+  it('★入る行数を超えたら減らす★（比率・大きさで入る行数が変わる）', () => {
+    const facts = { ...REFERENCE, title: 'Kyoto', artist: 'yashima takeshi' };
+    // 縦長の比率・小さい字なら4行入る
+    const tall = buildScene(inputFor({ style: sp({ ratio: 'NST', lines: 4 }), facts, size: 'Small' }), measurer);
+    expect(tall.meta.linesFit).toBe(4);
+    expect(tall.meta.style.lines).toBe(4);
+    // 元比でパノラマ（5:1）の写真・大きい字 → 写真が細く、4行は入らない
+    const wide = buildScene(
+      inputFor({ style: sp({ ratio: 'OR', lines: 4 }), photo: { id: 'p', aspect: 5 }, facts, size: 'Large' }),
+      measurer,
+    );
+    expect(wide.meta.linesFit).toBeLessThan(4);
+    expect(wide.meta.style.lines).toBe(wide.meta.linesFit);
+    expect(wide.meta.warnings.some((w) => w.kind === 'caption-lines-reduced')).toBe(true);
   });
 
   it('余白の段は なし < 極狭 < 狭い < 標準 < 広い', () => {
@@ -516,6 +532,33 @@ describe('Scene の組み立て', () => {
     const LOGO = { text: 'CLASSIC CHROME', mode: 'logo', place: 'below', align: 'center', valign: 'center', size: 'M', framed: false } as const;
     const TEXT = { text: 'CLASSIC CHROME', mode: 'text', place: 'below', align: 'center', valign: 'center', size: 'M', framed: true } as const;
     const PLACES = ['above', 'below', 'left', 'right'] as const;
+
+    it('★刻印はキャンバスの外に出ない★ 16:9・3行・大きい字・広い字間・刻印は右下（実機で切れた）', () => {
+      const IMG = { id: 'film:Velvia', aspect: 300 / 220 };
+      const facts = { ...REFERENCE, film: 'Velvia' };
+      for (const ratio of ['STN', 'SQ', 'FF', 'OR'] as const)
+        for (const photo of ['left', 'center', 'right'] as const)
+          for (const align of ['left', 'center', 'right'] as const)
+            for (const size of ['XXS', 'M', 'L'] as const) {
+              const scene = buildScene(
+                inputFor({
+                  style: sp({ ratio, photo, caption: 'below', lines: 3, margin: 'narrow' }),
+                  photo: { id: 'p', aspect: 4 / 3 },
+                  facts,
+                  size: 'Large',
+                  tracking: 'Widest',
+                  badge: { ...LOGO, place: 'below', align, valign: 'end', size, image: IMG },
+                }),
+                measurer,
+              );
+              const mark = scene.ops.find((o) => o.op === 'photo' && String(o.photo).startsWith('film:'));
+              const name = `${ratio} 写真:${photo} 刻印:${align} ${size}`;
+              expect(mark?.op, name).toBe('photo');
+              if (mark?.op !== 'photo') continue;
+              expect(mark.dst.y + mark.dst.h, name).toBeLessThanOrEqual((scene.canvas.heightLu as number) + 0.01);
+              expect(mark.dst.x + mark.dst.w, name).toBeLessThanOrEqual((scene.canvas.widthLu as number) + 0.01);
+            }
+    });
     const noOverlapWithPhotoAndText = (scene: ReturnType<typeof buildScene>, name: string): void => {
       const photo = scene.ops.find((o) => o.op === 'photo');
       const marks = badgeOps(scene);
@@ -727,7 +770,7 @@ describe('重ね文字のコントラスト', () => {
       for (const size of ['Small', 'Medium', 'Large'] as const) {
         const t = typesetCaption(def, { facts: REFERENCE, gates: ALL_ON, ...TYPO, size }, captionWidthLu(def), measurer);
         const l = resolveLayout(def, 1.5, t.heightLu);
-        const d = scrim.depthLu as number;
+        const d = scrimDepth(def, t.heightLu);
         const W = l.canvas.w as number;
         const H = l.canvas.h as number;
         const c = l.captionBox;
@@ -749,7 +792,7 @@ describe('重ね文字のコントラスト', () => {
         checked++;
       }
     }
-    expect(checked).toBe(6 * 3 * 4 * 3 * 3);
+    expect(checked).toBe(8 * 4 * 4 * 3 * 3);
   });
 
 });

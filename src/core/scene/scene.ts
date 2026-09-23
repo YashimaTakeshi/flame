@@ -34,6 +34,8 @@ export interface SceneMeta {
   readonly warnings: readonly SceneWarning[];
   /** 写真の位置・文字の寄せが効くか（layout.ts の freedom）。UI が効かない点を薄くする */
   readonly freedom?: { readonly photoX: boolean; readonly photoY: boolean; readonly textY: boolean };
+  /** この比率・写真・文字の大きさで入る行数（1〜4）。UI は超える行数を薄くする */
+  readonly linesFit?: number;
 }
 
 export type DegradeStep = 'strip-after-pipe' | 'abbreviate' | 'drop';
@@ -50,6 +52,8 @@ export type SceneWarning =
   | { readonly kind: 'caption-wrapped'; readonly line: number; readonly extraLines: number }
   | { readonly kind: 'caption-truncated'; readonly line: number; readonly field: FieldId }
   | { readonly kind: 'caption-empty' }
+  /** 選んだ行数では高すぎた（写真が潰れる／重ねで写真を覆う）ので行数を減らした */
+  | { readonly kind: 'caption-lines-reduced'; readonly from: number; readonly to: number }
   | { readonly kind: 'band-expanded'; readonly fromLu: number; readonly toLu: number }
   | { readonly kind: 'low-contrast'; readonly ratio: number };
 
