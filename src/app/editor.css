@@ -581,7 +581,9 @@
 /* 比率: 形の下に数字 */
 .pics[data-variant='shape'] {
   gap: 2px;
-  /* 比率は数が多い。欄が狭くても切らずに折り返す（全部見える） */
+}
+/* PC の欄では比率を切らずに折り返す（全部見える）。スマホは1列で横に送る（高さを取らない） */
+.side .pics[data-variant='shape'] {
   flex-wrap: wrap;
   overflow: visible;
 }
