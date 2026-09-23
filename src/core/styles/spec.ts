@@ -52,7 +52,7 @@ export const RATIOS: Readonly<
 
 export const RATIO_IDS = Object.keys(RATIOS) as readonly Ratio[];
 export const PHOTO_PLACES: readonly PhotoPlace[] = ['center', 'top', 'bottom', 'left', 'right'];
-export const CAPTION_PLACES: readonly CaptionPlace[] = ['above', 'below', 'left', 'right', 'overlay'];
+export const CAPTION_PLACES: readonly CaptionPlace[] = ['above', 'below', 'left', 'right'];
 export const LINE_COUNTS: readonly LineCount[] = [1, 2, 3];
 export const MARGINS: readonly MarginId[] = ['narrow', 'normal', 'wide', 'none'];
 export const CAPTION_ALIGNS: readonly CaptionAlign[] = ['start', 'center', 'end'];
@@ -100,21 +100,23 @@ function linesFor(n: LineCount, side: boolean): readonly CaptionLineSpec[] {
   }
 }
 
+/** 左右の辺に重ねるときの暗幕の奥行き。文字の段（端から OVERLAY_INSET_LU＋SIDE_BAND_LU）を平らな濃さで覆う */
+export const SIDE_SCRIM_LU = 520;
+
 /**
  * 組み合わせの整合。ここで揃えるので、UI 側は1つの軸だけ変えて渡してよい。
  *
- * 1. 「余白なし」と「重ね」は同じ状態の2つの入口である（写真が端まで届くなら文字は
- *    重ねるしかなく、文字を重ねるなら写真は端まで届く）。どちらから来ても同じ形に揃える。
- * 2. 文字を左右の段に置くとき、写真も同じ側に寄せる指定は意味を持たない
+ * 1. 文字を左右の段に置くとき、写真も同じ側に寄せる指定は意味を持たない
  *    （段を差し引いた残りに置くので、寄せる先が無い）。写真は中央に戻す。
+ * 2. 全面（余白なし）では切り取りの中心は指で決めるので、写真の位置は効かない。
+ *
+ * 余白「なし」と文字の辺は独立。余白なしなら、選んだ辺に写真の上から重ねる。
  */
 export function normalize(spec: StyleSpec): StyleSpec {
   let s = spec;
-  if (s.margin === 'none' && s.caption !== 'overlay') s = { ...s, caption: 'overlay' };
-  if (s.caption === 'overlay' && s.margin !== 'none') s = { ...s, margin: 'none' };
+  // 旧い保存（'overlay'）を読んだら、下に重ねる（以前の見た目のまま）
+  if ((s.caption as string) === 'overlay') s = { ...s, caption: 'below', margin: 'none' };
   if (isSide(s.caption) && isSide(s.photo)) s = { ...s, photo: 'center' };
-  // 重ねでは帯が無いので寄せは効かない。全面では切り取りの中心は指で決めるので写真の位置は効かない
-  if (s.caption === 'overlay' && s.captionAlign !== 'center') s = { ...s, captionAlign: 'center' };
   if (s.margin === 'none' && s.photo !== 'center') s = { ...s, photo: 'center' };
   return s;
 }
@@ -133,7 +135,7 @@ export function styleFor(raw: StyleSpec): StyleDef {
   const r = RATIOS[spec.ratio];
   const base = Math.round(r.insetLu * MARGIN_SCALE[spec.margin]);
   const side = isSide(spec.caption);
-  const overlay = spec.caption === 'overlay';
+  const overlay = spec.margin === 'none';
 
   return {
     spec,
@@ -141,6 +143,7 @@ export function styleFor(raw: StyleSpec): StyleDef {
     photo: { inset: ins(base, base, base, base), place: spec.photo },
     caption: {
       place: spec.caption,
+      overlay,
       gapLu: lu(Math.round(base * 0.55)),
       sideInsetLu: lu(overlay ? OVERLAY_INSET_LU : base),
       outerInsetLu: lu(overlay ? OVERLAY_INSET_LU : Math.round(base * 1.1)),
@@ -149,7 +152,10 @@ export function styleFor(raw: StyleSpec): StyleDef {
       ...(overlay
         ? {
             // 0.58 は「白い写真の上でも本文コントラストが 4.5:1 を超える」最小の濃さ（§4.6）
-            scrim: { heightLu: lu(spec.ratio === 'STN' ? 230 : 320), alpha: 0.58 },
+            scrim: side
+              ? // 左右: 段（端から 34＋300lu）が平らな濃さに入るよう、立ち上がりを短くする
+                { depthLu: lu(SIDE_SCRIM_LU), alpha: 0.58, plateauAt: 0.35 }
+              : { depthLu: lu(spec.ratio === 'STN' ? 230 : 320), alpha: 0.58, plateauAt: 0.5 },
           }
         : {}),
     },
@@ -170,7 +176,7 @@ export const FRMM_PRESETS: Readonly<Record<string, StyleSpec>> = {
   SQ1: { ratio: 'SQ', photo: 'center', caption: 'below', lines: 1, captionAlign: C, margin: N },
   SQ2: { ratio: 'SQ', photo: 'center', caption: 'below', lines: 3, captionAlign: C, margin: N },
   SQ3: { ratio: 'SQ', photo: 'top', caption: 'below', lines: 2, captionAlign: C, margin: N },
-  SQ4: { ratio: 'SQ', photo: 'center', caption: 'overlay', lines: 1, captionAlign: C, margin: 'none' },
+  SQ4: { ratio: 'SQ', photo: 'center', caption: 'below', lines: 1, captionAlign: C, margin: 'none' },
   TF1: { ratio: 'TF', photo: 'center', caption: 'below', lines: 2, captionAlign: C, margin: N },
   FF1: { ratio: 'FF', photo: 'center', caption: 'below', lines: 1, captionAlign: C, margin: N },
   FF2: { ratio: 'FF', photo: 'center', caption: 'above', lines: 2, captionAlign: C, margin: N },
@@ -178,7 +184,7 @@ export const FRMM_PRESETS: Readonly<Record<string, StyleSpec>> = {
   NST1: { ratio: 'NST', photo: 'center', caption: 'below', lines: 2, captionAlign: C, margin: N },
   STN1: { ratio: 'STN', photo: 'center', caption: 'below', lines: 1, captionAlign: C, margin: N },
   STN2: { ratio: 'STN', photo: 'center', caption: 'right', lines: 3, captionAlign: C, margin: N },
-  STN3: { ratio: 'STN', photo: 'center', caption: 'overlay', lines: 1, captionAlign: C, margin: 'none' },
+  STN3: { ratio: 'STN', photo: 'center', caption: 'below', lines: 1, captionAlign: C, margin: 'none' },
 };
 
 export const specKey = (s: StyleSpec): string =>

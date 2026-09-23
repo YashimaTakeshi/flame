@@ -9,6 +9,7 @@ import {
   type WallClock,
 } from '../../core/wallclock';
 import { useDoc } from '../state/doc';
+import { useUi } from '../state/ui';
 import type { ExifFacts } from '../exif';
 import { FILM_SUGGESTIONS } from '../fuji';
 import { Sheet } from '../ui/Sheet';
@@ -42,6 +43,17 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
    * 以前はどれで閉じても ✓ 以外は黙って捨てていた。✓ のすぐ上が背後なので、指がずれると消えた。
    * 戻るスワイプは面を外から閉じる（state/ui.ts）ので、反映は面が消えるときに1か所で行う
    */
+  /*
+   * 情報の一覧で行を押して開いたら、その欄から入力を始める。
+   * 以前は ✎ で開いて、目当ての欄を探して押す必要があった
+   */
+  const focusField = useUi((s) => s.infoFocus);
+  useEffect(() => {
+    if (!focusField) return;
+    const el = document.querySelector<HTMLElement>(`.sheet [data-field="${focusField}"]`);
+    el?.focus();
+  }, [focusField]);
+
   const cancelled = useRef(false);
   const values = { title, artist, dateFormat, overrides: { camera: camera.trim() || null, lens: lens.trim() || null, date: typed, film: film.trim() || null } };
   const latest = useRef(values);
@@ -68,11 +80,12 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
       <div className="card">
         <label className="card__row">
           <span>タイトル</span>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル（省略できます）" />
+          <input data-field="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル（省略できます）" />
         </label>
         <label className="card__row">
           <span>作者</span>
           <input
+            data-field="artist"
             value={artist}
             onChange={(e) => setArtist(e.target.value)}
             placeholder="名前（省略できます）"
@@ -85,6 +98,7 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
         <label className="card__row">
           <span>カメラ</span>
           <input
+            data-field="camera"
             value={camera}
             onChange={(e) => setCamera(e.target.value)}
             placeholder={exif.camera ?? 'カメラ名（写真に記録なし）'}
@@ -93,6 +107,7 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
         <label className="card__row">
           <span>レンズ</span>
           <input
+            data-field="lens"
             value={lens}
             onChange={(e) => setLens(e.target.value)}
             placeholder={exif.lens ?? 'レンズ名（写真に記録なし）'}
@@ -101,6 +116,7 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
         <label className={`card__row${customFilm ? ' card__row--stack' : ''}`}>
           <span>仕上がり</span>
           <select
+            data-field="film"
             aria-label="仕上がり"
             value={customFilm ? CUSTOM : film}
             onChange={(e) => {
@@ -134,7 +150,7 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
         </label>
         <label className="card__row">
           <span>日付</span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <input data-field="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
         <label className="card__row">
           <span>書き方</span>

@@ -74,9 +74,19 @@ const inputFor = (over: Partial<Parameters<typeof buildScene>[0]> = {}): Paramet
 });
 
 describe('組み合わせの空間', () => {
-  it('余白なしと重ねは同じ状態。どちらから来ても揃う', () => {
-    expect(normalize(sp({ margin: 'none', caption: 'below' })).caption).toBe('overlay');
-    expect(normalize(sp({ caption: 'overlay', margin: 'wide' })).margin).toBe('none');
+  it('余白なしと文字の辺は独立。余白なしなら選んだ辺に重ねる', () => {
+    for (const caption of ['above', 'below', 'left', 'right'] as const) {
+      const n = normalize(sp({ margin: 'none', caption }));
+      expect(n.caption).toBe(caption);
+      expect(styleFor(n).caption.overlay).toBe(true);
+      expect(styleFor(sp({ margin: 'normal', caption })).caption.overlay).toBe(false);
+    }
+  });
+
+  it('旧い保存の「重ね」は、余白なし・下に読み替える（見た目は以前のまま）', () => {
+    const n = normalize(sp({ caption: 'overlay' as never, margin: 'wide' }));
+    expect(n.caption).toBe('below');
+    expect(n.margin).toBe('none');
   });
 
   it('文字が左右の段にあるとき、写真を同じ側に寄せる指定は中央に戻る', () => {
@@ -85,16 +95,33 @@ describe('組み合わせの空間', () => {
     expect(normalize(sp({ caption: 'right', photo: 'top' })).photo).toBe('top');
   });
 
-  it('総当たりの数: 6比率 × 3行 × (余白3 × 16 × 寄せ3 + 全面1) = 2,610', () => {
+  it('総当たりの数: 6比率 × 3行 × (余白3 × 16 × 寄せ3 + 全面 4辺 × 寄せ3) = 2,808', () => {
     // 余白あり: 写真5 × 文字4（上下左右）= 20 から、左右×左右の 4 を除いた 16。寄せは3通り
-    // 全面（余白なし）: 文字は重ねの1つ、写真の位置と寄せは効かないので1通り
-    expect(SPECS).toHaveLength(6 * 3 * (3 * 16 * 3 + 1));
+    // 全面（余白なし）: 写真の位置は効かない（指で決める）。文字は4辺に重ね、寄せは3通り
+    expect(SPECS).toHaveLength(6 * 3 * (3 * 16 * 3 + 4 * 3));
   });
 
-  it('全面では写真の位置と寄せは中央に畳まれる（指で決めるので選択肢ではない）', () => {
-    const n = normalize(sp({ margin: 'none', caption: 'overlay', photo: 'top', captionAlign: 'end' }));
+  it('全面では写真の位置は中央に畳まれる（指で決めるので選択肢ではない）。寄せは残る', () => {
+    const n = normalize(sp({ margin: 'none', caption: 'left', photo: 'top', captionAlign: 'end' }));
     expect(n.photo).toBe('center');
-    expect(n.captionAlign).toBe('center');
+    expect(n.captionAlign).toBe('end');
+  });
+
+  it('全面の重ねは選んだ辺の、端から内側に置く', () => {
+    const at = (caption: 'above' | 'below' | 'left' | 'right', captionAlign: 'start' | 'center' | 'end' = 'center') =>
+      resolveLayout(styleFor(sp({ ratio: 'SQ', margin: 'none', caption, captionAlign })), 1.5, 60);
+    const H = (l: ReturnType<typeof at>): number => l.canvas.h as number;
+    const b = at('below');
+    const a = at('above');
+    expect(b.captionBox.y + b.captionBox.h).toBeGreaterThan(H(b) * 0.9);
+    expect(a.captionBox.y).toBeLessThan(H(a) * 0.1);
+    const L = at('left');
+    const R = at('right');
+    expect(L.captionBox.x).toBeLessThan(100);
+    expect(R.captionBox.x + R.captionBox.w).toBeGreaterThan(900);
+    // 左右は寄せで上・中・下
+    expect(at('left', 'start').captionBox.y).toBeLessThan(at('left', 'center').captionBox.y);
+    expect(at('left', 'end').captionBox.y).toBeGreaterThan(at('left', 'center').captionBox.y);
   });
 
   it('参考アプリの15スタイルはすべてこの空間の点である', () => {
@@ -115,7 +142,7 @@ describe('レイアウトが破綻しない（総当たり）', () => {
       for (const aspect of ASPECTS) {
         const l = resolveLayout(def, aspect, t.heightLu);
         const where = `${key(spec)} @ ${aspect.toFixed(2)}`;
-        expect(layoutViolations(l, def.caption.place), where).toEqual([]);
+        expect(layoutViolations(l, def.caption.overlay), where).toEqual([]);
         expect(l.canvas.h, where).toBeGreaterThan(0);
         expect(l.photo.w, where).toBeGreaterThan(0);
         expect(l.photo.h, where).toBeGreaterThan(0);
@@ -130,7 +157,7 @@ describe('レイアウトが破綻しない（総当たり）', () => {
       const def = styleFor(spec);
       for (const aspect of ASPECTS) {
         const l = resolveLayout(def, aspect, 0);
-        expect(layoutViolations(l, def.caption.place), key(spec)).toEqual([]);
+        expect(layoutViolations(l, def.caption.overlay), key(spec)).toEqual([]);
       }
     }
   });
@@ -175,7 +202,7 @@ describe('レイアウトが破綻しない（総当たり）', () => {
   });
 
   it('切り出しは0..1の正規化座標で、元画素数に依らない', () => {
-    const l = resolveLayout(styleFor(sp({ margin: 'none', caption: 'overlay' })), 1.5, 30);
+    const l = resolveLayout(styleFor(sp({ margin: 'none', caption: 'below' })), 1.5, 30);
     const s = l.photoSrcNorm;
     expect(s.w).toBeCloseTo(2 / 3, 6); // 3:2 を 1:1 に切るので横が削られる
     expect(s.h).toBe(1);
@@ -183,7 +210,7 @@ describe('レイアウトが破綻しない（総当たり）', () => {
 
   it('全面では切り取りの中心（focus）が余る軸だけを動かす', () => {
     const at = (fx: number, fy: number, aspect: number) =>
-      resolveLayout(styleFor(sp({ margin: 'none', caption: 'overlay' })), aspect, 30, { x: fx, y: fy }).photoSrcNorm;
+      resolveLayout(styleFor(sp({ margin: 'none', caption: 'below' })), aspect, 30, { x: fx, y: fy }).photoSrcNorm;
     // 横長を正方形に: 横が余る → x が効き、y は効かない
     expect(at(0, 0.9, 1.5).x).toBe(0);
     expect(at(0.5, 0.9, 1.5).x).toBeCloseTo(1 / 6, 6);
@@ -237,7 +264,7 @@ describe('レイアウトが破綻しない（総当たり）', () => {
   });
 
   it('余白なしでも重ね文字は端に寄らない（余白の倍率に依らない距離を持つ）', () => {
-    const def = styleFor(sp({ margin: 'none', caption: 'overlay' }));
+    const def = styleFor(sp({ margin: 'none', caption: 'below' }));
     expect(def.caption.sideInsetLu).toBeGreaterThan(0);
     expect(def.caption.outerInsetLu).toBeGreaterThan(0);
   });
@@ -341,7 +368,7 @@ describe('16:9・右の段に参考素材が収まる', () => {
 
   it('組み上がりが段の高さを越えない', () => {
     const l = resolveLayout(def, 1.5, t.heightLu);
-    expect(layoutViolations(l, def.caption.place)).toEqual([]);
+    expect(layoutViolations(l, def.caption.overlay)).toEqual([]);
   });
 });
 
@@ -395,7 +422,7 @@ describe('Scene の組み立て', () => {
   });
 
   it('全面の枠線はキャンバスの内側に収まる', () => {
-    const scene = buildScene(inputFor({ style: sp({ margin: 'none', caption: 'overlay' }), bordered: true }), measurer);
+    const scene = buildScene(inputFor({ style: sp({ margin: 'none', caption: 'below' }), bordered: true }), measurer);
     const r = scene.ops.find((o) => o.op === 'strokeRect');
     expect(r?.op === 'strokeRect' && r.rect.x).toBeGreaterThan(0);
   });
@@ -449,7 +476,7 @@ describe('Scene の組み立て', () => {
      */
     it('★写真の中には置かない★ 全組み合わせ × 全比 × 4辺で、帯の中・写真の外・文字と非重複', { timeout: 60_000 }, () => {
       for (const spec of SPECS) {
-        if (spec.caption === 'overlay') continue;
+        if (spec.margin === 'none') continue;
         for (const aspect of [0.75, 1.5]) {
           for (const place of PLACES) {
             const badge = place === spec.caption ? LOGO : { ...TEXT, place };
@@ -500,7 +527,7 @@ describe('Scene の組み立て', () => {
     it('同梱した札（画像）も帯の中に収まり、写真と重ならない', () => {
       const IMG = { id: 'film:PROVIA', aspect: 300 / 220 };
       for (const spec of SPECS) {
-        if (spec.caption === 'overlay') continue;
+        if (spec.margin === 'none') continue;
         for (const place of PLACES) {
           const scene = buildScene(inputFor({ style: spec, badge: { ...LOGO, place, image: IMG } }), measurer);
           const photo = scene.ops.find((o) => o.op === 'photo' && o.photo === 'photo');
@@ -519,7 +546,7 @@ describe('Scene の組み立て', () => {
 
     it('重ね（全面）でも刻む。写真の上、キャンバスの内側で、キャプションと重ならない', () => {
       const IMG = { id: 'film:PROVIA', aspect: 300 / 220 };
-      const style = sp({ margin: 'none', caption: 'overlay' });
+      const style = sp({ margin: 'none', caption: 'below' });
       for (const aspect of [0.75, 1.5]) {
         for (const align of ['left', 'center', 'right'] as const) {
           for (const valign of ['start', 'center', 'end'] as const) {
@@ -608,9 +635,10 @@ describe('重ね文字のコントラスト', () => {
   const lum = (r: number, g: number, b: number): number => 0.2126 * rl(r) + 0.7152 * rl(g) + 0.0722 * rl(b);
   const inkL = lum(OVERLAY_INK.r, OVERLAY_INK.g, OVERLAY_INK.b);
 
-  it('どの比率・行数でも、真っ白な写真の上で 4.5:1 を確保する', () => {
+  it('どの比率・行数・辺でも、真っ白な写真の上で 4.5:1 を確保する（文字のいちばん内側で）', () => {
+    let checked = 0;
     for (const spec of SPECS) {
-      if (spec.caption !== 'overlay') continue;
+      if (spec.margin !== 'none') continue;
       const def = styleFor(spec);
       const scrim = def.caption.scrim;
       expect(scrim, key(spec)).toBeDefined();
@@ -618,13 +646,29 @@ describe('重ね文字のコントラスト', () => {
       for (const size of ['Small', 'Medium', 'Large'] as const) {
         const t = typesetCaption(def, { facts: REFERENCE, gates: ALL_ON, ...TYPO, size }, captionWidthLu(def), measurer);
         const l = resolveLayout(def, 1.5, t.heightLu);
-        const h = scrim.heightLu as number;
-        const at = ((l.captionBox.y as number) - ((l.canvas.h as number) - h)) / h;
-        const a = scrimAlphaAt(at, scrim.alpha);
-        const c = 255 * (1 - a);
-        const ratio = (inkL + 0.05) / (lum(c, c, c) + 0.05);
+        const d = scrim.depthLu as number;
+        const W = l.canvas.w as number;
+        const H = l.canvas.h as number;
+        const c = l.captionBox;
+        const cx = c.x as number;
+        const cy = c.y as number;
+        // 暗幕の内側の端（t=0）から辺（t=1）へ。文字の箱の、辺からいちばん遠い端で測る
+        const at =
+          spec.caption === 'below'
+            ? (cy - (H - d)) / d
+            : spec.caption === 'above'
+              ? (d - (cy + (c.h as number))) / d
+              : spec.caption === 'left'
+                ? (d - (cx + (c.w as number))) / d
+                : (cx - (W - d)) / d;
+        const a = scrimAlphaAt(at, scrim.alpha, scrim.plateauAt);
+        const g = 255 * (1 - a);
+        const ratio = (inkL + 0.05) / (lum(g, g, g) + 0.05);
         expect(ratio, `${key(spec)} ${size}: 暗幕 ${a.toFixed(3)} → ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+        checked++;
       }
     }
+    expect(checked).toBe(6 * 3 * 4 * 3 * 3);
   });
+
 });

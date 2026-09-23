@@ -177,6 +177,20 @@ export function App(): React.ReactElement {
   }, [filmName]);
   const filmBadge = loadedLogo && loadedLogo.name === filmName ? loadedLogo.logo : null;
 
+  /* 情報の一覧に出す中身。載せる／載せないに関係なく、写真の値と手入力から */
+  useEffect(() => {
+    const facts = loaded
+      ? collectFacts(loaded.exif, {
+          dateFormat: doc.dateFormat,
+          title: doc.title,
+          artist: doc.artist,
+          fields: doc.fields,
+          overrides: doc.overrides,
+        })
+      : {};
+    useUi.setState({ facts });
+  }, [loaded, doc.dateFormat, doc.title, doc.artist, doc.fields, doc.overrides]);
+
   const sceneInput: SceneInput | null = useMemo(() => {
     if (!loaded || !fontsReady) return null;
     const font = fontRefFor(doc.fontKey);
@@ -528,7 +542,8 @@ export function App(): React.ReactElement {
         ) : (
           <span className="hdr__title">Fuchidori</span>
         )}
-        {loaded ? (
+        {/* PC は欄の下に「書き出す」がいつも見えているので、見出しには置かない */}
+        {loaded && !desk ? (
           <button
             type="button"
             className="iconbtn hdr__right"
@@ -664,7 +679,7 @@ export function App(): React.ReactElement {
             {stage}
             {band}
           </div>
-          {loaded && <Side />}
+          {loaded && <Side onExport={() => openSheet('export')} busy={busy !== null} />}
         </div>
       ) : (
         <>

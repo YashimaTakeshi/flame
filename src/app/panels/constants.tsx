@@ -1,23 +1,8 @@
 import { rgba, type Rgba } from '../../core/scene/ops';
-import type {
-  Align,
-  CaptionAlign,
-  CaptionPlace,
-  LineCount,
-  MarginId,
-  PhotoPlace,
-  SizeId,
-  TrackingId,
-} from '../../core/styles/types';
-import {
-  IconAlignCenter,
-  IconAlignLeft,
-  IconAlignRight,
-  IconBorderOff,
-  IconBorderOn,
-  IconHorizontal,
-  IconVertical,
-} from '../ui/icons';
+import { RATIO_IDS, RATIOS } from '../../core/styles/spec';
+import type { CaptionPlace, LineCount, MarginId, PhotoPlace, Ratio, SizeId, TrackingId } from '../../core/styles/types';
+import type { Opt } from '../ui/controls';
+import { LinesPic, PhotoPic, RatioPic } from '../ui/pics';
 
 /** 背景色。白・Warm White・Ivory は並べると見分けがつかないので、選んでいる色の名前を出す */
 export const COLORS: { key: string; label: string; value: Rgba }[] = [
@@ -32,72 +17,53 @@ export const COLORS: { key: string; label: string; value: Rgba }[] = [
   { key: 'sunny', label: 'Sunny Yellow', value: rgba(245, 224, 138) },
 ];
 
-export const ALIGN_OPTIONS: { value: Align; label: string; node: React.ReactNode }[] = [
-  { value: 'left', label: '左揃え', node: <IconAlignLeft /> },
-  { value: 'center', label: '中央揃え', node: <IconAlignCenter /> },
-  { value: 'right', label: '右揃え', node: <IconAlignRight /> },
+export const colorOf = (key: string): Rgba =>
+  COLORS.find((c) => c.key === key)?.value ?? COLORS[0]!.value;
+
+/** 比率は形で選ぶ。元比は写真の形なので破線 */
+export const RATIO_OPTIONS: readonly Opt<Ratio>[] = RATIO_IDS.map((id) => ({
+  value: id,
+  label: id === 'OR' ? '元の比率' : `${RATIOS[id].label} の比率`,
+  text: RATIOS[id].label,
+  icon: <RatioPic aspect={RATIOS[id].aspect} />,
+}));
+
+/** 余白。なし→広 の順に、スライダーの左から右へ */
+export const MARGIN_OPTIONS: readonly Opt<MarginId>[] = [
+  { value: 'none', label: 'なし' },
+  { value: 'narrow', label: '狭い' },
+  { value: 'normal', label: '標準' },
+  { value: 'wide', label: '広い' },
 ];
 
-export const TRACK_OPTIONS: { value: TrackingId; label: string }[] = [
-  { value: 'Tight', label: '狭' },
-  { value: 'Normal', label: '標' },
-  { value: 'Wide', label: '広' },
-  { value: 'Widest', label: '最広' },
-];
+const PHOTO_LABEL: Record<PhotoPlace, string> = {
+  center: '写真を中央に',
+  top: '写真を上に寄せる',
+  bottom: '写真を下に寄せる',
+  left: '写真を左に寄せる',
+  right: '写真を右に寄せる',
+};
+export const PHOTO_PLACES_UI: readonly PhotoPlace[] = ['center', 'top', 'bottom', 'left', 'right'];
+export const photoOption = (p: PhotoPlace): Opt<PhotoPlace> => ({ value: p, label: PHOTO_LABEL[p], icon: <PhotoPic place={p} /> });
 
-export const SIZE_OPTIONS: { value: SizeId; label: string }[] = [
+export const CAPTION_PLACES_UI: readonly CaptionPlace[] = ['above', 'below', 'left', 'right'];
+export const CAPTION_PLACE_JA: Record<CaptionPlace, string> = { above: '上', below: '下', left: '左', right: '右' };
+
+export const LINE_OPTIONS: readonly Opt<`${LineCount}`>[] = ([1, 2, 3] as const).map((n) => ({
+  value: `${n}` as const,
+  label: `${n}行`,
+  icon: <LinesPic n={n} />,
+}));
+
+export const SIZE_OPTIONS: readonly Opt<SizeId>[] = [
   { value: 'Small', label: '小' },
   { value: 'Medium', label: '中' },
   { value: 'Large', label: '大' },
 ];
 
-/** 余白。「なし」は写真がキャンバスの端まで届く（全面） */
-export const MARGIN_OPTIONS: { value: MarginId; label: string }[] = [
-  { value: 'narrow', label: '狭' },
-  { value: 'normal', label: '標' },
-  { value: 'wide', label: '広' },
-  { value: 'none', label: 'なし' },
+export const TRACK_OPTIONS: readonly Opt<TrackingId>[] = [
+  { value: 'Tight', label: '狭い' },
+  { value: 'Normal', label: '標準' },
+  { value: 'Wide', label: '広い' },
+  { value: 'Widest', label: '最も広い' },
 ];
-
-/* 位置は 上・下・左・右 の順で統一する。写真も文字も同じ並びで読めるように */
-export const PHOTO_PLACE_OPTIONS: { value: PhotoPlace; label: string }[] = [
-  { value: 'center', label: '中央' },
-  { value: 'top', label: '上' },
-  { value: 'bottom', label: '下' },
-  { value: 'left', label: '左' },
-  { value: 'right', label: '右' },
-];
-
-export const CAPTION_PLACE_OPTIONS: { value: CaptionPlace; label: string }[] = [
-  { value: 'above', label: '上' },
-  { value: 'below', label: '下' },
-  { value: 'left', label: '左' },
-  { value: 'right', label: '右' },
-  { value: 'overlay', label: '重ね' },
-];
-
-/** 文字を帯の中で上下どこに寄せるか */
-export const CAPTION_ALIGN_OPTIONS: { value: CaptionAlign; label: string }[] = [
-  { value: 'start', label: '上' },
-  { value: 'center', label: '中' },
-  { value: 'end', label: '下' },
-];
-
-export const LINE_OPTIONS: { value: LineCount; label: string }[] = [
-  { value: 1, label: '1行' },
-  { value: 2, label: '2行' },
-  { value: 3, label: '3行' },
-];
-
-export const DIRECTION_OPTIONS = [
-  { value: 'h', label: '横組み', node: <IconHorizontal /> },
-  { value: 'v', label: '縦組み', node: <IconVertical />, disabled: true },
-] as const;
-
-export const BORDER_OPTIONS = [
-  { value: 'off', label: '枠なし', node: <IconBorderOff /> },
-  { value: 'on', label: '枠あり', node: <IconBorderOn /> },
-] as const;
-
-export const colorOf = (key: string): Rgba =>
-  COLORS.find((c) => c.key === key)?.value ?? COLORS[0]!.value;

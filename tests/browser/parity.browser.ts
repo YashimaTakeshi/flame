@@ -431,7 +431,7 @@ await test('仕上がりの刻印を置いても一致する（文字・札・�
     parityOf(
       sceneFor({
         badge: { text: 'Velvia', mode: 'logo', place: 'below', align: 'right', valign: 'end', size: 'M', framed: true, image: img },
-        style: { ratio: 'SQ', photo: 'center', caption: 'overlay', captionAlign: 'center', lines: 2, margin: 'none' },
+        style: { ratio: 'SQ', photo: 'center', caption: 'below', captionAlign: 'center', lines: 2, margin: 'none' },
       }),
     ),
   );

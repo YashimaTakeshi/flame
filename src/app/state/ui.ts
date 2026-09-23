@@ -1,14 +1,18 @@
 /** 画面の状態。設定そのものとは分けて持つ */
 import { create } from 'zustand';
+import type { FieldId } from '../../core/styles/types';
 
-export type TabId = 'place' | 'layout' | 'color' | 'font' | 'badge' | 'info';
+/**
+ * 5つの道具。以前の6タブ（配置・組み・地色・書体・刻印・情報）を、触る対象で分け直した。
+ * 余白・地色・枠線はどれも「額」の性質なのでフレームに、文字の置き場所・揃え・寄せ・大きさ・字間は文字に
+ */
+export type TabId = 'frame' | 'text' | 'font' | 'badge' | 'info';
 export type SheetId = 'info' | 'export' | 'diagnostics' | null;
 type OpenSheet = Exclude<SheetId, null>;
 
 export const TABS: { id: TabId; label: string }[] = [
-  { id: 'place', label: '配置' },
-  { id: 'layout', label: '組み' },
-  { id: 'color', label: '地色' },
+  { id: 'frame', label: 'フレーム' },
+  { id: 'text', label: '文字' },
   { id: 'font', label: '書体' },
   { id: 'badge', label: '刻印' },
   { id: 'info', label: '情報' },
@@ -28,6 +32,17 @@ interface UiStore {
    * 写真は App が持つので、そこから知らせてもらう
    */
   hasFilm: boolean;
+  /**
+   * 写真から取れた（または手で入れた）項目の中身。情報の一覧に「何が載るか」を見せるため。
+   * 載せる／載せないのスイッチとは無関係に、値そのもの
+   */
+  facts: Partial<Record<FieldId, string>>;
+  /** 情報シートを開いたとき、最初に入力する欄 */
+  infoFocus: FieldId | null;
+  openInfo(focus?: FieldId | null): void;
+  /** PC の欄で開いている見出し */
+  openSecs: Readonly<Record<TabId, boolean>>;
+  toggleSec(id: TabId): void;
 }
 
 /** 注記が出ている時間。読み終わる長さだけ出して、あとは黙る */
@@ -48,10 +63,18 @@ const hasHistory = (): boolean =>
 let pushed = false;
 
 export const useUi = create<UiStore>((set) => ({
-  tab: 'place',
+  tab: 'frame',
   sheet: null,
   hint: null,
   hasFilm: false,
+  facts: {},
+  infoFocus: null,
+  openInfo: (focus = null) => {
+    set({ infoFocus: focus });
+    useUi.getState().openSheet('info');
+  },
+  openSecs: { frame: true, text: true, font: false, badge: false, info: false },
+  toggleSec: (id) => set((s) => ({ openSecs: { ...s.openSecs, [id]: !s.openSecs[id] } })),
   setTab: (tab) => set({ tab, hint: null }),
   openSheet: (sheet) => {
     set({ sheet });

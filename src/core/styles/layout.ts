@@ -124,7 +124,7 @@ export function resolveLayout(
   const band = c.bandLu as number;
   const place: CaptionPlace = c.place;
   const align = def.spec.captionAlign;
-  const overlay = place === 'overlay';
+  const overlay = c.overlay;
   const x2 = extra && !overlay && extra.place !== place && extra.sizeLu > 0 ? extra : null;
 
   /*
@@ -222,7 +222,27 @@ export function resolveLayout(
   let captionBand: RectLu;
   let captionBox: RectLu;
   if (overlay) {
-    captionBox = rect(side, canvasH - outer - captionHeightLu, W - side * 2, captionHeightLu);
+    /*
+     * 重ね: 選んだ辺に、端から outer だけ内側へ。
+     * 上下は横いっぱい（揃えは文字の組みで効く）。左右は段の幅で、上下の位置は寄せ（captionAlign）で
+     */
+    const h = captionHeightLu;
+    const colTop = outer;
+    const colH = Math.max(0, canvasH - outer * 2);
+    switch (place) {
+      case 'below':
+        captionBox = rect(side, canvasH - outer - h, W - side * 2, h);
+        break;
+      case 'above':
+        captionBox = rect(side, outer, W - side * 2, h);
+        break;
+      case 'left':
+        captionBox = rect(outer, alignIn(colTop, colH, h, align), hasCaption ? band : 0, h);
+        break;
+      case 'right':
+        captionBox = rect(W - outer - band, alignIn(colTop, colH, h, align), hasCaption ? band : 0, h);
+        break;
+    }
     captionBand = captionBox;
   } else {
     captionBand = bandRect(place);
@@ -236,7 +256,7 @@ export function resolveLayout(
 }
 
 /** §14.2 の不変条件。テストとデバッグビルドから呼ぶ */
-export function layoutViolations(l: ResolvedLayout, place: CaptionPlace): string[] {
+export function layoutViolations(l: ResolvedLayout, overlay: boolean): string[] {
   const bad: string[] = [];
   const eps = 0.01;
   const { photo, canvas, captionBox } = l;
@@ -244,7 +264,7 @@ export function layoutViolations(l: ResolvedLayout, place: CaptionPlace): string
   if (photo.x + photo.w > canvas.w + eps || photo.y + photo.h > canvas.h + eps) {
     bad.push('写真がキャンバスをはみ出している');
   }
-  if (captionBox.h > 0 && place !== 'overlay') {
+  if (captionBox.h > 0 && !overlay) {
     const overlapX = photo.x < captionBox.x + captionBox.w - eps && captionBox.x < photo.x + photo.w - eps;
     const overlapY = photo.y < captionBox.y + captionBox.h - eps && captionBox.y < photo.y + photo.h - eps;
     if (overlapX && overlapY) bad.push('写真とキャプションが重なっている');

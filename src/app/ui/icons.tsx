@@ -189,3 +189,18 @@ export const IconPlay = ({ size = 22 }: P): React.ReactElement => (
     <path d="M8 5.5v13l10.5-6.5z" />
   </svg>
 );
+
+/** フレーム（額と写真） */
+export const IconFrame = ({ size = 22 }: P): React.ReactElement => (
+  <svg {...base(size)}>
+    <rect x="3" y="3" width="18" height="18" rx="1.5" />
+    <rect x="7" y="6.5" width="10" height="9" />
+  </svg>
+);
+
+/** 文字（T の字） */
+export const IconText = ({ size = 22 }: P): React.ReactElement => (
+  <svg {...base(size)}>
+    <path d="M5 6h14M12 6v13M8.5 19h7" />
+  </svg>
+);

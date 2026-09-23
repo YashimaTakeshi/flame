@@ -75,15 +75,15 @@ export const OVERLAY_INK: Rgba = rgba(244, 242, 239, 1);
  */
 const SCRIM_PLATEAU_AT = 0.5;
 
-export function scrimAlphaAt(t: number, peak: number): number {
+export function scrimAlphaAt(t: number, peak: number, plateauAt = SCRIM_PLATEAU_AT): number {
   if (t <= 0) return 0;
-  if (t >= SCRIM_PLATEAU_AT) return peak;
+  if (t >= plateauAt) return peak;
   /*
    * 立ち上がりは smoothstep。両端で傾きが 0 になるので、
    * 平らな部分との継ぎ目に折れ目が出ない。
    * 単純な冪（p**1.6）で試したら、継ぎ目が水平線のように見えた。
    */
-  const p = t / SCRIM_PLATEAU_AT;
+  const p = t / plateauAt;
   return peak * p * p * (3 - 2 * p);
 }
 
@@ -121,7 +121,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   warnings.push(...typeset.warnings);
   if (typeset.lines.length === 0) warnings.push({ kind: 'caption-empty' });
 
-  const overlay = def.caption.place === 'overlay';
+  const overlay = def.caption.overlay;
   const ink = overlay ? OVERLAY_INK : input.ink;
   const muted = overlay ? mix(ink, rgba(0, 0, 0), 0.22) : mix(ink, input.background, 0.42);
 
@@ -264,21 +264,35 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
     });
   }
 
-  /* 5. 暗幕（重ね文字のときだけ） */
+  /*
+   * 5. 暗幕（重ね文字のときだけ）。文字を置いた辺から内側へ薄くなる。
+   * 文字が無ければ敷かない（写真を暗くするだけになる）
+   */
   const scrim = def.caption.scrim;
-  if (overlay && scrim) {
-    const h = scrim.heightLu as number;
-    const top = (layout.canvas.h as number) - h;
+  if (overlay && scrim && textH > 0) {
+    const d = scrim.depthLu as number;
+    const cw = layout.canvas.w as number;
+    const ch = layout.canvas.h as number;
+    // from が暗幕の内側の端（t=0）、to がキャンバスの辺（t=1）
+    const g =
+      capPlace === 'below'
+        ? { r: rect(0, ch - d, cw, d), from: point(0, ch - d), to: point(0, ch) }
+        : capPlace === 'above'
+          ? { r: rect(0, 0, cw, d), from: point(0, d), to: point(0, 0) }
+          : capPlace === 'left'
+            ? { r: rect(0, 0, d, ch), from: point(d, 0), to: point(0, 0) }
+            : { r: rect(cw - d, 0, d, ch), from: point(cw - d, 0), to: point(cw, 0) };
+    const p = scrim.plateauAt;
     b.add({
       op: 'linearGradient',
       resolution: 'invariant',
-      rect: rect(0, top, layout.canvas.w, h),
-      from: point(0, top),
-      to: point(0, top + h),
+      rect: g.r,
+      from: g.from,
+      to: g.to,
       // 上の曲線をそのまま刻む。式と描画を1箇所に保つ
-      stops: [0, 0.08, 0.16, 0.24, 0.32, 0.4, 0.45, 0.5, 1].map((t) => ({
+      stops: [0, 0.16, 0.32, 0.48, 0.64, 0.8, 0.9, 1].map((k) => k * p).concat(1).map((t) => ({
         at: t,
-        color: rgba(0, 0, 0, scrimAlphaAt(t, scrim.alpha)),
+        color: rgba(0, 0, 0, scrimAlphaAt(t, scrim.alpha, p)),
       })),
     });
   }
@@ -297,7 +311,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
   }
 
   /* 7. 不変条件。ここで落ちるのはスタイル定義の誤りで、利用者の操作では起きない */
-  const bad = layoutViolations(layout, def.caption.place);
+  const bad = layoutViolations(layout, overlay);
   if (bad.length > 0) {
     const k = `${def.spec.ratio}/${def.spec.photo}/${def.spec.caption}/${def.spec.lines}/${def.spec.margin}`;
     throw new Error(`${k} のレイアウトが破綻しました: ${bad.join(' / ')}`);

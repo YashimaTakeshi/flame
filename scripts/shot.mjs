@@ -33,45 +33,46 @@ await page.waitForTimeout(700);
 await page.screenshot({ path: '/tmp/u2-place.png' });
 
 // タブを順に開く
-for (const [name, file] of [['組み','u3-layout'],['地色','u4-color'],['書体','u5-font'],['刻印','u5b-badge'],['情報','u6-info']]) {
+for (const [name, file] of [['文字','u3-text'],['書体','u5-font'],['刻印','u5b-badge'],['情報','u6-info']]) {
   await page.getByRole('tab', { name }).click();
   await page.waitForTimeout(350);
   await page.screenshot({ path: `/tmp/${file}.png` });
 }
 
 /*
- * 「アイコンが切れている」を目で探さない。
- * オプション行の矩形に、中の部品が縦方向で収まっているかを測る。
- * 横は横スクロール行なので、はみ出して当たり前（縦だけを見る）。
+ * 「部品が切れている」を目で探さない。
+ * 操作面は縦に送れる（情報・書体は長い）。送らずに見えている行が、途中で切れていないかを測る。
+ * 最後に半分だけ見える行は「下に続きがある」合図なので許す（消え際のマスクがかかる）。
+ * 文字・フレームは最初の4行が送らずに全部見えること。
  */
 async function clippedIn(tabName) {
   if (tabName) { await page.getByRole('tab', { name: tabName }).click(); await page.waitForTimeout(250); }
   return page.evaluate(() => {
     const row = document.querySelector('.optrow')?.getBoundingClientRect();
-    if (!row) return ['オプション行が無い'];
+    if (!row) return ['操作面が無い'];
     const out = [];
-    for (const el of document.querySelectorAll('.optrow .wheel__frame, .optrow .wheel__cap, .optrow .checklist, .optrow .iconbtn')) {
+    const rows = [...document.querySelectorAll('.optrow .prow')];
+    rows.slice(0, 4).forEach((el, i) => {
       const r = el.getBoundingClientRect();
-      if (r.height === 0) continue;
       if (r.top < row.top - 0.5 || r.bottom > row.bottom + 0.5) {
-        out.push(`${el.className.split(' ')[0]}「${(el.textContent ?? '').trim().slice(0, 10)}」 ${Math.round(r.top)}〜${Math.round(r.bottom)} が行 ${Math.round(row.top)}〜${Math.round(row.bottom)} からはみ出す`);
+        out.push(`${i + 1}行目「${(el.textContent ?? '').trim().slice(0, 8)}」 ${Math.round(r.top)}〜${Math.round(r.bottom)} が面 ${Math.round(row.top)}〜${Math.round(row.bottom)} からはみ出す`);
       }
-    }
+    });
     return out;
   });
 }
 
 const clipped = {};
-for (const t of ['配置', '組み', '地色', '書体', '刻印', '情報']) clipped[t] = await clippedIn(t);
+for (const t of ['フレーム', '文字']) clipped[t] = await clippedIn(t);
 
-// 配置タブの6比率を順に選んで、どの比率でも列が切れないか
-await page.getByRole('tab', { name: '配置' }).click();
+// フレームの6比率を順に選んで、どの比率でも行が切れないか
+await page.getByRole('tab', { name: 'フレーム' }).click();
 await page.waitForTimeout(250);
-const ratioWheel = page.locator('.wheel').first();
-const ratios = await ratioWheel.locator('.wheel__item').allTextContents();
+const ratioGroup = page.getByRole('radiogroup', { name: 'キャンバスの比率' });
+const ratios = await ratioGroup.getByRole('radio').evaluateAll((els) => els.map((e) => e.textContent?.trim() ?? ''));
 const perRatio = {};
 for (const r of ratios) {
-  await ratioWheel.getByRole('radio', { name: r, exact: true }).click();
+  await ratioGroup.getByRole('radio').filter({ hasText: r }).first().click();
   await page.waitForTimeout(450);
   perRatio[r] = await clippedIn(null);
   await page.screenshot({ path: `/tmp/u7-place-${r.replace(/[:\/]/g, '-')}.png` });
@@ -99,9 +100,9 @@ const fitOf = () => {
 };
 const phoneDialogs = {};
 for (const r of ['9:16', '16:9']) {
-  await page.getByRole('tab', { name: '配置' }).click();
+  await page.getByRole('tab', { name: 'フレーム' }).click();
   await page.waitForTimeout(250);
-  await page.locator('.wheel').first().getByRole('radio', { name: r, exact: true }).click();
+  await page.getByRole('radiogroup', { name: 'キャンバスの比率' }).getByRole('radio').filter({ hasText: r }).first().click();
   await page.waitForTimeout(450);
   await page.getByRole('button', { name: '書き出す' }).click();
   await page.waitForTimeout(2500);
@@ -159,7 +160,7 @@ const deskReport = await desk.evaluate(() => {
   const sideR = side?.getBoundingClientRect();
   const overflow = [];
   if (sideR) {
-    for (const el of document.querySelectorAll('.side .seg__opt, .side .check, .side .iconbtn')) {
+    for (const el of document.querySelectorAll('.side .pic, .side .swatch, .side .switch, .side .fontcard, .side .btn--primary')) {
       const r = el.getBoundingClientRect();
       if (r.width === 0) continue;
       if (r.left < sideR.left - 0.5 || r.right > sideR.right + 0.5) {
@@ -171,22 +172,22 @@ const deskReport = await desk.evaluate(() => {
   return {
     layout: document.querySelector('.app')?.getAttribute('data-layout'),
     sections: document.querySelectorAll('.side__sec').length,
-    segments: document.querySelectorAll('.side .seg').length,
-    wheels: document.querySelectorAll('.wheel').length,
+    rows: document.querySelectorAll('.side .prow').length,
+    exportButton: !!document.querySelector('.side__foot .btn--primary'),
     tabbar: !!document.querySelector('.tabbar'),
     canvasW: c ? Math.round(c.width) : 0,
     overflow,
   };
 });
 // 押しボタンで選べるか（比率 1:1 → キャンバスが正方形になる）
-await desk.locator('.side .seg__opt', { hasText: '1:1' }).first().click();
+await desk.locator('.side .pic', { hasText: '1:1' }).first().click();
 await desk.waitForTimeout(500);
 const square = await desk.evaluate(() => { const c = document.querySelector('canvas.stage__canvas')?.getBoundingClientRect(); return c ? Math.abs(c.width - c.height) < 2 : false; });
 /*
  * 書き出しの窓。**縦長（9:16）**で開く。
  * ★実測: 横長や正方形は幅で決まるのでたまたま収まり、縦長だけが枠からはみ出して下が切れていた。★
  */
-await desk.locator('.side .seg__opt', { hasText: '9:16' }).first().click();
+await desk.locator('.side .pic', { hasText: '9:16' }).first().click();
 await desk.waitForTimeout(500);
 await desk.getByRole('button', { name: '書き出す' }).click();
 await desk.waitForTimeout(2500);
@@ -273,7 +274,10 @@ const scrolls = await page.evaluate(() => ({
     const cy = r.top + r.height / 2;
     // 画面の外にある要素（横スクロール行の続き）は測れないので飛ばす
     if (cx < 0 || cx > window.innerWidth || cy < 0 || cy > window.innerHeight) return null;
-    // ホイールの中で上下に送られて見えていない行も飛ばす。そこは指が届かなくて正しい
+    // 操作面の中で送られて途中までしか見えていない行（下に続きがある合図）も飛ばす
+    const sc = el.closest('.pnl');
+    if (sc) { const pr = sc.getBoundingClientRect(); if (r.top < pr.top - 0.5 || r.bottom > pr.bottom + 0.5) return null; }
+    // 上下に送られて見えていない行も飛ばす。そこは指が届かなくて正しい
     const atCenter = document.elementFromPoint(cx, cy);
     if (!(atCenter === el || el.contains(atCenter))) return null;
     const hits = (y) => {

@@ -138,6 +138,10 @@ interface DocStore extends DocState {
   resetFocus(): void;
   toggleField(id: FieldId): void;
   setOverride<K extends keyof Overrides>(key: K, value: Overrides[K]): void;
+  /** 文字の帯の中の位置（3×3 の点）。左右（align）と上下（寄せ）を1段で変える */
+  setCaptionPos(align: Align, v: CaptionAlign): void;
+  /** 刻印の位置（3×3 の点）。1段で変える */
+  setBadgePos(align: Align, v: CaptionAlign): void;
   /** 情報シートの ✓。何欄変えても1段の取り消しにまとめる */
   applyInfo(patch: Partial<Pick<DocState, 'title' | 'artist' | 'dateFormat' | 'overrides'>>): void;
   /** 情報だけを初期値に戻す（載せる項目・日付の書き方・タイトル・手入力）。取り消せる */
@@ -213,28 +217,21 @@ export const useDoc = create<DocStore>((set, get) => ({
   },
 
   /**
-   * 5軸のうち1つを変える。**触った軸が勝つ。**
+   * 軸のうち1つを変える。**触った軸が勝つ。**
    *
    * 触っていない軸が勝手に動いて見えるのがいちばん混乱するので、
    * 揃えるための動きは「いま触った軸に従わせる」方向にだけ起こす。
    *
-   * - 余白を「なし」にしたら文字は「重ね」。余白を戻したら文字は「下」。
-   * - 文字を「重ね」にしたら余白は「なし」。文字を戻したら余白は「標準」。
    * - 文字を左右の段にしたら、同じ側に寄せていた写真は「中央」。
    * - 写真を左右に寄せたら、左右の段にあった文字は「下」。
+   * 余白と文字の辺は独立（余白なしなら、選んだ辺に写真の上から重ねる）。
    */
   setStyle(patch) {
     const cur = get().style;
     const side = (v: string | undefined): boolean => v === 'left' || v === 'right';
     let next: StyleSpec = { ...cur, ...patch };
-    if (patch.margin !== undefined) {
-      if (patch.margin === 'none') next = { ...next, caption: 'overlay' };
-      else if (cur.caption === 'overlay') next = { ...next, caption: 'below' };
-    }
-    if (patch.caption !== undefined) {
-      if (patch.caption === 'overlay') next = { ...next, margin: 'none' };
-      else if (cur.margin === 'none') next = { ...next, margin: 'normal' };
-      if (side(patch.caption) && side(cur.photo)) next = { ...next, photo: 'center' };
+    if (patch.caption !== undefined && side(patch.caption) && side(cur.photo)) {
+      next = { ...next, photo: 'center' };
     }
     if (patch.photo !== undefined && side(patch.photo) && side(cur.caption)) {
       next = { ...next, caption: 'below' };
@@ -266,6 +263,18 @@ export const useDoc = create<DocStore>((set, get) => ({
   setOverride(key, value) {
     if (get().overrides[key] === value) return;
     set({ ...remember(get(), `override.${key}`), overrides: { ...get().overrides, [key]: value } });
+  },
+
+  setCaptionPos(align, v) {
+    const cur = get();
+    if (cur.align === align && cur.style.captionAlign === v) return;
+    set({ ...remember(cur, 'captionPos'), align, style: normalize({ ...cur.style, captionAlign: v }) });
+  },
+
+  setBadgePos(align, v) {
+    const cur = get();
+    if (cur.badgeAlign === align && cur.badgeValign === v) return;
+    set({ ...remember(cur, 'badgePos'), badgeAlign: align, badgeValign: v });
   },
 
   applyInfo(patch) {

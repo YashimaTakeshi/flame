@@ -53,7 +53,7 @@ export interface Saved {
 
 const RATIOS = ['OR', 'SQ', 'TF', 'FF', 'NST', 'STN'] as const satisfies readonly Ratio[];
 const PHOTOS = ['center', 'top', 'bottom', 'left', 'right'] as const satisfies readonly PhotoPlace[];
-const CAPTIONS = ['above', 'below', 'left', 'right', 'overlay'] as const satisfies readonly CaptionPlace[];
+const CAPTIONS = ['above', 'below', 'left', 'right'] as const satisfies readonly CaptionPlace[];
 const CAP_ALIGNS = ['start', 'center', 'end'] as const satisfies readonly CaptionAlign[];
 const LINES = [1, 2, 3] as const satisfies readonly LineCount[];
 const MARGINS = ['narrow', 'normal', 'wide', 'none'] as const satisfies readonly MarginId[];

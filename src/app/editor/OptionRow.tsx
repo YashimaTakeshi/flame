@@ -1,19 +1,17 @@
 import { useUi } from '../state/ui';
 import { BadgePanel } from '../panels/BadgePanel';
-import { ColorPanel } from '../panels/ColorPanel';
 import { FontPanel } from '../panels/FontPanel';
+import { FramePanel } from '../panels/FramePanel';
 import { InfoPanel } from '../panels/InfoPanel';
-import { LayoutPanel } from '../panels/LayoutPanel';
-import { PlacePanel } from '../panels/PlacePanel';
+import { TextPanel } from '../panels/TextPanel';
 
 export function OptionRow(): React.ReactElement {
   const tab = useUi((s) => s.tab);
 
   return (
     <div className="optrow">
-      {tab === 'place' && <PlacePanel />}
-      {tab === 'layout' && <LayoutPanel />}
-      {tab === 'color' && <ColorPanel />}
+      {tab === 'frame' && <FramePanel />}
+      {tab === 'text' && <TextPanel />}
       {tab === 'font' && <FontPanel />}
       {tab === 'badge' && <BadgePanel />}
       {tab === 'info' && <InfoPanel />}

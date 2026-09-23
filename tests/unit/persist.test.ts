@@ -80,10 +80,16 @@ describe('設定の読み戻し', () => {
     expect(got.bordered).toBe(true);
   });
 
-  it('6軸の縛りは読み戻しでも効く（余白なしなら重ね）', () => {
-    const got = saved({ ...DEFAULTS, style: { ...DEFAULTS.style, margin: 'none', caption: 'below', photo: 'top' } });
-    expect(got.style.caption).toBe('overlay');
+  it('6軸の縛りは読み戻しでも効く（余白なしなら写真の位置は中央）', () => {
+    const got = saved({ ...DEFAULTS, style: { ...DEFAULTS.style, margin: 'none', caption: 'above', photo: 'top' } });
+    expect(got.style.caption).toBe('above');
     expect(got.style.photo).toBe('center');
+  });
+
+  it('旧い保存の「重ね」は、余白なし・下として読む', () => {
+    const got = saved({ ...DEFAULTS, style: { ...DEFAULTS.style, margin: 'none', caption: 'overlay' } });
+    expect(got.style.caption).toBe('below');
+    expect(got.style.margin).toBe('none');
   });
 
   it('項目のオンオフは、保存に無い項目を既定のまま残す（版を上げて項目が増えても消えない）', () => {

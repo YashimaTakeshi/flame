@@ -21,8 +21,13 @@ export type Ratio = 'OR' | 'SQ' | 'TF' | 'FF' | 'NST' | 'STN';
  */
 export type PhotoPlace = 'center' | 'top' | 'bottom' | 'left' | 'right';
 
-/** 文字をどこに置くか。overlay は写真の上に重ねる（余白なしのとき） */
-export type CaptionPlace = 'above' | 'below' | 'left' | 'right' | 'overlay';
+/**
+ * 文字をどの辺に置くか。
+ * 余白があれば額の帯に、余白が「なし」なら**写真の上のその辺に重ねる**。
+ * 以前は「重ね」が5つ目の選択肢で、余白「なし」と同じ状態の入口が2つあった。
+ * しかも重ねは下にしか置けなかった（利用者に指摘された）
+ */
+export type CaptionPlace = 'above' | 'below' | 'left' | 'right';
 
 export type LineCount = 1 | 2 | 3;
 
@@ -124,8 +129,13 @@ export interface CaptionBlockSpec {
   /** 左右配置のときの段の幅。★余白の倍率を掛けない（本文の幅であって余白ではない） */
   readonly bandLu: Lu;
   readonly lines: readonly CaptionLineSpec[];
-  /** overlay のみ。写真の上に敷く暗幕 */
-  readonly scrim?: { readonly heightLu: Lu; readonly alpha: number };
+  /** 余白なし。文字を写真の上に重ねる（place の辺に） */
+  readonly overlay: boolean;
+  /**
+   * 重ねのときだけ。写真の上に敷く暗幕。depthLu は辺からの奥行き、
+   * plateauAt は暗幕の内側の端（0）から辺（1）のどこで目標の濃さに達するか
+   */
+  readonly scrim?: { readonly depthLu: Lu; readonly alpha: number; readonly plateauAt: number };
 }
 
 /** 組み合わせから生成される寸法。layout.ts と caption.ts はこれしか見ない */
