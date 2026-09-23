@@ -17,6 +17,21 @@ const ICONS: Record<TabId, React.ReactElement> = {
   info: <IconInfo />,
 };
 
+/*
+ * 選択中のタブの見せ方を実機で見比べるための切り替え（U26）。決まったら消す。
+ *   ?tabs=a  白の反転（今のまま）
+ *   ?tabs=b  暗い地に白い字（ホイールの選択と同じ仲間）
+ *   ?tabs=c  白の反転を一段暗く
+ */
+const VARIANT = (() => {
+  try {
+    const v = new URLSearchParams(window.location.search).get('tabs');
+    return v === 'b' || v === 'c' ? v : undefined;
+  } catch {
+    return undefined;
+  }
+})();
+
 export function TabBar(): React.ReactElement {
   const tab = useUi((s) => s.tab);
   const setTab = useUi((s) => s.setTab);
@@ -24,7 +39,7 @@ export function TabBar(): React.ReactElement {
   const jaPicked = useDoc((s) => s.fontKey === 'jp');
 
   return (
-    <nav className="tabbar" aria-label="設定">
+    <nav className="tabbar" aria-label="設定" data-variant={VARIANT}>
       <div className="tabbar__pill" role="tablist">
         {TABS.map((t) => (
           <button

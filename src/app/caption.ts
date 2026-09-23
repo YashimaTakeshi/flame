@@ -39,8 +39,9 @@ export function collectFacts(exif: ExifFacts, parts: CaptionParts): Facts {
   const date = parts.overrides.date ?? exif.dateTaken;
   if (date) put('date', formatWallClock(date, parts.dateFormat));
 
-  put('camera', parts.overrides.camera ?? exif.camera);
-  put('lens', parts.overrides.lens ?? exif.lens);
+  // 整えるのは写真の値だけ。手で入れた値はそのまま出す
+  put('camera', parts.overrides.camera ?? tidyCamera(exif.camera));
+  put('lens', parts.overrides.lens ?? tidyLens(exif.camera, exif.lens));
   put('film', parts.overrides.film ?? exif.film);
 
   const mm = exif.focalLength35 ?? exif.focalLength;
@@ -54,6 +55,41 @@ export function collectFacts(exif: ExifFacts, parts: CaptionParts): Facts {
 
   // 撮影地は未実装（段階7）。GPS があっても地名には直せないので入れない
   return out;
+}
+
+/*
+ * 写真の値を、フチに載せる表記に整える。**表示だけ。** 書き戻す EXIF（minimalExifOf）は元のまま。
+ *
+ * iPhone の LensModel は「iPhone 16 Pro back camera 6.765mm f/1.78」で、機種名と
+ * 焦点距離・F 値がほかの項目と重なり、1行が長くなって文字が縮んでいた（U07）。
+ * 他社レンズの F 値は落とさない。「XF27mmF2.8 R WR」のように製品名の一部になっている。
+ */
+
+/** 「Apple iPhone 16 Pro」→「iPhone 16 Pro」。ほかのメーカーは名前ごと製品名なので触らない */
+export function tidyCamera(camera: string | null): string | null {
+  if (!camera) return camera;
+  return camera.replace(/^Apple\s+(?=iP)/, '');
+}
+
+/**
+ * - スマホ（レンズ名が機種名で始まる）: 機種名・「back/front … camera」・末尾の「数値mm f/数値」を落とす。
+ *   残りが無ければ null（レンズの項目を出さない。焦点距離と露出は別の項目で出る）
+ * - 他社レンズ: 「 | Contemporary 021」のような系列名だけ落とす
+ */
+export function tidyLens(camera: string | null, lens: string | null): string | null {
+  if (!lens) return lens;
+  let out = lens.trim();
+  const model = tidyCamera(camera);
+  if (model && out.toLowerCase().startsWith(model.toLowerCase())) {
+    out = out
+      .slice(model.length)
+      .replace(/\b(back|front)\b[\w\s-]*?\bcamera\b/i, '')
+      .replace(/\s*\d+(\.\d+)?\s*mm\s*f\/\s*\d+(\.\d+)?\s*$/i, '')
+      .trim();
+    return out === '' ? null : out;
+  }
+  out = out.replace(/\s*\|.*$/, '').trim();
+  return out === '' ? null : out;
 }
 
 /**
@@ -80,6 +116,23 @@ export function applyFieldSwitches(
   for (const [k, v] of Object.entries(facts)) {
     if (fields[k as FieldId] && v !== undefined) out[k as FieldId] = v;
   }
+  return out;
+}
+
+/** 撮影情報（写真から取れる項目）。「この写真では入れない」で一括して切る */
+export const SHOT_FACTS: readonly FieldId[] = ['date', 'camera', 'lens', 'exposure', 'focalLength'];
+
+/**
+ * 実際に効く「載せる項目」。skip のときだけ撮影情報を切る。
+ * 保存される好み（fields）は書き換えない。その1枚だけの判断を次の写真に持ち越さないため
+ */
+export function effectiveFields(
+  fields: Readonly<Record<FieldId, boolean>>,
+  skipShotFacts: boolean,
+): Readonly<Record<FieldId, boolean>> {
+  if (!skipShotFacts) return fields;
+  const out = { ...fields };
+  for (const id of SHOT_FACTS) out[id] = false;
   return out;
 }
 

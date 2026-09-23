@@ -16,7 +16,7 @@ import { renderScene } from '../render/executor';
 import { createVerifiedCanvas, encodeCanvas, release } from '../render/guards';
 import { canvasMeasurer } from '../render/measure';
 import { makeExportTarget } from '../render/target';
-import { applyFieldSwitches, collectFacts, gatesFrom } from './caption';
+import { applyFieldSwitches, collectFacts, effectiveFields, gatesFrom } from './caption';
 import { Diagnostics } from './Diagnostics';
 import { Band } from './editor/Band';
 import { OptionRow } from './editor/OptionRow';
@@ -32,9 +32,9 @@ import { fontRefFor, preloadLatinFonts } from './fonts-catalog';
 import { colorOf } from './panels/constants';
 import { ExportSheet, type Render } from './sheets/ExportSheet';
 import { InfoSheet } from './sheets/InfoSheet';
-import { DEFAULT_FIELDS, useDoc } from './state/doc';
+import { useDoc } from './state/doc';
 import { bindSheetHistory, useUi } from './state/ui';
-import { IconMuted, IconPhoto, IconPlay, IconShare, IconSound } from './ui/icons';
+import { IconMuted, IconPhoto, IconPlay, IconRedo, IconShare, IconSound, IconUndo } from './ui/icons';
 import { Sheet } from './ui/Sheet';
 import { usePan } from './usePan';
 import { usePreview } from './usePreview';
@@ -172,24 +172,28 @@ export function App(): React.ReactElement {
    * 名前も一緒に覚えておき、一致するときだけ使う。
    * こうしないと、仕上がりを切り替えた直後の一瞬だけ前の札が新しい名前で出る。
    */
+  useEffect(() => {
+    useUi.setState({ hasFilm: filmName !== null });
+  }, [filmName]);
   const filmBadge = loadedLogo && loadedLogo.name === filmName ? loadedLogo.logo : null;
 
   const sceneInput: SceneInput | null = useMemo(() => {
     if (!loaded || !fontsReady) return null;
     const font = fontRefFor(doc.fontKey);
+    const fields = effectiveFields(doc.fields, doc.skipShotFacts);
     const facts = collectFacts(loaded.exif, {
       dateFormat: doc.dateFormat,
       title: doc.title,
       artist: doc.artist,
-      fields: doc.fields,
+      fields,
       overrides: doc.overrides,
     });
     return {
       style: doc.style,
       focus: doc.focus,
       photo: { id: 'photo', aspect: loaded.decoded.natural.w / loaded.decoded.natural.h },
-      facts: applyFieldSwitches(facts, doc.fields),
-      gates: gatesFrom(doc.fields),
+      facts: applyFieldSwitches(facts, fields),
+      gates: gatesFrom(fields),
       family: font.family,
       weight: font.weight,
       // 和文サブセットは Regular だけ。Bold を頼むと合成太字になって字形が崩れる
@@ -293,7 +297,8 @@ export function App(): React.ReactElement {
         if (prev) closeDecoded(prev.decoded);
         return next;
       });
-      useDoc.getState().resetFocus();
+      // 前の写真のタイトル・手入力・切り取り・取り消しの履歴を持ち越さない
+      useDoc.getState().startPhoto();
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'この写真を開けませんでした');
     } finally {
@@ -348,6 +353,31 @@ export function App(): React.ReactElement {
       window.removeEventListener('paste', onPaste);
     };
   }, [pick]);
+
+  /*
+   * PC のキー。Ctrl/⌘+Z で取り消し、Shift を足すか Ctrl+Y でやり直し、Ctrl/⌘+S で書き出し。
+   * 文字を打っている欄の中では横取りしない（欄の中の取り消しはブラウザに任せる）。
+   */
+  useEffect(() => {
+    if (!loaded) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const k = e.key.toLowerCase();
+      if (useUi.getState().sheet !== null) return;
+      if (k === 'z' || k === 'y') {
+        e.preventDefault();
+        if (k === 'y' || e.shiftKey) useDoc.getState().redo();
+        else useDoc.getState().undo();
+      } else if (k === 's') {
+        e.preventDefault();
+        if (!busy) openSheet('export');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [loaded, busy, openSheet]);
 
   /** 書き出し。原寸を掴むのはここだけ。終わったらすぐ手放す */
   const renderFull: Render = useCallback(async ({ onProgress, onFrame, signal }) => {
@@ -446,7 +476,8 @@ export function App(): React.ReactElement {
         openSheet('info');
       }}
       onSkip={() => {
-        doc.set('fields', { ...DEFAULT_FIELDS, date: false, camera: false, lens: false, exposure: false, focalLength: false });
+        // この1枚だけ。保存される「載せる項目」は触らない（次の写真で撮影情報が消えていた）
+        doc.set('skipShotFacts', true);
         setBandDismissed(true);
       }}
     />
@@ -467,7 +498,36 @@ export function App(): React.ReactElement {
         ) : (
           <span />
         )}
-        <span className="hdr__title">Fuchidori</span>
+        {/*
+         * 写真を開いたら、真ん中は題ではなく取り消し・やり直し。
+         * 何を作っているかは画面を見れば分かる。いちばん押したくなるのは「今のを戻す」
+         */}
+        {loaded ? (
+          <span className="hdr__undo" role="group" aria-label="取り消し">
+            <button
+              type="button"
+              className="iconbtn"
+              aria-label="取り消す"
+              title="取り消す（Ctrl/⌘+Z）"
+              disabled={doc.undoDepth === 0}
+              onClick={doc.undo}
+            >
+              <IconUndo />
+            </button>
+            <button
+              type="button"
+              className="iconbtn"
+              aria-label="やり直す"
+              title="やり直す（Ctrl/⌘+Shift+Z）"
+              disabled={doc.redoDepth === 0}
+              onClick={doc.redo}
+            >
+              <IconRedo />
+            </button>
+          </span>
+        ) : (
+          <span className="hdr__title">Fuchidori</span>
+        )}
         {loaded ? (
           <button
             type="button"
@@ -498,12 +558,12 @@ export function App(): React.ReactElement {
   );
 
   const stage = (
-    <div className="stage" ref={stageRef} data-video={loaded?.video ? true : undefined}>
+    <div className="stage" ref={stageRef} data-video={loaded?.video ? true : undefined} data-busy={busy !== null || undefined}>
         {loaded ? (
           preview.error || sceneError ? (
             <div className="stage__e3">
               <p>{preview.error ?? sceneError}</p>
-              {doc.canUndo() && (
+              {doc.undoDepth > 0 && (
                 <button type="button" className="btn--s" onClick={doc.undo}>
                   1つ前に戻す
                 </button>
@@ -547,10 +607,17 @@ export function App(): React.ReactElement {
                   </span>
                 ))}
               {/* 注記は操作の上に重ねない。プレビューの足元に短く出て、自分で消える */}
-              {hint && (
+              {/* 写真を差し替えている間は、プレビューを薄めて足元に何をしているかを出す */}
+              {busy ? (
                 <p className="stage__hint" role="status">
-                  {hint}
+                  {busy}
                 </p>
+              ) : (
+                hint && (
+                  <p className="stage__hint" role="status">
+                    {hint}
+                  </p>
+                )
               )}
             </>
           )
@@ -560,10 +627,17 @@ export function App(): React.ReactElement {
               type="button"
               className="opener"
               aria-label="写真を選ぶ"
+              aria-busy={busy !== null || undefined}
+              disabled={busy !== null}
               onClick={() => fileRef.current?.click()}
             >
               <FrameMark />
             </button>
+            {busy && (
+              <p className="home__busy" role="status">
+                {busy}
+              </p>
+            )}
             <ShareApp />
           </div>
         )}
@@ -602,7 +676,7 @@ export function App(): React.ReactElement {
       )}
 
       {sheet === 'info' && <InfoSheet exif={exif} onClose={closeSheet} />}
-      {sheet === 'export' && <ExportSheet render={renderFull} video={loaded?.video != null} onClose={closeSheet} />}
+      {sheet === 'export' && <ExportSheet render={renderFull} video={loaded?.video != null} still={canvasRef} onClose={closeSheet} />}
       {sheet === 'diagnostics' && (
         <Sheet title="この端末を調べる" size="full" onClose={closeSheet}>
           <Diagnostics />

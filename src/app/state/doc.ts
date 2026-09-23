@@ -1,8 +1,15 @@
 /**
  * 編集中の設定。
  *
- * 1段だけの取り消しを持つ。描けない設定にしてしまったとき、
- * 「1つ前に戻す」で必ず抜け出せるようにするため。
+ * ★取り消しは何段でも（最大 HISTORY_MAX）。やり直しもできる。★
+ * 以前は1段だけで、画面に出るのは描けないときだけだった。「初期値に戻す」を押すと
+ * 作り込んだ設定が確認なしに消え、戻す手段が無かった（UX の見直しで指摘された）。
+ *
+ * 決まりごと:
+ *   - 続けざまの同じ種類の変更（ホイールを回す・同じ列を続けて押す）は1段にまとめる
+ *     （COALESCE_MS 以内なら）。回し切るまでの途中の値を1つずつ戻させない
+ *   - 写真を替えたら履歴を捨てる。写真ごとの入力（タイトル・手入力・切り取り）も消す（§3.14）
+ *   - 履歴は保存しない（開き直したら空）。好みの保存（persist）は今までどおり
  */
 import { create } from 'zustand';
 import { DEFAULT_SPEC, normalize } from '../../core/styles/spec';
@@ -51,6 +58,12 @@ export interface DocState {
   readonly badgeSize: BadgeSize;
   /** 刻印の外周にヘアラインの枠。地色と版の色が同じときに */
   readonly badgeFramed: boolean;
+  /**
+   * この写真では撮影情報（日付・カメラ・レンズ・露出・焦点距離）を載せない。
+   * 撮影情報が無い写真の帯で「入れない」を選んだとき。**その1枚だけ**に効き、保存しない。
+   * 以前は載せる項目（fields・保存される）を書き換えていて、次の富士の写真でも撮影情報が消えた
+   */
+  readonly skipShotFacts: boolean;
 }
 
 export const DEFAULT_FIELDS: Record<FieldId, boolean> = {
@@ -90,6 +103,7 @@ const BASE: DocState = {
   badgeValign: 'center',
   badgeSize: 'M',
   badgeFramed: false,
+  skipShotFacts: false,
 };
 
 /** 保存するのは好みだけ。タイトル・切り取り・手入力はその1枚のものなので持ち越さない */
@@ -124,12 +138,28 @@ interface DocStore extends DocState {
   resetFocus(): void;
   toggleField(id: FieldId): void;
   setOverride<K extends keyof Overrides>(key: K, value: Overrides[K]): void;
-  reset(): void;
+  /** 情報シートの ✓。何欄変えても1段の取り消しにまとめる */
+  applyInfo(patch: Partial<Pick<DocState, 'title' | 'artist' | 'dateFormat' | 'overrides'>>): void;
+  /** 情報だけを初期値に戻す（載せる項目・日付の書き方・タイトル・手入力）。取り消せる */
+  resetInfo(): void;
+  /** 新しい写真を開いた。写真ごとの入力を消し、履歴を捨てる */
+  startPhoto(): void;
   undo(): void;
-  canUndo(): boolean;
+  redo(): void;
+  /** 戻せる段数・やり直せる段数。見出しの ↶ ↷ を押せるかに使う */
+  readonly undoDepth: number;
+  readonly redoDepth: number;
 }
 
-let previous: DocState | null = null;
+/** 取り消しの段数の上限 */
+export const HISTORY_MAX = 50;
+/** この間隔より短い同じ種類の変更は1段にまとめる */
+export const COALESCE_MS = 600;
+
+let past: DocState[] = [];
+let future: DocState[] = [];
+let lastKind = '';
+let lastAt = 0;
 
 const snapshot = (s: DocState): DocState => ({
   style: s.style,
@@ -151,14 +181,35 @@ const snapshot = (s: DocState): DocState => ({
   badgeValign: s.badgeValign,
   badgeSize: s.badgeSize,
   badgeFramed: s.badgeFramed,
+  skipShotFacts: s.skipShotFacts,
 });
+
+/**
+ * 変える前の状態を控える。kind は変更の種類（どの設定か）。
+ * 同じ種類が COALESCE_MS 以内に続いたら控えない（最初の控えが残る＝1段にまとまる）。
+ * force は必ず新しい段にする（ドラッグの始まり・戻す操作など、1回で意味のある変更）
+ */
+function remember(cur: DocState, kind: string, force = false): { undoDepth: number; redoDepth: number } {
+  const now = Date.now();
+  const merge = !force && kind === lastKind && now - lastAt < COALESCE_MS;
+  lastKind = kind;
+  lastAt = now;
+  if (!merge) {
+    past.push(snapshot(cur));
+    if (past.length > HISTORY_MAX) past.shift();
+  }
+  future = [];
+  return { undoDepth: past.length, redoDepth: 0 };
+}
 
 export const useDoc = create<DocStore>((set, get) => ({
   ...INITIAL,
+  undoDepth: 0,
+  redoDepth: 0,
 
   set(key, value) {
-    previous = snapshot(get());
-    set({ [key]: value } as Partial<DocState>);
+    if (get()[key] === value) return;
+    set({ ...remember(get(), key), [key]: value } as Partial<DocStore>);
   },
 
   /**
@@ -173,7 +224,6 @@ export const useDoc = create<DocStore>((set, get) => ({
    * - 写真を左右に寄せたら、左右の段にあった文字は「下」。
    */
   setStyle(patch) {
-    previous = snapshot(get());
     const cur = get().style;
     const side = (v: string | undefined): boolean => v === 'left' || v === 'right';
     let next: StyleSpec = { ...cur, ...patch };
@@ -189,11 +239,13 @@ export const useDoc = create<DocStore>((set, get) => ({
     if (patch.photo !== undefined && side(patch.photo) && side(cur.caption)) {
       next = { ...next, caption: 'below' };
     }
-    set({ style: normalize(next) });
+    const style = normalize(next);
+    if (sameStyle(style, cur)) return;
+    set({ ...remember(get(), `style.${Object.keys(patch).join(',')}`), style });
   },
 
   beginDrag() {
-    previous = snapshot(get());
+    set(remember(get(), 'focus', true));
   },
 
   dragFocus(f) {
@@ -206,30 +258,93 @@ export const useDoc = create<DocStore>((set, get) => ({
   },
 
   toggleField(id) {
-    previous = snapshot(get());
     const fields = { ...get().fields, [id]: !get().fields[id] };
-    set({ fields });
+    // 項目ごとに別の段（続けて別の項目を外したら、それぞれ戻せる）
+    set({ ...remember(get(), `field.${id}`, true), fields });
   },
 
   setOverride(key, value) {
-    previous = snapshot(get());
-    set({ overrides: { ...get().overrides, [key]: value } });
+    if (get().overrides[key] === value) return;
+    set({ ...remember(get(), `override.${key}`), overrides: { ...get().overrides, [key]: value } });
   },
 
-  reset() {
-    previous = snapshot(get());
-    set({ ...BASE });
+  applyInfo(patch) {
+    const cur = get();
+    const o = patch.overrides;
+    const changed =
+      (patch.title !== undefined && patch.title !== cur.title) ||
+      (patch.artist !== undefined && patch.artist !== cur.artist) ||
+      (patch.dateFormat !== undefined && patch.dateFormat !== cur.dateFormat) ||
+      (o !== undefined &&
+        (o.camera !== cur.overrides.camera ||
+          o.lens !== cur.overrides.lens ||
+          o.film !== cur.overrides.film ||
+          !sameClock(o.date, cur.overrides.date)));
+    if (!changed) return;
+    set({ ...remember(cur, 'info', true), ...patch });
+  },
+
+  resetInfo() {
+    set({
+      ...remember(get(), 'resetInfo', true),
+      fields: BASE.fields,
+      dateFormat: BASE.dateFormat,
+      title: BASE.title,
+      overrides: BASE.overrides,
+      skipShotFacts: false,
+    });
+  },
+
+  startPhoto() {
+    past = [];
+    future = [];
+    lastKind = '';
+    set({
+      focus: CENTER_FOCUS,
+      title: BASE.title,
+      overrides: BASE.overrides,
+      skipShotFacts: false,
+      undoDepth: 0,
+      redoDepth: 0,
+    });
   },
 
   undo() {
-    if (!previous) return;
-    const back = previous;
-    previous = null;
-    set({ ...back });
+    const back = past.pop();
+    if (!back) return;
+    future.push(snapshot(get()));
+    lastKind = '';
+    set({ ...back, undoDepth: past.length, redoDepth: future.length });
   },
 
-  canUndo: () => previous !== null,
+  redo() {
+    const fwd = future.pop();
+    if (!fwd) return;
+    past.push(snapshot(get()));
+    lastKind = '';
+    set({ ...fwd, undoDepth: past.length, redoDepth: future.length });
+  },
 }));
+
+const sameStyle = (a: StyleSpec, b: StyleSpec): boolean =>
+  a.ratio === b.ratio &&
+  a.photo === b.photo &&
+  a.caption === b.caption &&
+  a.captionAlign === b.captionAlign &&
+  a.lines === b.lines &&
+  a.margin === b.margin;
+
+const sameClock = (a: WallClock | null, b: WallClock | null): boolean =>
+  a === b || (a !== null && b !== null && a.y === b.y && a.m === b.m && a.d === b.d && a.hh === b.hh && a.mm === b.mm && a.ss === b.ss);
+
+/** テスト用。履歴を空にする */
+export function __resetHistoryForTest(): void {
+  past = [];
+  future = [];
+  lastKind = '';
+  lastAt = 0;
+  useDoc.setState({ undoDepth: 0, redoDepth: 0 });
+}
 
 /*
  * 好みが変わったら保存する。

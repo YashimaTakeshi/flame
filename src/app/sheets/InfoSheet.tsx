@@ -1,5 +1,5 @@
 /** 作品の情報と、写真に無かった撮影情報の手入力 */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   DATE_FORMATS,
   formatWallClock,
@@ -35,19 +35,35 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
   const typed = date ? parseWallClock(date) : null;
   const sample = typed ?? exif.dateTaken ?? SAMPLE;
 
-  const confirm = (): void => {
-    doc.set('title', title);
-    doc.set('artist', artist);
-    doc.setOverride('camera', camera.trim() || null);
-    doc.setOverride('lens', lens.trim() || null);
-    doc.setOverride('date', typed);
-    doc.set('dateFormat', dateFormat);
-    doc.setOverride('film', film.trim() || null);
+  /*
+   * 閉じ方で入力の扱いを分ける（U21）。
+   *   ✓・背後のタップ・戻るスワイプ … 入れたとおりに反映して閉じる
+   *   ✕・Esc …………………………………… やめる（何も変えない）
+   * 以前はどれで閉じても ✓ 以外は黙って捨てていた。✓ のすぐ上が背後なので、指がずれると消えた。
+   * 戻るスワイプは面を外から閉じる（state/ui.ts）ので、反映は面が消えるときに1か所で行う
+   */
+  const cancelled = useRef(false);
+  const values = { title, artist, dateFormat, overrides: { camera: camera.trim() || null, lens: lens.trim() || null, date: typed, film: film.trim() || null } };
+  const latest = useRef(values);
+  useEffect(() => {
+    latest.current = values;
+  });
+  const applyInfo = doc.applyInfo;
+  useEffect(
+    () => () => {
+      if (!cancelled.current) applyInfo(latest.current);
+    },
+    [applyInfo],
+  );
+
+  const confirm = (): void => onClose();
+  const cancel = (): void => {
+    cancelled.current = true;
     onClose();
   };
 
   return (
-    <Sheet title="情報を編集" size="tall" onClose={onClose} onConfirm={confirm}>
+    <Sheet title="情報を編集" size="tall" onClose={onClose} onCancel={cancel} onConfirm={confirm}>
       <p className="sheet__label">作品の情報</p>
       <div className="card">
         <label className="card__row">

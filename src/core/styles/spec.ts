@@ -41,10 +41,11 @@ export const RATIOS: Readonly<
     }
   >
 > = {
+  // 並びは選ぶ順。4:5（インスタの縦）がいちばん選ばれるので元比の隣に置く
   OR: { label: '元比', aspect: null, insetLu: 26, typeScale: 1.0 },
-  SQ: { label: '1:1', aspect: [1, 1], insetLu: 56, typeScale: 1.0 },
-  TF: { label: '3:4', aspect: [3, 4], insetLu: 64, typeScale: 1.0 },
   FF: { label: '4:5', aspect: [4, 5], insetLu: 64, typeScale: 1.0 },
+  TF: { label: '3:4', aspect: [3, 4], insetLu: 64, typeScale: 1.0 },
+  SQ: { label: '1:1', aspect: [1, 1], insetLu: 56, typeScale: 1.0 },
   NST: { label: '9:16', aspect: [9, 16], insetLu: 56, typeScale: 1.05 },
   STN: { label: '16:9', aspect: [16, 9], insetLu: 40, typeScale: 0.88 },
 };

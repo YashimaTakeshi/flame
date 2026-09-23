@@ -75,11 +75,14 @@ const fmtSec = (s: number): string => `${Math.floor(s / 60)}:${String(Math.round
 export function ExportSheet({
   render,
   video = false,
+  still = null,
   onClose,
 }: {
   render: Render;
   /** 動画の書き出し。進み具合を出し、結果を動画で見せる */
   video?: boolean;
+  /** 今のプレビュー。写真の書き出しを待つ間、薄く見せておく（空の画面にしない） */
+  still?: React.RefObject<HTMLCanvasElement | null> | null;
   onClose: () => void;
 }): React.ReactElement {
   const [exported, setExported] = useState<Exported | null>(null);
@@ -112,6 +115,12 @@ export function ExportSheet({
     if (c.height !== h) c.height = h;
     c.getContext('2d')?.drawImage(f, 0, 0, w, h);
   }, []);
+
+  // 写真は数秒で終わるので途中のコマは来ない。代わりに今のプレビューを薄く置く
+  useEffect(() => {
+    const c = still?.current;
+    if (!video && c) showFrame(c);
+  }, [video, still, showFrame]);
 
   useEffect(() => {
     let alive = true;
@@ -229,6 +238,15 @@ export function ExportSheet({
             <canvas ref={liveRef} className="result-img result-live" aria-label="書き出し中の映像" />
             <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress * 100)}>
               <span style={{ width: `${Math.max(2, progress * 100)}%` }} />
+            </div>
+          </>
+        )}
+        {!video && !blob && !error && (
+          <>
+            {/* 写真は進み具合が分からないので、行き来する線で「動いている」ことだけ伝える */}
+            <canvas ref={liveRef} className="result-img result-live result-wait" aria-hidden="true" />
+            <div className="progress progress--wait" role="progressbar" aria-label="書き出し中">
+              <span />
             </div>
           </>
         )}

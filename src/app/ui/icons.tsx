@@ -101,6 +101,22 @@ export const IconReset = ({ size = 20 }: P): React.ReactElement => (
   </svg>
 );
 
+/** 取り消す（左へ戻る曲がった矢印） */
+export const IconUndo = ({ size = 22 }: P): React.ReactElement => (
+  <svg {...base(size)}>
+    <path d="M9 14L4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 010 11H11" />
+  </svg>
+);
+
+/** やり直す（右へ進む曲がった矢印） */
+export const IconRedo = ({ size = 22 }: P): React.ReactElement => (
+  <svg {...base(size)}>
+    <path d="M15 14l5-5-5-5" />
+    <path d="M20 9H9.5a5.5 5.5 0 000 11H13" />
+  </svg>
+);
+
 /** 編集（鉛筆） */
 export const IconEdit = ({ size = 20 }: P): React.ReactElement => (
   <svg {...base(size)}>

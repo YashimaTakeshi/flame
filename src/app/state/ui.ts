@@ -23,6 +23,11 @@ interface UiStore {
   openSheet(id: OpenSheet): void;
   closeSheet(): void;
   setHint(text: string | null): void;
+  /**
+   * 開いている写真に仕上がり（手入力を含む）があるか。刻印の列を押せるかを決める。
+   * 写真は App が持つので、そこから知らせてもらう
+   */
+  hasFilm: boolean;
 }
 
 /** 注記が出ている時間。読み終わる長さだけ出して、あとは黙る */
@@ -46,6 +51,7 @@ export const useUi = create<UiStore>((set) => ({
   tab: 'place',
   sheet: null,
   hint: null,
+  hasFilm: false,
   setTab: (tab) => set({ tab, hint: null }),
   openSheet: (sheet) => {
     set({ sheet });

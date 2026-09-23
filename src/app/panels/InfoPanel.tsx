@@ -22,8 +22,17 @@ const FIELDS: { id: FieldId; label: string }[] = [
 export function InfoPanel(): React.ReactElement {
   const fields = useDoc((s) => s.fields);
   const toggleField = useDoc((s) => s.toggleField);
-  const reset = useDoc((s) => s.reset);
+  const resetInfo = useDoc((s) => s.resetInfo);
   const openSheet = useUi((s) => s.openSheet);
+  const setHint = useUi((s) => s.setHint);
+  /*
+   * 戻すのは情報だけ（載せる項目・日付の書き方・タイトル・手入力）。
+   * 以前は配置も書体も地色もまとめて工場出荷に戻り、取り消せなかった
+   */
+  const reset = (): void => {
+    resetInfo();
+    setHint('情報を戻しました（↶ で元に戻せます）');
+  };
 
   return (
     <div className="p-info">
@@ -41,7 +50,7 @@ export function InfoPanel(): React.ReactElement {
         <button type="button" className="iconbtn iconbtn--ghost" aria-label="編集" title="編集" onClick={() => openSheet('info')}>
           <IconEdit />
         </button>
-        <button type="button" className="iconbtn iconbtn--ghost" aria-label="初期値に戻す" title="初期値に戻す" onClick={reset}>
+        <button type="button" className="iconbtn iconbtn--ghost" aria-label="情報を初期値に戻す" title="情報を初期値に戻す" onClick={reset}>
           <IconReset />
         </button>
       </div>

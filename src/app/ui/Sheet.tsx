@@ -11,6 +11,7 @@ export function Sheet({
   title,
   size = 'auto',
   onClose,
+  onCancel,
   onConfirm,
   confirmLabel = '✓',
   bodyClass,
@@ -20,6 +21,11 @@ export function Sheet({
   title: string;
   size?: 'auto' | 'tall' | 'full';
   onClose: () => void;
+  /**
+   * ✕ と Esc。「やめる」をはっきり選んだとき。無ければ onClose。
+   * 背後のタップ（と戻るスワイプ）は onClose のまま。指がずれただけで入力を捨てないため
+   */
+  onCancel?: () => void;
   onConfirm?: () => void;
   confirmLabel?: string;
   /** 中身の組み方を替える（書き出しの「画像を残りの高さに収める」など） */
@@ -37,20 +43,21 @@ export function Sheet({
     };
   }, []);
 
+  const cancel = onCancel ?? onClose;
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') cancel();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [cancel]);
 
   return (
     <>
       <button className="scrim" aria-label="閉じる" onClick={onClose} />
       <section className="sheet" data-size={size} data-fill={fill || undefined} role="dialog" aria-modal="true" aria-label={title}>
         <header className="sheet__hdr">
-          <button type="button" onClick={onClose} aria-label="やめる">
+          <button type="button" onClick={cancel} aria-label="やめる">
             ✕
           </button>
           <span>{title}</span>
