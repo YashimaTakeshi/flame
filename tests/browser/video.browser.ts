@@ -8,8 +8,19 @@
  * 通る経路は Chromium の版しだい。H.264 を書ける版（CI）は MP4、書けない版は WebM（VP9）。
  * どちらでも同じ期待（大きさ・長さ・枠）で確かめ、音声だけは形式に応じて期待を変える。
  */
-import { canEncodeAudio } from 'mediabunny';
-import { evenSize, exportVideo, openVideo, VideoError } from '../../src/platform/video';
+import {
+  AudioBufferSource,
+  BufferTarget,
+  CanvasSource,
+  EncodedAudioPacketSource,
+  EncodedPacket,
+  Mp4OutputFormat,
+  Output,
+  QUALITY_HIGH,
+  canEncodeAudio,
+  canEncodeVideo,
+} from 'mediabunny';
+import { evenSize, exportVideo, openVideo, planExport, VideoError, type EncodeCaps } from '../../src/platform/video';
 import { createVerifiedCanvas } from '../../src/render/guards';
 import { done, expectEqual, expectTrue, test } from './harness';
 
@@ -25,6 +36,58 @@ const frameInWhite = (w: number, h: number) => (frame: CanvasImageSource, ctx: O
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(frame, w * 0.1, h * 0.1, w * 0.8, h * 0.8);
 };
+
+const capsHere = async (w: number, h: number): Promise<EncodeCaps> => ({
+  avc: await canEncodeVideo('avc', { width: w, height: h }),
+  vp9: await canEncodeVideo('vp9', { width: w, height: h }),
+  aac: await canEncodeAudio('aac'),
+  opus: await canEncodeAudio('opus'),
+});
+
+/**
+ * iPhone に近い試験用の動画を作る: 映像（VP9）＋ AAC ＋ Opus の音声 2 本。
+ * AAC はこの環境では作れないので、無音の AAC-LC のコマ（hls.js が使うもの）を直接並べる。
+ * そのまま写すだけなら中身を読まないので、これで「AAC をそのまま写す」経路を確かめられる
+ */
+async function multiAudioClip(): Promise<Blob> {
+  const w = 320;
+  const h = 568;
+  const output = new Output({ format: new Mp4OutputFormat(), target: new BufferTarget() });
+  const canvas = new OffscreenCanvas(w, h);
+  const ctx = canvas.getContext('2d')!;
+  const video = new CanvasSource(canvas, { codec: 'vp9', bitrate: QUALITY_HIGH });
+  output.addVideoTrack(video, { frameRate: 30 });
+  const aacSource = new EncodedAudioPacketSource('aac');
+  output.addAudioTrack(aacSource);
+  const opusSource = new AudioBufferSource({ codec: 'opus', bitrate: QUALITY_HIGH });
+  output.addAudioTrack(opusSource);
+  await output.start();
+  for (let i = 0; i < 60; i++) {
+    ctx.fillStyle = `hsl(${i * 6},60%,50%)`;
+    ctx.fillRect(0, 0, w, h);
+    await video.add(i / 30, 1 / 30);
+  }
+  video.close();
+  const silent = new Uint8Array([0x21, 0x00, 0x49, 0x90, 0x02, 0x19, 0x00, 0x23, 0x80]);
+  const frameDur = 1024 / 48000;
+  for (let i = 0; i * frameDur < 2; i++) {
+    await aacSource.add(
+      new EncodedPacket(silent, 'key', i * frameDur, frameDur),
+      i === 0
+        ? { decoderConfig: { codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, description: new Uint8Array([0x11, 0x90]) } }
+        : undefined,
+    );
+  }
+  aacSource.close();
+  const ac = new OfflineAudioContext(2, 48000 * 2, 48000);
+  const osc = ac.createOscillator();
+  osc.connect(ac.destination);
+  osc.start();
+  await opusSource.add(await ac.startRendering());
+  opusSource.close();
+  await output.finalize();
+  return new Blob([(output.target as BufferTarget).buffer!], { type: 'video/mp4' });
+}
 
 await test('動画を開くと、最初のコマ・長さ・音声の有無が取れる', async () => {
   const v = await openVideo(await clip());
@@ -64,13 +127,15 @@ await test('★1コマずつ描いて書き出す。大きさ・長さ・音声�
   });
   expectTrue(frames >= 85 && frames <= 95, `コマ数が約90: ${frames}`);
   /*
-   * 音声は形式しだい。WebM なら元の Opus をそのまま写せる。
-   * MP4 なら AAC が要り、元が Opus なので作り直せる端末でだけ入る（作れなければ落として告げる）。
-   * CI の Chromium は H.264 を書けるので MP4、この環境の Chromium は書けないので WebM を通る
+   * 入れ物と音声は、この端末の能力と元の音声から planExport が決める。その通りになったかを見る。
+   * 元は Opus なので、MP4 で AAC を作れない環境（CI の Chromium）でも WebM に写して音を残す
    */
-  const expectAudio = out.ext === 'webm' || (await canEncodeAudio('aac')) ? 'kept' : 'dropped';
-  console.log(`  （形式 ${out.ext}・音声 ${out.audio}）`);
+  const plan = planExport([{ id: 0, codec: 'opus', decodable: true }], await capsHere(w, h));
+  const expectAudio = plan?.audio ? 'kept' : 'dropped';
+  console.log(`  （形式 ${out.ext}・音声 ${out.audio}／計画 ${plan?.container}・${plan?.audio?.mode ?? 'なし'}）`);
+  expectEqual(out.ext, plan?.container, '入れ物');
   expectEqual(out.audio, expectAudio, `音声（${out.ext}）`);
+  expectTrue(out.poster !== null && out.poster.type === 'image/jpeg' && out.poster.size > 1000, '表紙（最初のコマ）がある');
   expectEqual(out.trimmed, false, '切っていない');
   expectTrue(out.blob.size > 10_000, `中身がある: ${out.blob.size}`);
 
@@ -85,6 +150,30 @@ await test('★1コマずつ描いて書き出す。大きさ・長さ・音声�
   c.ctx.drawImage(back.poster.bitmap, 0, 0);
   const px = c.ctx.getImageData(4, 4, 1, 1).data;
   expectTrue(px[0]! > 240 && px[1]! > 240 && px[2]! > 240, `隅が白: ${Array.from(px).join(',')}`);
+  back.poster.bitmap.close();
+});
+
+await test('★音声が複数あっても、写せる音声を選んで音を残す（iPhone の AAC ＋ 別の音声）★', async () => {
+  const src = await multiAudioClip();
+  const { w, h } = evenSize(320 / 568, 568);
+  const out = await exportVideo(src, { width: w, height: h, render: frameInWhite(w, h) });
+  /*
+   * AAC を読めない環境（この Chromium）は AAC を写せないので Opus の方を選ぶ（WebM）。
+   * H.264 を書ける環境（CI）は AAC を作り直さずそのまま写す（MP4）＝ iPhone と同じ経路
+   */
+  const caps = await capsHere(w, h);
+  const plan = planExport(
+    [
+      { id: 1, codec: 'aac', decodable: false },
+      { id: 2, codec: 'opus', decodable: true },
+    ],
+    caps,
+  );
+  console.log(`  （形式 ${out.ext}・音声 ${out.audio}／計画 ${plan?.container}・${plan?.audio?.codec ?? 'なし'} ${plan?.audio?.mode ?? ''}）`);
+  expectEqual(out.ext, plan?.container, '入れ物');
+  expectEqual(out.audio, 'kept', '音声が残る');
+  const back = await openVideo(out.blob);
+  expectTrue(back.hasAudio, '書き出した動画に音声がある');
   back.poster.bitmap.close();
 });
 

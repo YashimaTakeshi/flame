@@ -13,7 +13,7 @@ const videoModule = () => import('../platform/video');
 import { makeFilename, nowWallClock } from '../platform/save';
 import { safeStorage } from '../platform/storage';
 import { renderScene } from '../render/executor';
-import { createVerifiedCanvas, release } from '../render/guards';
+import { createVerifiedCanvas, encodeCanvas, release } from '../render/guards';
 import { canvasMeasurer } from '../render/measure';
 import { makeExportTarget } from '../render/target';
 import { applyFieldSwitches, collectFacts, gatesFrom } from './caption';
@@ -34,10 +34,11 @@ import { ExportSheet, type Render } from './sheets/ExportSheet';
 import { InfoSheet } from './sheets/InfoSheet';
 import { DEFAULT_FIELDS, useDoc } from './state/doc';
 import { bindSheetHistory, useUi } from './state/ui';
-import { IconPhoto, IconShare } from './ui/icons';
+import { IconMuted, IconPhoto, IconPlay, IconShare, IconSound } from './ui/icons';
 import { Sheet } from './ui/Sheet';
 import { usePan } from './usePan';
 import { usePreview } from './usePreview';
+import { usePageVisible, useVideoPlayback } from './useVideoPlayback';
 import { useViewportHeight } from './useViewportHeight';
 import './theme.css';
 import './editor.css';
@@ -242,14 +243,34 @@ export function App(): React.ReactElement {
   const dragFocus = useDoc((s) => s.dragFocus);
   usePan(canvasRef, scene, bleed && loaded !== null, readFocus, beginDrag, dragFocus, layout);
 
-  /** 描くときに識別子から画像を引く。写真は1枚、札は名前ごと */
-  const previewImage = useCallback(
-    (id: string): CanvasImageSource | null =>
-      id === 'photo' ? (loaded?.decoded.bitmap ?? null) : filmLogoImage(id),
-    [loaded],
+  /*
+   * 動画は編集中も流す（書き出す前に、動いたときの見え方を確かめられる）。
+   * 書き出しの窓を開いている間と、画面が隠れている間は止める
+   */
+  const pageVisible = usePageVisible();
+  const playback = useVideoPlayback(
+    loaded?.video ? loaded.file : null,
+    loaded?.video ? loaded.decoded.natural : null,
+    sheet === null && pageVisible,
   );
 
-  const preview = usePreview(canvasRef, stageRef, scene, previewImage, EXPORT_LONG_EDGE, layout);
+  /** 描くときに識別子から画像を引く。写真は1枚、動画はいまのコマ（まだ無ければ最初のコマ）、札は名前ごと */
+  const playbackSource = playback.source;
+  const previewImage = useCallback(
+    (id: string): CanvasImageSource | null =>
+      id === 'photo' ? (playbackSource() ?? loaded?.decoded.bitmap ?? null) : filmLogoImage(id),
+    [loaded, playbackSource],
+  );
+
+  const preview = usePreview(
+    canvasRef,
+    stageRef,
+    scene,
+    previewImage,
+    EXPORT_LONG_EDGE,
+    layout,
+    loaded?.video ? playback.subscribe : null,
+  );
 
   const pick = useCallback(async (file: File) => {
     setBusy('写真を読み込んでいます');
@@ -329,7 +350,7 @@ export function App(): React.ReactElement {
   }, [pick]);
 
   /** 書き出し。原寸を掴むのはここだけ。終わったらすぐ手放す */
-  const renderFull: Render = useCallback(async ({ onProgress, signal }) => {
+  const renderFull: Render = useCallback(async ({ onProgress, onFrame, signal }) => {
     if (!loaded || !scene) throw new Error('写真が選ばれていません');
     if (loaded.video) {
       /*
@@ -345,6 +366,7 @@ export function App(): React.ReactElement {
         width: size.w,
         height: size.h,
         onProgress,
+        onFrame,
         signal,
         render: (frame, ctx) =>
           renderScene(scene, ctx, target, {
@@ -357,7 +379,7 @@ export function App(): React.ReactElement {
         blob: v.blob,
         filename: makeFilename(loaded.exif.dateTaken ?? nowWallClock(), v.ext),
         exif: 'skipped',
-        video: { audio: v.audio, seconds: v.seconds, trimmed: v.trimmed },
+        video: { audio: v.audio, seconds: v.seconds, trimmed: v.trimmed, poster: v.poster },
       };
     }
     const full = await decode(loaded.file);
@@ -373,12 +395,7 @@ export function App(): React.ReactElement {
           grainTile: () => null,
           verticalText: () => null,
         });
-        const blob =
-          'convertToBlob' in canvas.canvas
-            ? await canvas.canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 })
-            : await new Promise<Blob | null>((ok) =>
-                (canvas.canvas as HTMLCanvasElement).toBlob(ok, 'image/jpeg', 0.92),
-              );
+        const blob = await encodeCanvas(canvas.canvas, 'image/jpeg', 0.92);
         if (!blob) throw new Error('画像を書き出せませんでした');
         /*
          * 撮影情報を書き戻す。canvas から出た JPEG には EXIF が無く、そのままだと
@@ -481,7 +498,7 @@ export function App(): React.ReactElement {
   );
 
   const stage = (
-    <div className="stage" ref={stageRef}>
+    <div className="stage" ref={stageRef} data-video={loaded?.video ? true : undefined}>
         {loaded ? (
           preview.error || sceneError ? (
             <div className="stage__e3">
@@ -502,12 +519,33 @@ export function App(): React.ReactElement {
                 data-pannable={bleed || undefined}
               />
               {preview.slow && <span className="stage__dot" aria-hidden="true" />}
-              {/* 動画のときは、いま見えているのが最初のコマだと分かるように */}
-              {loaded.video && (
-                <span className="stage__chip" aria-label={`動画 ${fmtSec(loaded.video.duration)}`}>
-                  ▶ {fmtSec(loaded.video.duration)}
-                </span>
-              )}
+              {/*
+               * 動画の印。流れている間はスピーカーの印で音を出し入れする（音は消して始まる）。
+               * 自動再生を止められたら ▶ で流す。流せない端末では長さだけ出す（最初のコマのまま）
+               */}
+              {loaded.video &&
+                (playback.state === 'playing' && loaded.video.hasAudio ? (
+                  <button
+                    type="button"
+                    className="stage__chip stage__chip--btn"
+                    aria-pressed={!playback.muted}
+                    aria-label={playback.muted ? '音を出す' : '音を消す'}
+                    data-muted={playback.muted || undefined}
+                    onClick={playback.toggleMuted}
+                  >
+                    {playback.muted ? <IconMuted size={16} /> : <IconSound size={16} />}
+                    <span>{fmtSec(loaded.video.duration)}</span>
+                  </button>
+                ) : playback.state === 'blocked' ? (
+                  <button type="button" className="stage__chip stage__chip--btn" aria-label="再生する" onClick={playback.play}>
+                    <IconPlay size={16} />
+                    <span>{fmtSec(loaded.video.duration)}</span>
+                  </button>
+                ) : (
+                  <span className="stage__chip" aria-label={`動画 ${fmtSec(loaded.video.duration)}`}>
+                    ▶ {fmtSec(loaded.video.duration)}
+                  </span>
+                ))}
               {/* 注記は操作の上に重ねない。プレビューの足元に短く出て、自分で消える */}
               {hint && (
                 <p className="stage__hint" role="status">

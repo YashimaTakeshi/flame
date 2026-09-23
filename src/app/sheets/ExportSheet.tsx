@@ -5,7 +5,8 @@
  * iOS は「利用者の操作から始まった処理」とみなさず共有を拒む。
  * だからシートを開いた時点で書き出しを終わらせ、ボタンの押下では待たずに渡す。
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { AnyCanvas } from '../../render/guards';
 import type { ExifWriteStatus } from '../../platform/exif-write';
 import {
   inAppBrowser,
@@ -45,16 +46,29 @@ export interface Exported {
   /** 撮影日時から付けた名前（§16.1） */
   readonly filename: string;
   readonly exif: ExifWriteStatus;
-  /** 動画のときだけ。音声が入ったか、上限で切ったか */
+  /** 動画のときだけ。音声が入ったか、上限で切ったか、再生する前に見せる表紙 */
   readonly video?: {
     readonly audio: 'kept' | 'dropped' | 'none';
     readonly seconds: number;
     readonly trimmed: boolean;
+    readonly poster: Blob | null;
   };
 }
 
-/** 書き出しの手続き。動画は時間が掛かるので、進み具合を知らせ、途中でやめられる */
-export type Render = (p: { readonly onProgress: (ratio: number) => void; readonly signal: AbortSignal }) => Promise<Exported>;
+/**
+ * 書き出しの手続き。動画は時間が掛かるので、進み具合を知らせ、途中でやめられる。
+ * onFrame には描き上がったコマが来る（書き出しの最中に映像を見せる）
+ */
+export type Render = (p: {
+  readonly onProgress: (ratio: number) => void;
+  readonly onFrame: (frame: AnyCanvas) => void;
+  readonly signal: AbortSignal;
+}) => Promise<Exported>;
+
+/** 書き出しの最中に見せる映像の間隔。毎コマ描き写すと書き出しが遅くなる */
+const LIVE_EVERY_MS = 120;
+/** 書き出しの最中に見せる映像の長辺。見るだけなので小さくてよい */
+const LIVE_LONG_EDGE = 960;
 
 const fmtSec = (s: number): string => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 
@@ -75,24 +89,51 @@ export function ExportSheet({
   const [savable, setSavable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<SaveOutcome | null>(null);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const caps = saveCapabilities();
   const desk = useLayoutMode() === 'desk';
 
+  /*
+   * 書き出しの最中の映像。描き上がったコマを間引いて小さなキャンバスに写す。
+   * 待っている間も「どう仕上がるか」が見えている（空の画面と線だけにしない）
+   */
+  const liveRef = useRef<HTMLCanvasElement | null>(null);
+  const lastLive = useRef(0);
+  const showFrame = useCallback((f: AnyCanvas): void => {
+    const now = performance.now();
+    if (now - lastLive.current < LIVE_EVERY_MS) return;
+    lastLive.current = now;
+    const c = liveRef.current;
+    if (!c || !f.width || !f.height) return;
+    const scale = Math.min(1, LIVE_LONG_EDGE / Math.max(f.width, f.height));
+    const w = Math.round(f.width * scale);
+    const h = Math.round(f.height * scale);
+    if (c.width !== w) c.width = w;
+    if (c.height !== h) c.height = h;
+    c.getContext('2d')?.drawImage(f, 0, 0, w, h);
+  }, []);
+
   useEffect(() => {
     let alive = true;
-    let objectUrl: string | null = null;
+    const urls: string[] = [];
     // 閉じたら書き出しも止める（動画は数十秒かかる）
     const abort = new AbortController();
 
-    render({ onProgress: (r) => alive && setProgress(r), signal: abort.signal })
+    render({ onProgress: (r) => alive && setProgress(r), onFrame: (f) => alive && showFrame(f), signal: abort.signal })
       .then(async (x) => {
         if (!alive) return;
         setExported(x);
         const b = x.blob;
         // 動画は長押し保存の対象にならない（data: にもしない。大きい）
         if (b.type.startsWith('video/')) {
-          objectUrl = URL.createObjectURL(b);
-          setUrl(objectUrl);
+          const u = URL.createObjectURL(b);
+          urls.push(u);
+          if (x.video?.poster) {
+            const p = URL.createObjectURL(x.video.poster);
+            urls.push(p);
+            setPosterUrl(p);
+          }
+          setUrl(u);
           setSavable(false);
           return;
         }
@@ -109,8 +150,9 @@ export function ExportSheet({
           }
         }
         if (!alive) return;
-        objectUrl = URL.createObjectURL(b);
-        setUrl(objectUrl);
+        const u = URL.createObjectURL(b);
+        urls.push(u);
+        setUrl(u);
         setSavable(false);
       })
       .catch((e: unknown) => {
@@ -120,9 +162,9 @@ export function ExportSheet({
     return () => {
       alive = false;
       abort.abort();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      for (const u of urls) URL.revokeObjectURL(u);
     };
-  }, [render]);
+  }, [render, showFrame]);
 
   // ここで await を挟まない。挟むと iOS が共有を拒み、PC は保存先の窓を開けない
   const save = (prefer: SavePreference): void => {
@@ -163,15 +205,32 @@ export function ExportSheet({
       <div className="result">
         {url &&
           (video ? (
-            // 音を出さずに繰り返す。確かめたい人は操作で音を出せる
-            <video src={url} className="result-img" controls playsInline loop muted autoPlay aria-label="書き出した動画" />
+            /*
+             * ★消音にしない。自動でも再生しない。★ 以前は消音で自動再生していて、
+             * 「音が出ない」と受け取られた（実機で指摘された）。▶ を押すと音付きで流れる。
+             * 押すまでは書き出した最初のコマ（表紙）を見せる
+             */
+            <video
+              src={url}
+              {...(posterUrl ? { poster: posterUrl } : {})}
+              className="result-img"
+              controls
+              playsInline
+              loop
+              preload="auto"
+              aria-label="書き出した動画"
+            />
           ) : (
             <img src={url} alt="書き出した画像" className="result-img" />
           ))}
         {video && !blob && !error && (
-          <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress * 100)}>
-            <span style={{ width: `${Math.max(2, progress * 100)}%` }} />
-          </div>
+          <>
+            {/* 書き出しの最中の映像。描き上がったコマが流れる */}
+            <canvas ref={liveRef} className="result-img result-live" aria-label="書き出し中の映像" />
+            <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress * 100)}>
+              <span style={{ width: `${Math.max(2, progress * 100)}%` }} />
+            </div>
+          </>
         )}
       </div>
       <div className="result__rest">

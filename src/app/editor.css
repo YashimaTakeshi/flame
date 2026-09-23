@@ -1115,10 +1115,19 @@
 }
 
 /* ── 動画 ── */
-/* プレビューが動画の最初のコマであること（と長さ）を、プレビューの上に小さく */
+/*
+ * 動画のときは、プレビューの上に印の段を空ける（印が枠や写真に重ならないように）。
+ * 印は小さく上の真ん中に。音の出し入れはここで行う
+ */
+.stage[data-video] {
+  padding-top: calc(var(--s3) + 28px);
+}
+.app[data-layout='desk'] .stage[data-video] {
+  padding-top: calc(var(--s4) + 24px);
+}
 .stage__chip {
   position: absolute;
-  top: 6px;
+  top: 12px;
   left: 50%;
   translate: -50% 0;
   padding: 3px 10px;
@@ -1130,12 +1139,32 @@
   letter-spacing: 0.04em;
   pointer-events: none;
 }
+/* 押せる印（音の出し入れ・再生）。見た目は小さく、指の当たりは広く */
+.stage__chip--btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--t1);
+}
+.stage__chip--btn::before {
+  content: '';
+  position: absolute;
+  inset: -12px -8px;
+}
+.stage__chip--btn[data-muted] {
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+}
 /* 書き出しの進み具合。画像の場所の真ん中に細い線で */
 .progress {
   position: absolute;
   left: 15%;
   right: 15%;
-  top: 50%;
+  /* 書き出し中の映像の足元に。映像の上には重ねない */
+  bottom: 0;
   height: 3px;
   border-radius: 2px;
   background: var(--line-strong);
@@ -1146,4 +1175,10 @@
   height: 100%;
   background: var(--ink);
   transition: width 0.2s linear;
+}
+
+/* 書き出し中の映像。仕上がりが見えるように。進み具合の線のぶん下を空ける */
+.result .result-live {
+  bottom: 12px;
+  height: calc(100% - 12px);
 }

@@ -2,13 +2,16 @@
  * 動画。読み込み（最初のコマ・撮影情報）と、1コマずつ枠を描いて書き出すところ。
  *
  * 仕組みは写真と同じ。**1コマ＝1枚の写真**として、写真と同じ Scene を同じ描き手で描く。
- * だから枠・文字・刻印の位置は写真のときと一致し、プレビュー（最初のコマ）とも一致する。
+ * だから枠・文字・刻印の位置は写真のときと一致し、プレビューとも一致する。
  * 動画の読み書きは mediabunny（WebCodecs の上に載る。端末の中だけで完結し、どこにも送らない）。
  *
- * 書き出しの形式は端末が書けるものから選ぶ:
- *   1. MP4（H.264 ＋ AAC）… iPhone の Safari・PC の Chrome/Edge/Safari。写真アプリにもそのまま入る
- *   2. WebM（VP9 ＋ Opus）… H.264 を書けない環境（一部の Chromium・Firefox）
- * 音声はそのまま写せるときは写し（iPhone の AAC は写せる）、写せず作り直せもしないときは落として知らせる。
+ * 書き出しの入れ物と音声の扱いは planExport が決める（端末が書けるものと、元の音声の形式から）:
+ *   - MP4（H.264）… 第一。iPhone の Safari・PC の Chrome/Edge/Safari。写真アプリにそのまま入る
+ *       音声が AAC（iPhone・多くのカメラ）なら **作り直さずそのまま写す**。それ以外は AAC に作り直す
+ *   - MOV（H.264 ＋ 非圧縮音声）… 音声が非圧縮（富士の MOV など）で、AAC に作り直せない端末のとき
+ *   - WebM（VP9 ＋ Opus）… H.264 を書けない環境、または MP4 では音声を残せないが WebM なら残せる環境
+ * 音声が複数入っていることがある（iPhone 16 の空間オーディオは、読めない形式の音声を別に持つ）。
+ * **読めて入れられる音声を選ぶ**。どれも入れられなければ落として、そう告げる。
  *
  * 長さの上限は MAX_VIDEO_SECONDS。書き出しは端末のメモリに溜めるので、長すぎると iPhone で落ちる。
  * 上限より長い動画は先頭から上限までを書き出し、そのことを告げる。
@@ -21,17 +24,20 @@ import {
   Conversion,
   ConversionCanceledError,
   Input,
+  MovOutputFormat,
   Mp4OutputFormat,
   Output,
   QUALITY_HIGH,
   WebMOutputFormat,
   canEncodeAudio,
   canEncodeVideo,
+  type ConversionAudioOptions,
+  type InputAudioTrack,
   type InputVideoTrack,
   type MetadataTags,
 } from 'mediabunny';
 import { parseWallClock, wallClockFromDate, type WallClock } from '../core/wallclock';
-import { createVerifiedCanvas, release, type Ctx } from '../render/guards';
+import { createVerifiedCanvas, encodeCanvas, release, type AnyCanvas, type Ctx } from '../render/guards';
 import { decodeSource, type DecodedPhoto } from './decode';
 
 /** 書き出せる長さの上限（秒）。書き出しは端末のメモリに溜まる（1分で 60〜90MB） */
@@ -45,7 +51,6 @@ export class VideoError extends Error {
     this.name = 'VideoError';
   }
 }
-
 
 /** 動画に入っている撮影情報。写真の EXIF ほど揃わない（露出は入っていない） */
 export interface VideoMeta {
@@ -137,11 +142,11 @@ export async function openVideo(file: Blob, opt?: { readonly posterWidth?: numbe
   try {
     if (!(await input.canRead().catch(() => false))) throw new VideoError('この動画を開けませんでした');
     const track = await primaryVideo(input);
-    const [duration, first, tags, audio, stats] = await Promise.all([
-      input.computeDuration(),
+    const [end, first, tags, audios, stats] = await Promise.all([
+      input.computeDuration([track]),
       track.getFirstTimestamp(),
       input.getMetadataTags().catch(() => ({}) as MetadataTags),
-      input.getPrimaryAudioTrack(),
+      input.getAudioTracks(),
       track.computePacketStats(60).catch(() => null),
     ]);
     // 最初のコマ。向き（回転）は CanvasSink が反映する
@@ -152,9 +157,10 @@ export async function openVideo(file: Blob, opt?: { readonly posterWidth?: numbe
     const poster = await decodeSource(frame.canvas, natural, opt?.posterWidth ? { resizeWidth: opt.posterWidth } : undefined);
     return {
       poster,
-      duration: Math.max(0, duration - Math.max(0, first)),
+      // computeDuration は「終わりの時刻」。始まりが 0 でない動画もあるので差を取る
+      duration: Math.max(0, end - Math.max(0, first)),
       frameRate: stats && stats.averagePacketRate > 0 ? stats.averagePacketRate : null,
-      hasAudio: audio !== null,
+      hasAudio: audios.length > 0,
       meta: metaFromTags(tags),
     };
   } catch (e) {
@@ -174,15 +180,92 @@ export function evenSize(aspect: number, longEdge: number): { w: number; h: numb
   return { w: 16, h: 16 };
 }
 
+/* ── 書き出しの計画 ─────────────────────────────────────────── */
+
+/** 元の音声1本。codec は分からなければ null（iPhone 16 の空間オーディオ APAC など） */
+export interface AudioCandidate {
+  readonly id: number;
+  readonly codec: string | null;
+  /** この端末で読める（作り直すなら必要。そのまま写すだけなら要らない） */
+  readonly decodable: boolean;
+}
+
+/** この端末が作れる形式 */
+export interface EncodeCaps {
+  readonly avc: boolean;
+  readonly vp9: boolean;
+  readonly aac: boolean;
+  readonly opus: boolean;
+}
+
+export type Container = 'mp4' | 'mov' | 'webm';
+
+export interface ExportPlan {
+  readonly container: Container;
+  readonly video: 'avc' | 'vp9';
+  /** 入れる音声。null なら映像だけ */
+  readonly audio: { readonly id: number; readonly mode: 'copy' | 'transcode'; readonly codec: string } | null;
+}
+
+const isPcm = (c: string | null): boolean => c !== null && c.startsWith('pcm-');
+
+/**
+ * 入れ物と音声の扱いを決める。純粋な関数（端末の能力と元の音声の形式だけを見る）。
+ *
+ * 優先の順:
+ *   1. MP4 に AAC をそのまま写す（iPhone・多くのカメラ。作り直さないので端末を選ばず、音も変わらない）
+ *   2. MP4 に AAC を作り直して入れる（読める音声があり、AAC を作れる端末）
+ *   3. MOV に非圧縮音声をそのまま写す（富士の MOV など。AAC を作れない端末でも Apple の写真アプリで鳴る）
+ *   4. WebM に Opus（そのまま／作り直し）（MP4 では音声を残せないが WebM なら残せる環境）
+ *   5. MP4 で映像だけ（音声は落として告げる）
+ * H.264 を書けなければ WebM（VP9）。どちらも書けなければ null（書き出せない）。
+ */
+export function planExport(audios: readonly AudioCandidate[], caps: EncodeCaps): ExportPlan | null {
+  const known = audios.filter((a) => a.codec !== null);
+  const first = <T>(xs: readonly T[]): T | undefined => xs[0];
+
+  const opusPlan = (): ExportPlan | null => {
+    const copy = first(known.filter((a) => a.codec === 'opus'));
+    if (copy) return { container: 'webm', video: 'vp9', audio: { id: copy.id, mode: 'copy', codec: 'opus' } };
+    const tr = caps.opus ? first(known.filter((a) => a.decodable)) : undefined;
+    if (tr) return { container: 'webm', video: 'vp9', audio: { id: tr.id, mode: 'transcode', codec: 'opus' } };
+    return null;
+  };
+
+  if (caps.avc) {
+    const aac = first(known.filter((a) => a.codec === 'aac'));
+    if (aac) return { container: 'mp4', video: 'avc', audio: { id: aac.id, mode: 'copy', codec: 'aac' } };
+    const tr = caps.aac ? first(known.filter((a) => a.decodable)) : undefined;
+    if (tr) return { container: 'mp4', video: 'avc', audio: { id: tr.id, mode: 'transcode', codec: 'aac' } };
+    const pcm = first(known.filter((a) => isPcm(a.codec)));
+    if (pcm) return { container: 'mov', video: 'avc', audio: { id: pcm.id, mode: 'copy', codec: pcm.codec! } };
+    if (caps.vp9) {
+      const webm = opusPlan();
+      if (webm) return webm;
+    }
+    return { container: 'mp4', video: 'avc', audio: null };
+  }
+  if (caps.vp9) return opusPlan() ?? { container: 'webm', video: 'vp9', audio: null };
+  return null;
+}
+
+const FORMAT: Record<Container, { mime: string; make: () => Mp4OutputFormat | MovOutputFormat | WebMOutputFormat }> = {
+  mp4: { mime: 'video/mp4', make: () => new Mp4OutputFormat({ fastStart: 'in-memory' }) },
+  mov: { mime: 'video/quicktime', make: () => new MovOutputFormat({ fastStart: 'in-memory' }) },
+  webm: { mime: 'video/webm', make: () => new WebMOutputFormat() },
+};
+
 export interface VideoExport {
   readonly blob: Blob;
-  readonly ext: 'mp4' | 'webm';
+  readonly ext: Container;
   /** 音声: 入れた／入れられなかった／元から無い */
   readonly audio: 'kept' | 'dropped' | 'none';
   /** 書き出した長さ（秒） */
   readonly seconds: number;
   /** 上限で切ったか */
   readonly trimmed: boolean;
+  /** 書き出した最初のコマ（JPEG）。結果の画面で、再生する前に見せる */
+  readonly poster: Blob | null;
 }
 
 export interface VideoExportOptions {
@@ -192,24 +275,10 @@ export interface VideoExportOptions {
   /** 1コマ描く。frame は向きを反映した1コマ（写真の代わりに Scene の photo に渡す） */
   readonly render: (frame: CanvasImageSource, ctx: Ctx) => void;
   readonly onProgress?: (ratio: number) => void;
+  /** 描き上がったコマ。書き出しの最中に映像を見せるため（受け取った側で間引く） */
+  readonly onFrame?: (frame: AnyCanvas) => void;
   readonly signal?: AbortSignal;
   readonly maxSeconds?: number;
-}
-
-async function pickFormat(w: number, h: number): Promise<{
-  format: Mp4OutputFormat | WebMOutputFormat;
-  video: 'avc' | 'vp9';
-  audio: 'aac' | 'opus';
-  ext: 'mp4' | 'webm';
-  mime: string;
-}> {
-  if (await canEncodeVideo('avc', { width: w, height: h })) {
-    return { format: new Mp4OutputFormat({ fastStart: 'in-memory' }), video: 'avc', audio: 'aac', ext: 'mp4', mime: 'video/mp4' };
-  }
-  if (await canEncodeVideo('vp9', { width: w, height: h })) {
-    return { format: new WebMOutputFormat(), video: 'vp9', audio: 'opus', ext: 'webm', mime: 'video/webm' };
-  }
-  throw new VideoError('この端末では動画を書き出せません（動画を作る機能に対応していません）');
 }
 
 /**
@@ -226,6 +295,16 @@ function keepTags(t: MetadataTags): MetadataTags {
   return { ...(t.date ? { date: t.date } : {}), ...(Object.keys(keep).length ? { raw: keep } : {}) };
 }
 
+async function candidatesOf(tracks: readonly InputAudioTrack[]): Promise<AudioCandidate[]> {
+  return Promise.all(
+    tracks.map(async (t) => ({
+      id: t.id,
+      codec: await t.getCodec().catch(() => null),
+      decodable: await t.canDecode().catch(() => false),
+    })),
+  );
+}
+
 export async function exportVideo(file: Blob, o: VideoExportOptions): Promise<VideoExport> {
   const max = o.maxSeconds ?? MAX_VIDEO_SECONDS;
   const input = openInput(file);
@@ -234,14 +313,26 @@ export async function exportVideo(file: Blob, o: VideoExportOptions): Promise<Vi
   let frameCanvas: ReturnType<typeof createVerifiedCanvas> | null = null;
   try {
     const track = await primaryVideo(input);
-    const [duration, first, audioTrack] = await Promise.all([
-      input.computeDuration(),
-      input.getFirstTimestamp(),
-      input.getPrimaryAudioTrack(),
+    const audioTracks = await input.getAudioTracks();
+    const [caps, candidates] = await Promise.all([
+      (async (): Promise<EncodeCaps> => ({
+        avc: await canEncodeVideo('avc', { width: o.width, height: o.height }),
+        vp9: await canEncodeVideo('vp9', { width: o.width, height: o.height }),
+        aac: await canEncodeAudio('aac'),
+        opus: await canEncodeAudio('opus'),
+      }))(),
+      candidatesOf(audioTracks),
     ]);
-    const fmt = await pickFormat(o.width, o.height);
-    // 音声は写せるなら写す。作り直しが要るのに作れない端末なら落とす（下で知らせる）
-    const audioOk = audioTrack ? (audioTrack.codec === fmt.audio || (await canEncodeAudio(fmt.audio))) : false;
+    const plan = planExport(candidates, caps);
+    if (!plan) throw new VideoError('この端末では動画を書き出せません（動画を作る機能に対応していません）');
+    const chosen = plan.audio ? audioTracks.find((t) => t.id === plan.audio!.id) ?? null : null;
+
+    // 長さは、使う映像と音声で測る（使わない音声が長いこともある）
+    const used = chosen ? [track, chosen] : [track];
+    const [endTs, firstTs] = await Promise.all([input.computeDuration(used), input.getFirstTimestamp(used)]);
+    const start = Math.max(0, firstTs);
+    const length = Math.max(0, endTs - start);
+    const trimmed = length > max + 0.05;
 
     const fw = track.displayWidth;
     const fh = track.displayHeight;
@@ -250,37 +341,54 @@ export async function exportVideo(file: Blob, o: VideoExportOptions): Promise<Vi
     const fctx = frameCanvas.ctx;
     const fcanvas = frameCanvas.canvas;
 
-    const start = Math.max(0, first);
-    const end = Math.min(first + duration, start + max);
-    const trimmed = start + duration > end + 0.05;
-    const output = new Output({ format: fmt.format, target: new BufferTarget() });
+    const fmt = FORMAT[plan.container];
+    const output = new Output({ format: fmt.make(), target: new BufferTarget() });
+    let poster: Promise<Blob | null> | null = null;
+    const audioOptions = (t: InputAudioTrack): ConversionAudioOptions => {
+      if (!plan.audio || t.id !== plan.audio.id) return { discard: true };
+      /*
+       * ★品質を指定しない。★ 指定すると mediabunny は必ず作り直す（写せる AAC も作り直し、
+       * AAC を作れない端末では音声ごと落ちる。実機で「音が出ない」の原因になった）。
+       * そのまま写すときは何も指定しない。作り直すときも既定の品質（高）で作られる
+       */
+      return plan.audio.mode === 'copy' ? {} : { codec: plan.audio.codec as 'aac' | 'opus' };
+    };
     const conversion = await Conversion.init({
       input,
       output,
-      tracks: 'primary',
+      tracks: 'all',
       showWarnings: false,
-      trim: { start, end },
+      ...(trimmed ? { trim: { start, end: start + max } } : {}),
       tags: keepTags,
-      video: {
-        codec: fmt.video,
-        quality: QUALITY_HIGH,
-        forceTranscode: true,
-        // 向きは描く側で反映する（下の sample.draw）。出力には回転の印を付けない
-        allowTransformationMetadata: false,
-        processedWidth: o.width,
-        processedHeight: o.height,
-        process: (sample) => {
-          // 1コマを向きどおりに描き、写真の代わりにして枠ごと描く
-          fctx.clearRect(0, 0, fw, fh);
-          sample.draw(fctx, 0, 0, fw, fh);
-          o.render(fcanvas, out.ctx);
-          return out.canvas;
-        },
-      },
-      audio: audioOk ? { codec: fmt.audio, quality: QUALITY_HIGH } : { discard: true },
+      video: (t) =>
+        t.id !== track.id
+          ? { discard: true }
+          : {
+              codec: plan.video,
+              quality: QUALITY_HIGH,
+              forceTranscode: true,
+              // 向きは描く側で反映する（下の sample.draw）。出力には回転の印を付けない
+              allowTransformationMetadata: false,
+              processedWidth: o.width,
+              processedHeight: o.height,
+              process: async (sample) => {
+                // 1コマを向きどおりに描き、写真の代わりにして枠ごと描く
+                fctx.clearRect(0, 0, fw, fh);
+                sample.draw(fctx, 0, 0, fw, fh);
+                o.render(fcanvas, out.ctx);
+                // 最初のコマを結果の画面の表紙にする（中身は呼んだ時点のものが写る）
+                if (!poster) {
+                  poster = encodeCanvas(out.canvas, 'image/jpeg', 0.85);
+                  await poster;
+                }
+                o.onFrame?.(out.canvas);
+                return out.canvas;
+              },
+            },
+      audio: audioOptions,
     });
     if (!conversion.isValid) throw new VideoError('この動画は書き出せませんでした（形式の組み合わせに対応していません）');
-    const audioKept = audioTrack !== null && conversion.utilizedTracks.some((t) => t.type === 'audio');
+    const audioKept = conversion.utilizedTracks.some((t) => t.type === 'audio');
 
     if (o.onProgress) conversion.onProgress = (p) => o.onProgress?.(Math.min(1, Math.max(0, p)));
     const onAbort = (): void => void conversion.cancel();
@@ -298,10 +406,11 @@ export async function exportVideo(file: Blob, o: VideoExportOptions): Promise<Vi
     if (!buf) throw new VideoError('動画を書き出せませんでした');
     return {
       blob: new Blob([buf], { type: fmt.mime }),
-      ext: fmt.ext,
-      audio: audioTrack === null ? 'none' : audioKept ? 'kept' : 'dropped',
-      seconds: end - start,
+      ext: plan.container,
+      audio: audioTracks.length === 0 ? 'none' : audioKept ? 'kept' : 'dropped',
+      seconds: trimmed ? max : length,
       trimmed,
+      poster: poster ? await (poster as Promise<Blob | null>).catch(() => null) : null,
     };
   } catch (e) {
     throw e instanceof VideoError ? e : new VideoError(`動画を書き出せませんでした: ${e instanceof Error ? e.message : String(e)}`, e);

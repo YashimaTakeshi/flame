@@ -421,7 +421,37 @@ await cspPage.setInputFiles('input[type=file]', '/home/user/flame/tests/fixtures
 await cspPage.waitForSelector('.stage__chip', { timeout: 20000 }).catch(() => {});
 await cspPage.waitForTimeout(600);
 const vChip = await cspPage.evaluate(() => document.querySelector('.stage__chip')?.textContent ?? null);
+/*
+ * 編集中も動画が流れること（書き出す前に動きを確かめられる。実機で頼まれた）。
+ * 試験用の動画は赤い四角が左から右へ動く。その横位置を2回測って、動いていれば流れている
+ */
+const redX = () => cspPage.evaluate(() => {
+  const c = document.querySelector('canvas.stage__canvas');
+  if (!c) return -1;
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let sx = 0, n = 0;
+  for (let y = 0; y < c.height; y += 4) for (let x = 0; x < c.width; x += 4) {
+    const i = (y * c.width + x) * 4;
+    if (d[i] > 200 && d[i + 1] < 60 && d[i + 2] < 60) { sx += x; n++; }
+  }
+  return n ? Math.round(sx / n) : -1;
+});
+const live1 = await redX(); await cspPage.waitForTimeout(700); const live2 = await redX();
+// 音は消して始まり、スピーカーの印で出し入れできる
+const chipBefore = await cspPage.evaluate(() => document.querySelector('button.stage__chip')?.getAttribute('aria-label') ?? null);
+await cspPage.locator('button.stage__chip').click().catch(() => {});
+const chipAfter = await cspPage.evaluate(() => document.querySelector('button.stage__chip')?.getAttribute('aria-label') ?? null);
 await cspPage.getByRole('button', { name: '書き出す' }).click();
+// 書き出しの最中: 描き上がったコマが流れ、編集のプレビューは止まっている
+await cspPage.waitForFunction(() => { const t = document.querySelector('.sheet__hdr span')?.textContent ?? ''; const m = /(\d+)%/.exec(t); return (m && Number(m[1]) >= 25) || t === '書き出しました'; }, null, { timeout: 60000 }).catch(() => {});
+const liveExport = await cspPage.evaluate(() => {
+  const c = document.querySelector('.result-live');
+  if (!c || !c.width) return false;
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  for (let i = 0; i < d.length; i += 40) if (d[i] || d[i + 1] || d[i + 2]) return true;
+  return false;
+});
+const paused1 = await redX(); await cspPage.waitForTimeout(500); const paused2 = await redX();
 const vDone = await cspPage.waitForFunction(() => document.querySelector('.sheet__hdr span')?.textContent === '書き出しました' || document.querySelector('.sheet .band'), null, { timeout: 120000 }).then(() => true).catch(() => false);
 await cspPage.waitForTimeout(1200);
 const vResult = await cspPage.evaluate(async () => {
@@ -432,9 +462,14 @@ const vResult = await cspPage.evaluate(async () => {
     new Promise((r) => setTimeout(() => r(false), 8000)),
   ]);
   if (!ready) return { video: true, playable: false, violations: window.__csp };
-  return { video: true, w: v.videoWidth, h: v.videoHeight, duration: Math.round(v.duration * 10) / 10, violations: window.__csp };
+  // ★消音にしない・勝手に流さない（「音が出ない」と受け取られた）。表紙は書き出した最初のコマ★
+  return { video: true, w: v.videoWidth, h: v.videoHeight, duration: Math.round(v.duration * 10) / 10,
+    muted: v.muted, autoplay: v.autoplay, poster: !!v.getAttribute('poster'), violations: window.__csp };
 });
-console.log('動画（CSP の下で）:', JSON.stringify({ chip: vChip, done: vDone, ...vResult, errors: cspErrs }));
+console.log('動画（CSP の下で）:', JSON.stringify({
+  chip: vChip, moving: live1 >= 0 && live2 >= 0 && live1 !== live2, sound: [chipBefore, chipAfter],
+  liveExport, pausedDuringExport: paused1 === paused2, done: vDone, ...vResult, errors: cspErrs,
+}));
 await cspCtx.close(); cspSrv.close();
 
 await b.close(); server.close();

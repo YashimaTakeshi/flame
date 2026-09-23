@@ -99,6 +99,7 @@ export function saveCapabilities(): SaveCapabilities {
 function pickerType(mime: string): { description: string; accept: Record<string, string[]> } {
   if (mime === 'video/mp4') return { description: 'MP4 動画', accept: { 'video/mp4': ['.mp4'] } };
   if (mime === 'video/webm') return { description: 'WebM 動画', accept: { 'video/webm': ['.webm'] } };
+  if (mime === 'video/quicktime') return { description: 'QuickTime 動画', accept: { 'video/quicktime': ['.mov'] } };
   return { description: 'JPEG 画像', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } };
 }
 
@@ -205,7 +206,7 @@ export const nowWallClock = (): WallClock => wallClockFromDate(new Date());
  * 時刻は**撮影日時**（あれば）。書き出した時刻にすると、写真アプリやフォルダで
  * 旅行の順番が崩れる。撮影日時は壁時計のまま使う（§16.1）
  */
-export function makeFilename(at: WallClock = nowWallClock(), ext: 'jpg' | 'mp4' | 'webm' = 'jpg'): string {
+export function makeFilename(at: WallClock = nowWallClock(), ext: 'jpg' | 'mp4' | 'mov' | 'webm' = 'jpg'): string {
   return `fuchidori-${toStamp(at)}.${ext}`;
 }
 

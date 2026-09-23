@@ -95,6 +95,21 @@ function probePixel(ctx: Ctx, x: number, y: number): boolean {
 }
 
 /**
+ * キャンバスの中身を画像のファイルにする。OffscreenCanvas と <canvas> の違いをここで吸収する。
+ * 中身は呼んだ時点のものが写る（あとで描き変えても変わらない）。作れなければ null。
+ */
+export function encodeCanvas(c: AnyCanvas, type: string, quality?: number): Promise<Blob | null> {
+  if ('convertToBlob' in c) return c.convertToBlob({ type, ...(quality !== undefined ? { quality } : {}) }).catch(() => null);
+  return new Promise((ok) => {
+    try {
+      c.toBlob(ok, type, quality);
+    } catch {
+      ok(null);
+    }
+  });
+}
+
+/**
  * 使い終わったキャンバスを手放す。
  * 0x0 にしてから捨てることで、GC を待たずにピクセルの領域が解放される。
  * 画像1枚で約100MB を消費し、その消費は performance.memory に現れない

@@ -38,6 +38,11 @@ export function usePreview(
    * ★実測: 全画面から窓を縮めて PC → スマホの組み方に切り替わると、プレビューが真っ暗のままだった。★
    */
   mountKey: string,
+  /**
+   * 描き直しの合図を受け取る口（動画の新しいコマなど）。受け取るたびに次のフレームで描き直す。
+   * 描き直しはいつもの経路のまま（rAF で合流するので、合図が多くても1フレームに1回）
+   */
+  subscribe: ((onFrame: () => void) => () => void) | null = null,
 ): PreviewState {
   const [error, setError] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
@@ -104,13 +109,15 @@ export function usePreview(
     // タブを切り替えるとプレビュー領域の高さが変わる。追従する
     const ro = new ResizeObserver(request);
     ro.observe(host);
+    const unsubscribe = subscribe ? subscribe(request) : null;
 
     return () => {
+      unsubscribe?.();
       ro.disconnect();
       if (raf.current) cancelAnimationFrame(raf.current);
       raf.current = 0;
     };
-  }, [canvasRef, hostRef, scene, image, exportLongEdge, mountKey]);
+  }, [canvasRef, hostRef, scene, image, exportLongEdge, mountKey, subscribe]);
 
   useEffect(
     () => () => {

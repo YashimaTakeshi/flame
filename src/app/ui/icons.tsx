@@ -150,3 +150,26 @@ export const IconBorderOn = ({ size = 18 }: P): React.ReactElement => (
     <rect x="6" y="6" width="12" height="12" fill="currentColor" stroke="none" opacity="0.35" />
   </svg>
 );
+
+/** 音あり（スピーカーと音の波）。いま音が出ている */
+export const IconSound = ({ size = 22 }: P): React.ReactElement => (
+  <svg {...base(size)}>
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+    <path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11" />
+  </svg>
+);
+
+/** 音なし（スピーカーに ×）。いま音が消えている */
+export const IconMuted = ({ size = 22 }: P): React.ReactElement => (
+  <svg {...base(size)}>
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+    <path d="M16 9.5l5 5M21 9.5l-5 5" />
+  </svg>
+);
+
+/** 再生（右向きの三角） */
+export const IconPlay = ({ size = 22 }: P): React.ReactElement => (
+  <svg {...base(size)}>
+    <path d="M8 5.5v13l10.5-6.5z" />
+  </svg>
+);
