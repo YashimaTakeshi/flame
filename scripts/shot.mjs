@@ -410,6 +410,31 @@ const cspResult = await cspPage.evaluate(() => ({
   cspApplied: true,
 }));
 console.log('CSP の下で:', JSON.stringify({ header: globalHeaders['content-security-policy']?.slice(0, 40) + '…', canvas: cspCanvas, ...cspResult, errors: cspErrs }));
+
+/*
+ * 動画も同じ CSP の下で。選ぶ → 最初のコマで編集 → 1コマずつ書き出す → 動画が出来ている。
+ * 動画の部品（mediabunny）は動画を選んだときだけ読み込まれる。
+ */
+await cspPage.keyboard.press('Escape');
+await cspPage.waitForTimeout(300);
+await cspPage.setInputFiles('input[type=file]', '/home/user/flame/tests/fixtures/clip-portrait.webm');
+await cspPage.waitForSelector('.stage__chip', { timeout: 20000 }).catch(() => {});
+await cspPage.waitForTimeout(600);
+const vChip = await cspPage.evaluate(() => document.querySelector('.stage__chip')?.textContent ?? null);
+await cspPage.getByRole('button', { name: '書き出す' }).click();
+const vDone = await cspPage.waitForFunction(() => document.querySelector('.sheet__hdr span')?.textContent === '書き出しました' || document.querySelector('.sheet .band'), null, { timeout: 120000 }).then(() => true).catch(() => false);
+await cspPage.waitForTimeout(1200);
+const vResult = await cspPage.evaluate(async () => {
+  const v = document.querySelector('video.result-img');
+  if (!v) return { video: false, band: document.querySelector('.sheet .band')?.textContent ?? null };
+  const ready = await Promise.race([
+    new Promise((r) => (v.readyState >= 1 ? r(true) : v.addEventListener('loadedmetadata', () => r(true), { once: true }))),
+    new Promise((r) => setTimeout(() => r(false), 8000)),
+  ]);
+  if (!ready) return { video: true, playable: false, violations: window.__csp };
+  return { video: true, w: v.videoWidth, h: v.videoHeight, duration: Math.round(v.duration * 10) / 10, violations: window.__csp };
+});
+console.log('動画（CSP の下で）:', JSON.stringify({ chip: vChip, done: vDone, ...vResult, errors: cspErrs }));
 await cspCtx.close(); cspSrv.close();
 
 await b.close(); server.close();

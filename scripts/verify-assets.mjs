@@ -131,6 +131,13 @@ for (const icon of webmanifest.icons ?? []) {
 
 // --- ライセンス本文 ---
 // 同梱するフォントには OFL の本文を必ず添える（再配布の条件）。
+// 同梱ライブラリの許諾（MPL-2.0 は本文と入手先の表示が要る）
+{
+  const p = resolve(root, 'public/licenses/mediabunny-MPL-2.0.txt');
+  if (!existsSync(p) || readFileSync(p, 'utf8').length < 5000 || !readFileSync(p, 'utf8').includes('Mozilla Public License')) {
+    errors.push('public/licenses/mediabunny-MPL-2.0.txt がないか、本文が欠けています');
+  }
+}
 const licenses = ['Arimo', 'Jost', 'Oswald', 'Cinzel', 'PlayfairDisplay',
                   'LibreBaskerville', 'PTSerif', 'Tinos', 'NotoSansJP'];
 for (const f of licenses) {

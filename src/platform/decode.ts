@@ -82,6 +82,28 @@ export async function decode(
   };
 }
 
+/**
+ * 描かれたもの（動画の1コマを描いたキャンバスなど）から、写真と同じ形の DecodedPhoto を作る。
+ * 動画の1コマは向き（回転）を描く側で反映済みなので、ここでは縮めるだけ。
+ * createImageBitmap はこのファイルでしか呼ばない約束なので、ここに置く。
+ */
+export async function decodeSource(
+  source: ImageBitmapSource,
+  natural: { readonly w: number; readonly h: number },
+  opt?: { readonly resizeWidth?: number },
+): Promise<DecodedPhoto> {
+  const want = opt?.resizeWidth;
+  const w = want && want < natural.w ? Math.max(1, Math.round(want)) : natural.w;
+  const h = Math.max(1, Math.round((w * natural.h) / natural.w));
+  let bmp: ImageBitmap;
+  try {
+    bmp = await createImageBitmap(source, { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' });
+  } catch (e) {
+    throw new DecodeError('動画のコマを取り出せませんでした', e);
+  }
+  return { bitmap: bmp, size: { w: bmp.width, h: bmp.height }, natural, orientationApplied: true };
+}
+
 /** 使い終わったら必ず閉じる。画像1枚で約100MB を占め、その消費は performance.memory に現れない */
 export function closeDecoded(d: DecodedPhoto): void {
   d.bitmap.close();

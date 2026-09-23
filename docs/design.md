@@ -1811,6 +1811,38 @@ APP1 は APP0（JFIF）の直後に差し込み、元の JPEG は読み直さず
 - GitHub Pages への配信（`pages.yml`）はそのまま残す（確認用。§15 の「本番は Cloudflare」）
 `base: './'` なのでドメイン直下でも `/flame/` でも同じ dist が動く。
 
+### 3.20 動画（2026-09-23）
+
+「動画もやりたい。10秒などの短い動画でもいい（長い方がええけど）」。
+
+**考え方: 1コマ＝1枚の写真。** 動画の各コマを写真の代わりに Scene の `photo` へ渡し、写真と同じ描き手で描く。
+枠・文字・刻印の位置は写真と同じ組版から出るので、プレビュー（最初のコマ）と書き出しの全コマが一致する。
+編集の画面は写真と同じ（最初のコマで編集する）。動画であることはプレビューの上の「▶ 0:12」で分かる。
+
+**読み書き（`platform/video.ts`）** — mediabunny（WebCodecs の上。端末の中で完結し、どこにも送らない）。
+- 開く: 最初のコマ（向きを反映）・長さ・音声の有無・撮影情報。撮影情報は iPhone の `com.apple.quicktime.*`
+  （機種・撮影日時・位置）を読み、撮影日時は **creationdate を壁時計のまま**（§4.4）。無ければ入れ物の作成日時（近似）。
+  露出は動画に入っていないので出ない。QuickTime の udta（©mak / ©mod）も読む。
+- 書き出し: 長辺 1920（縦動画は 1080×1920）、縦横とも偶数（H.264 の約束。`evenSize`）。
+  形式は **端末が書けるものから**: MP4（H.264＋AAC）→ 書けなければ WebM（VP9＋Opus）。
+  iPhone の Safari・PC の Chrome/Edge は MP4 を通る。音声は写せれば写し（iPhone の AAC は写せる）、
+  写せず作り直せもしなければ落として「映像だけです」と告げる。
+- 撮影情報は日時・機種だけ写し、**位置は写さない**（写真の書き戻しと同じ。§11.8）。
+- 長さの上限は **60 秒**。書き出しは端末のメモリに溜まる（1分で 60〜90MB）ので、それ以上は iPhone で落ちうる。
+  長い動画は先頭の 60 秒を書き出し、そう告げる。書き出しの窓を閉じると取りやめる（進み具合は % と線で出す）。
+- 動画の部品（約 575KB）は **動画を選んだときだけ読み込む**。写真だけの人の最初の読み込みは 353KB のまま。
+
+**公開の設定** — CSP に `media-src 'self' blob:` を足した。無いと `default-src 'self'` に落ち、
+書き出した動画（blob:）の再生が遮断される（`shot.mjs` の CSP の検査が捕まえた）。
+mediabunny は MPL-2.0。改変せずに使い、本文と入手先を `public/licenses/mediabunny-MPL-2.0.txt` に置いた（`assets:verify` が確かめる）。
+
+**検査** — 試験用の動画（`tests/fixtures/clip-portrait.webm`。720×1280・3秒・30fps・音声付き・赤い四角が動く）は
+この環境に動画の道具が無いので、Chromium の中で mediabunny で作った。
+- 実ブラウザ（`video.browser.ts`、6件）: 開く／縮めて開く／1コマずつ描いて書き出し（コマ数・大きさ・長さ・音声・枠の白）／
+  上限で切る／取りやめ／動画でないものを断る
+- 画面（`shot.mjs`）: CSP の下で選ぶ→書き出す→再生できる大きさ・長さ
+- この Chromium は H.264 を書けないので、自動で通るのは WebM の経路。**MP4 の経路は実機（iPhone・PC の Chrome）で確かめる。**
+
 ## 4. キャプションの組版
 
 > 出典: 組み立て・欠損の詰め・はみ出しのはしご・インク選択は案C §4。
@@ -5234,7 +5266,7 @@ test('同梱サブセットの収録文字', () => {
 ```
 # public/_headers（実物。外部の接続先は無い）
 /*
-  Content-Security-Policy: default-src 'self'; img-src 'self' blob: data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   Permissions-Policy: geolocation=(), camera=(), microphone=(), interest-cohort=()

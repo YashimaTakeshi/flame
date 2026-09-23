@@ -39,22 +39,37 @@ function toDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-/** 書き出しの結果。画像と、その名前と、撮影情報を書き戻せたか */
+/** 書き出しの結果。画像（または動画）と、その名前と、撮影情報を書き戻せたか */
 export interface Exported {
   readonly blob: Blob;
   /** 撮影日時から付けた名前（§16.1） */
   readonly filename: string;
   readonly exif: ExifWriteStatus;
+  /** 動画のときだけ。音声が入ったか、上限で切ったか */
+  readonly video?: {
+    readonly audio: 'kept' | 'dropped' | 'none';
+    readonly seconds: number;
+    readonly trimmed: boolean;
+  };
 }
+
+/** 書き出しの手続き。動画は時間が掛かるので、進み具合を知らせ、途中でやめられる */
+export type Render = (p: { readonly onProgress: (ratio: number) => void; readonly signal: AbortSignal }) => Promise<Exported>;
+
+const fmtSec = (s: number): string => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 
 export function ExportSheet({
   render,
+  video = false,
   onClose,
 }: {
-  render: () => Promise<Exported>;
+  render: Render;
+  /** 動画の書き出し。進み具合を出し、結果を動画で見せる */
+  video?: boolean;
   onClose: () => void;
 }): React.ReactElement {
   const [exported, setExported] = useState<Exported | null>(null);
+  const [progress, setProgress] = useState(0);
   const blob = exported?.blob ?? null;
   const [url, setUrl] = useState<string | null>(null);
   const [savable, setSavable] = useState(false);
@@ -66,12 +81,21 @@ export function ExportSheet({
   useEffect(() => {
     let alive = true;
     let objectUrl: string | null = null;
+    // 閉じたら書き出しも止める（動画は数十秒かかる）
+    const abort = new AbortController();
 
-    render()
+    render({ onProgress: (r) => alive && setProgress(r), signal: abort.signal })
       .then(async (x) => {
         if (!alive) return;
         setExported(x);
         const b = x.blob;
+        // 動画は長押し保存の対象にならない（data: にもしない。大きい）
+        if (b.type.startsWith('video/')) {
+          objectUrl = URL.createObjectURL(b);
+          setUrl(objectUrl);
+          setSavable(false);
+          return;
+        }
         // 長押しで保存できるのは data: のときだけ（blob: では保存の項目が出ない）
         if (b.size * 1.37 <= MAX_DATA_URL_BYTES) {
           try {
@@ -95,6 +119,7 @@ export function ExportSheet({
 
     return () => {
       alive = false;
+      abort.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [render]);
@@ -114,7 +139,7 @@ export function ExportSheet({
     ? caps.canPickLocation
       ? { prefer: 'picker', label: '名前を付けて保存…' }
       : { prefer: 'download', label: 'ダウンロード' }
-    : { prefer: 'auto', label: caps.canShareFiles ? '写真に保存 / 共有' : 'ダウンロード' };
+    : { prefer: 'auto', label: caps.canShareFiles ? (video ? 'ビデオを保存 / 共有' : '写真に保存 / 共有') : 'ダウンロード' };
   const secondary: { prefer: SavePreference; label: string } | null = desk
     ? caps.canPickLocation && caps.hasDownloadAttribute
       ? { prefer: 'download', label: '既定の場所にダウンロード' }
@@ -128,20 +153,48 @@ export function ExportSheet({
      * 以前は中身の高さに任せていたので、大きな画像だとボタンまで送らないと届かなかった
      * （実機で指摘された）。画像が小さくなっても、保存の導線が見えているほうが先。
      */
-    <Sheet title={blob ? '書き出しました' : '書き出し中…'} size="tall" fill bodyClass="sheet__body--fit" onClose={onClose}>
+    <Sheet
+      title={blob ? '書き出しました' : video ? `書き出し中… ${Math.floor(progress * 100)}%` : '書き出し中…'}
+      size="tall"
+      fill
+      bodyClass="sheet__body--fit"
+      onClose={onClose}
+    >
       <div className="result">
-        {url && <img src={url} alt="書き出した画像" className="result-img" />}
+        {url &&
+          (video ? (
+            // 音を出さずに繰り返す。確かめたい人は操作で音を出せる
+            <video src={url} className="result-img" controls playsInline loop muted autoPlay aria-label="書き出した動画" />
+          ) : (
+            <img src={url} alt="書き出した画像" className="result-img" />
+          ))}
+        {video && !blob && !error && (
+          <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress * 100)}>
+            <span style={{ width: `${Math.max(2, progress * 100)}%` }} />
+          </div>
+        )}
       </div>
       <div className="result__rest">
         {error && <p className="band">{error}</p>}
-        {url && savable && (
+        {exported?.video && (exported.video.trimmed || exported.video.audio === 'dropped') && (
+          <p className="e1" style={{ padding: 0 }}>
+            {exported.video.trimmed && `長い動画なので、先頭の ${fmtSec(exported.video.seconds)} を書き出しました。`}
+            {exported.video.audio === 'dropped' && 'この端末では音声を入れられませんでした（映像だけです）。'}
+          </p>
+        )}
+        {video && !blob && !error && (
+          <p className="e1" style={{ padding: 0 }}>
+            1コマずつ枠を描いています。この画面を閉じると取りやめます。
+          </p>
+        )}
+        {url && savable && !video && (
           <p className="e1" style={{ padding: 0 }}>
             {/* 長押しはスマホの作法。PC では右クリック */}
             {desk ? '↑ 画像を右クリックして保存することもできます' : '↑ 画像を長押しして「写真に保存」'}
             {inFrame() && '（この画面は枠の中で動いているため、これが唯一の保存方法です）'}
           </p>
         )}
-        {url && !savable && (
+        {url && !savable && !video && (
           <p className="band">
             この画像は大きすぎて、長押しでは保存できません。
             {inFrame()

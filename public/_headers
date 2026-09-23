@@ -3,11 +3,12 @@
 #
 # CSP は「このアプリが通信する先」の一覧でもある（§12）。外部の先は無い。
 #   img-src blob: data: … 書き出した画像の表示（長押し保存のため data:）
+#   media-src blob: … 書き出した動画の表示（無いと default-src に落ちて再生が遮断される。実測）
 #   style-src 'unsafe-inline' … React の style 属性
 #   worker-src blob: … 将来の一括処理の Worker
 #   frame-ancestors 'none' … 他のサイトの枠の中に入れない（枠の中では保存が効かない）
 /*
-  Content-Security-Policy: default-src 'self'; img-src 'self' blob: data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   Permissions-Policy: geolocation=(), camera=(), microphone=(), interest-cohort=()

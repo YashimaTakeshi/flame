@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildScene, INK, type SceneInput } from '../core/compose';
 import { rgba, type Rgba } from '../core/scene/ops';
 import type { Focus } from '../core/styles/types';
-import type { Scene } from '../core/scene/scene';
+import type { RenderTarget, Scene } from '../core/scene/scene';
 import { wallClockFromDate } from '../core/wallclock';
 import { softwareTag } from '../build-info';
 import { closeDecoded, decode, type DecodedPhoto } from '../platform/decode';
 import { reinjectExif } from '../platform/exif-write';
+import { isVideoFile } from '../platform/video-kind';
+/** 動画の本体は動画を選んだときだけ読む（mediabunny を含み重い） */
+const videoModule = () => import('../platform/video');
 import { makeFilename, nowWallClock } from '../platform/save';
 import { safeStorage } from '../platform/storage';
 import { renderScene } from '../render/executor';
@@ -27,7 +30,7 @@ import type { BadgeImage } from '../core/badge';
 import { flushSettings } from './state/persist';
 import { fontRefFor, preloadLatinFonts } from './fonts-catalog';
 import { colorOf } from './panels/constants';
-import { ExportSheet, type Exported } from './sheets/ExportSheet';
+import { ExportSheet, type Render } from './sheets/ExportSheet';
 import { InfoSheet } from './sheets/InfoSheet';
 import { DEFAULT_FIELDS, useDoc } from './state/doc';
 import { bindSheetHistory, useUi } from './state/ui';
@@ -63,9 +66,14 @@ const readFocus = (): Focus => useDoc.getState().focus;
 
 interface Loaded {
   readonly file: File;
+  /** 写真はその1枚、動画は最初のコマ。編集とプレビューはこれで行う */
   readonly decoded: DecodedPhoto;
   readonly exif: ExifFacts;
+  /** 動画のときだけ。書き出しは元の動画から1コマずつ描く */
+  readonly video: { readonly duration: number; readonly hasAudio: boolean } | null;
 }
+
+const fmtSec = (s: number): string => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 
 export function App(): React.ReactElement {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -248,13 +256,21 @@ export function App(): React.ReactElement {
     setLoadError(null);
     setBandDismissed(false);
     try {
-      const [decoded, exif] = await Promise.all([
-        decode(file, { resizeWidth: 2048 }),
-        readExif(file),
-      ]);
+      let next: Loaded;
+      if (isVideoFile(file)) {
+        setBusy('動画を読み込んでいます');
+        const { openVideo } = await videoModule();
+        const v = await openVideo(file, { posterWidth: 2048 });
+        // 動画の撮影情報は写真の EXIF ほど揃わない（露出は入っていない）
+        const exif: ExifFacts = { ...EMPTY_EXIF, camera: v.meta.camera, lens: v.meta.lens, dateTaken: v.meta.dateTaken, gps: v.meta.gps };
+        next = { file, decoded: v.poster, exif, video: { duration: v.duration, hasAudio: v.hasAudio } };
+      } else {
+        const [decoded, exif] = await Promise.all([decode(file, { resizeWidth: 2048 }), readExif(file)]);
+        next = { file, decoded, exif, video: null };
+      }
       setLoaded((prev) => {
         if (prev) closeDecoded(prev.decoded);
-        return { file, decoded, exif };
+        return next;
       });
       useDoc.getState().resetFocus();
     } catch (e) {
@@ -272,7 +288,7 @@ export function App(): React.ReactElement {
   useEffect(() => {
     const imageOf = (files: FileList | undefined | null): File | null => {
       for (const f of Array.from(files ?? [])) {
-        if (f.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|avif|tiff?)$/i.test(f.name)) return f;
+        if (f.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|avif|tiff?)$/i.test(f.name) || isVideoFile(f)) return f;
       }
       return null;
     };
@@ -313,8 +329,37 @@ export function App(): React.ReactElement {
   }, [pick]);
 
   /** 書き出し。原寸を掴むのはここだけ。終わったらすぐ手放す */
-  const renderFull = useCallback(async (): Promise<Exported> => {
+  const renderFull: Render = useCallback(async ({ onProgress, signal }) => {
     if (!loaded || !scene) throw new Error('写真が選ばれていません');
+    if (loaded.video) {
+      /*
+       * 動画: 1コマ＝1枚の写真として、同じ Scene を同じ描き手で描く。
+       * 大きさは長辺 1920 で縦横とも偶数（H.264 の約束）。偶数に丸めた分だけ倍率を合わせる
+       */
+      const { evenSize, exportVideo, VIDEO_LONG_EDGE } = await videoModule();
+      const aspect = scene.canvas.widthLu / scene.canvas.heightLu;
+      const size = evenSize(aspect, VIDEO_LONG_EDGE);
+      const k = size.w / scene.canvas.widthLu;
+      const target: RenderTarget = { widthPx: size.w, heightPx: size.h, k, kExport: k, kind: 'export', dpr: 1 };
+      const v = await exportVideo(loaded.file, {
+        width: size.w,
+        height: size.h,
+        onProgress,
+        signal,
+        render: (frame, ctx) =>
+          renderScene(scene, ctx, target, {
+            photo: (id) => (id === 'photo' ? frame : filmLogoImage(id)),
+            grainTile: () => null,
+            verticalText: () => null,
+          }),
+      });
+      return {
+        blob: v.blob,
+        filename: makeFilename(loaded.exif.dateTaken ?? nowWallClock(), v.ext),
+        exif: 'skipped',
+        video: { audio: v.audio, seconds: v.seconds, trimmed: v.trimmed },
+      };
+    }
     const full = await decode(loaded.file);
     try {
       const target = makeExportTarget(scene, EXPORT_LONG_EDGE);
@@ -424,7 +469,7 @@ export function App(): React.ReactElement {
         <input
           ref={fileRef}
           type="file"
-          accept="image/*"
+          accept="image/*,video/*"
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -457,6 +502,12 @@ export function App(): React.ReactElement {
                 data-pannable={bleed || undefined}
               />
               {preview.slow && <span className="stage__dot" aria-hidden="true" />}
+              {/* 動画のときは、いま見えているのが最初のコマだと分かるように */}
+              {loaded.video && (
+                <span className="stage__chip" aria-label={`動画 ${fmtSec(loaded.video.duration)}`}>
+                  ▶ {fmtSec(loaded.video.duration)}
+                </span>
+              )}
               {/* 注記は操作の上に重ねない。プレビューの足元に短く出て、自分で消える */}
               {hint && (
                 <p className="stage__hint" role="status">
@@ -513,7 +564,7 @@ export function App(): React.ReactElement {
       )}
 
       {sheet === 'info' && <InfoSheet exif={exif} onClose={closeSheet} />}
-      {sheet === 'export' && <ExportSheet render={renderFull} onClose={closeSheet} />}
+      {sheet === 'export' && <ExportSheet render={renderFull} video={loaded?.video != null} onClose={closeSheet} />}
       {sheet === 'diagnostics' && (
         <Sheet title="この端末を調べる" size="full" onClose={closeSheet}>
           <Diagnostics />

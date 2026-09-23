@@ -95,6 +95,13 @@ export function saveCapabilities(): SaveCapabilities {
  * 保存先を選んで書く。**利用者の操作から同期的に呼ぶこと**（窓を開く権利は操作に紐づく）。
  * 取りやめは失敗ではない。窓を閉じただけの人に落ち度があるように見せない。
  */
+/** 保存先を選ぶ窓に出す種類。動画は動画として（拡張子が .jpg に直されないように） */
+function pickerType(mime: string): { description: string; accept: Record<string, string[]> } {
+  if (mime === 'video/mp4') return { description: 'MP4 動画', accept: { 'video/mp4': ['.mp4'] } };
+  if (mime === 'video/webm') return { description: 'WebM 動画', accept: { 'video/webm': ['.webm'] } };
+  return { description: 'JPEG 画像', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } };
+}
+
 async function saveWithPicker(blob: Blob, filename: string): Promise<SaveOutcome | null> {
   const w = window as Window & PickerWindow;
   if (typeof w.showSaveFilePicker !== 'function') return null;
@@ -102,7 +109,7 @@ async function saveWithPicker(blob: Blob, filename: string): Promise<SaveOutcome
   try {
     handle = await w.showSaveFilePicker({
       suggestedName: filename,
-      types: [{ description: 'JPEG 画像', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } }],
+      types: [pickerType(blob.type)],
     });
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') {
@@ -198,8 +205,8 @@ export const nowWallClock = (): WallClock => wallClockFromDate(new Date());
  * 時刻は**撮影日時**（あれば）。書き出した時刻にすると、写真アプリやフォルダで
  * 旅行の順番が崩れる。撮影日時は壁時計のまま使う（§16.1）
  */
-export function makeFilename(at: WallClock = nowWallClock()): string {
-  return `fuchidori-${toStamp(at)}.jpg`;
+export function makeFilename(at: WallClock = nowWallClock(), ext: 'jpg' | 'mp4' | 'webm' = 'jpg'): string {
+  return `fuchidori-${toStamp(at)}.${ext}`;
 }
 
 /**
