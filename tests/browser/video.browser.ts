@@ -5,9 +5,10 @@
  * 試験用の動画（tests/fixtures/clip-portrait.webm）は 720×1280・3秒・30fps・音声（Opus）付きで、
  * 赤い四角が左から右へ動く（コマごとに描き直されていることが分かる）。
  *
- * この Chromium は H.264 を書けないので、ここで通るのは WebM（VP9）の経路。
- * MP4（H.264）の経路は iPhone の Safari・PC の Chrome で通る（形式の選び方は同じ関数）。
+ * 通る経路は Chromium の版しだい。H.264 を書ける版（CI）は MP4、書けない版は WebM（VP9）。
+ * どちらでも同じ期待（大きさ・長さ・枠）で確かめ、音声だけは形式に応じて期待を変える。
  */
+import { canEncodeAudio } from 'mediabunny';
 import { evenSize, exportVideo, openVideo, VideoError } from '../../src/platform/video';
 import { createVerifiedCanvas } from '../../src/render/guards';
 import { done, expectEqual, expectTrue, test } from './harness';
@@ -62,7 +63,14 @@ await test('★1コマずつ描いて書き出す。大きさ・長さ・音声�
     },
   });
   expectTrue(frames >= 85 && frames <= 95, `コマ数が約90: ${frames}`);
-  expectEqual(out.audio, 'kept', '音声');
+  /*
+   * 音声は形式しだい。WebM なら元の Opus をそのまま写せる。
+   * MP4 なら AAC が要り、元が Opus なので作り直せる端末でだけ入る（作れなければ落として告げる）。
+   * CI の Chromium は H.264 を書けるので MP4、この環境の Chromium は書けないので WebM を通る
+   */
+  const expectAudio = out.ext === 'webm' || (await canEncodeAudio('aac')) ? 'kept' : 'dropped';
+  console.log(`  （形式 ${out.ext}・音声 ${out.audio}）`);
+  expectEqual(out.audio, expectAudio, `音声（${out.ext}）`);
   expectEqual(out.trimmed, false, '切っていない');
   expectTrue(out.blob.size > 10_000, `中身がある: ${out.blob.size}`);
 
@@ -70,7 +78,7 @@ await test('★1コマずつ描いて書き出す。大きさ・長さ・音声�
   expectEqual(back.poster.natural.w, w, '書き出した幅');
   expectEqual(back.poster.natural.h, h, '書き出した高さ');
   expectTrue(Math.abs(back.duration - 3) < 0.15, `書き出した長さ: ${back.duration}`);
-  expectTrue(back.hasAudio, '書き出した動画に音声がある');
+  expectEqual(back.hasAudio, expectAudio === 'kept', '書き出した動画に音声がある（入れたときだけ）');
   // 枠（白）が入っているか。四隅の近くを読む
   const c = createVerifiedCanvas(w, h);
   if (!c.ok) throw new Error('キャンバスを作れない');
