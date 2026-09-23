@@ -10,7 +10,7 @@ import { reinjectExif } from '../platform/exif-write';
 import { isVideoFile } from '../platform/video-kind';
 /** 動画の本体は動画を選んだときだけ読む（mediabunny を含み重い） */
 const videoModule = () => import('../platform/video');
-import { makeFilename, nowWallClock } from '../platform/save';
+import { inAppBrowser, makeFilename, nowWallClock } from '../platform/save';
 import { safeStorage } from '../platform/storage';
 import { renderScene } from '../render/executor';
 import { createVerifiedCanvas, encodeCanvas, release } from '../render/guards';
@@ -259,7 +259,92 @@ export function App(): React.ReactElement {
   const bleed = doc.style.margin === 'none';
   const beginDrag = useDoc((s) => s.beginDrag);
   const dragFocus = useDoc((s) => s.dragFocus);
-  usePan(canvasRef, scene, bleed && loaded !== null, readFocus, beginDrag, dragFocus, layout);
+  /*
+   * 動かせるのは切り取っているときだけ（写真とキャンバスの比が違う）。
+   * 以前は余白なしなら必ず掴む印を出していて、元比では掴んでも何も動かなかった
+   */
+  const crop = scene?.ops.find((o) => o.op === 'photo' && o.photo === 'photo');
+  const pannable =
+    bleed && loaded !== null && crop?.op === 'photo' && (crop.srcNorm.w < 0.999 || crop.srcNorm.h < 0.999);
+  /*
+   * ダブルタップで拡大して見る（スマホ）。プレビューの文字は画面では数 px しかなく、
+   * 書体・字間・大きさを変えても違いが見えなかった。拡大の間は指で送って見回し、
+   * もう一度ダブルタップ（か ✕）で戻る。拡大の間だけ細かく描き直すので、にじまない。
+   * 余白なしで動かせるときも、1本指のドラッグは切り取り、ダブルタップは拡大、と役目を分ける
+   */
+  const [zoomState, setZoomState] = useState<{ x: number; y: number; of: Loaded; lay: string } | null>(null);
+  const ZOOM = 2.5;
+  // 写真・組み方が変わったら戻す（覚えた拡大はその写真・その組み方のときだけ効く）
+  const zoom = zoomState && zoomState.of === loaded && zoomState.lay === layout ? zoomState : null;
+  const setZoom = (z: { x: number; y: number } | null): void =>
+    setZoomState(z && loaded ? { ...z, of: loaded, lay: layout } : null);
+  usePan(canvasRef, scene, pannable && zoom === null, readFocus, beginDrag, dragFocus, layout);
+  const tapRef = useRef({ t: 0, x: 0, y: 0 });
+  const zoomDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const onZoomDown = (e: React.PointerEvent<HTMLCanvasElement>): void => {
+    if (desk) return;
+    const now = e.timeStamp;
+    const last = tapRef.current;
+    const near = Math.hypot(e.clientX - last.x, e.clientY - last.y) < 30;
+    tapRef.current = { t: now, x: e.clientX, y: e.clientY };
+    if (near && now - last.t < 320) {
+      tapRef.current.t = 0;
+      if (zoom) {
+        setZoom(null);
+      } else {
+        const r = e.currentTarget.getBoundingClientRect();
+        setZoom({ x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
+      }
+      return;
+    }
+    if (zoom) {
+      zoomDrag.current = { x: e.clientX, y: e.clientY, ox: zoom.x, oy: zoom.y };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+  };
+  const onZoomMove = (e: React.PointerEvent<HTMLCanvasElement>): void => {
+    const d = zoomDrag.current;
+    if (!d || !zoom) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    // r は拡大後の大きさ。拡大前の幅に戻し、原点の動く量に直す（原点は 0..1 で端から端まで）
+    const w = r.width / ZOOM;
+    const h = r.height / ZOOM;
+    const c = (n: number): number => Math.min(1, Math.max(0, n));
+    setZoom({ x: c(d.ox - (e.clientX - d.x) / (w * (ZOOM - 1))), y: c(d.oy - (e.clientY - d.y) / (h * (ZOOM - 1))) });
+  };
+  const onZoomUp = (): void => {
+    zoomDrag.current = null;
+  };
+
+  /*
+   * 動かせることは見ても分からない。余白なしにしたとき（と比率を変えて動かせるようになったとき）、
+   * 起動ごとに1回だけ足元で知らせる
+   */
+  const panToldRef = useRef(false);
+  const setHint = useUi((s) => s.setHint);
+  useEffect(() => {
+    if (!bleed || panToldRef.current || !scene) return;
+    panToldRef.current = true;
+    if (pannable) setHint(desk ? 'ドラッグで位置を決められます' : '写真を指で動かして位置を決められます');
+    else if (doc.style.ratio === 'OR') setHint('比率を変えると位置を動かせます');
+    else panToldRef.current = false;
+  }, [bleed, pannable, desk, doc.style.ratio, scene, setHint]);
+
+  /* キーボードでも動かす。矢印で 2%、Shift で 10%。ダブルクリックで真ん中に戻す */
+  const onCanvasKey = (e: React.KeyboardEvent<HTMLCanvasElement>): void => {
+    const step = e.shiftKey ? 0.1 : 0.02;
+    const d: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    const v = d[e.key];
+    if (!v) return;
+    e.preventDefault();
+    const f = useDoc.getState().focus;
+    beginDrag();
+    dragFocus({ x: f.x + v[0] * step, y: f.y + v[1] * step });
+  };
+  const onCanvasDouble = (): void => {
+    beginDrag();
+    useDoc.getState().resetFocus();
+  };
 
   /*
    * 動画は編集中も流す（書き出す前に、動いたときの見え方を確かめられる）。
@@ -271,6 +356,14 @@ export function App(): React.ReactElement {
     loaded?.video ? loaded.decoded.natural : null,
     sheet === null && pageVisible,
   );
+
+  /* 音のある動画が流れ始めたら、起動ごとに1回だけ「音を出せる」と知らせる（印だけでは押せると分からない） */
+  const soundToldRef = useRef(false);
+  useEffect(() => {
+    if (soundToldRef.current || playback.state !== 'playing' || !loaded?.video?.hasAudio) return;
+    soundToldRef.current = true;
+    setHint('スピーカーの印で音を出せます');
+  }, [playback.state, loaded, setHint]);
 
   /** 描くときに識別子から画像を引く。写真は1枚、動画はいまのコマ（まだ無ければ最初のコマ）、札は名前ごと */
   const playbackSource = playback.source;
@@ -288,7 +381,24 @@ export function App(): React.ReactElement {
     EXPORT_LONG_EDGE,
     layout,
     loaded?.video ? playback.subscribe : null,
+    zoom ? ZOOM : 1,
   );
+
+  /* 拡大できることは見ても分からない。スマホで最初の数回だけ足元で知らせる */
+  useEffect(() => {
+    if (!loaded || desk) return;
+    try {
+      const n = Number(localStorage.getItem('fuchidori:zoom-told') ?? '0');
+      if (n >= 3) return;
+      localStorage.setItem('fuchidori:zoom-told', String(n + 1));
+    } catch {
+      return;
+    }
+    const t = setTimeout(() => {
+      if (!useUi.getState().hint) setHint('ダブルタップで文字を拡大');
+    }, 900);
+    return () => clearTimeout(t);
+  }, [loaded, desk, setHint]);
 
   const pick = useCallback(async (file: File) => {
     setBusy('写真を読み込んでいます');
@@ -565,7 +675,11 @@ export function App(): React.ReactElement {
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) void pick(f);
+            if (f) {
+              // 書き出しの窓の「次の写真を選ぶ」から来たら、選び終えた時点で窓を閉じる
+              if (useUi.getState().sheet === 'export') closeSheet();
+              void pick(f);
+            }
             e.target.value = '';
           }}
         />
@@ -590,10 +704,24 @@ export function App(): React.ReactElement {
                 ref={canvasRef}
                 className="stage__canvas"
                 role="img"
-                aria-label={bleed ? '枠を付けた写真のプレビュー。動かして切り取る位置を決める' : '枠を付けた写真のプレビュー'}
-                data-pannable={bleed || undefined}
+                aria-label={pannable ? '枠を付けた写真のプレビュー。動かして切り取る位置を決める（矢印キーでも）' : '枠を付けた写真のプレビュー'}
+                data-pannable={pannable || undefined}
+                tabIndex={pannable ? 0 : undefined}
+                onKeyDown={pannable ? onCanvasKey : undefined}
+                onDoubleClick={pannable && desk ? onCanvasDouble : undefined}
+                onPointerDown={onZoomDown}
+                onPointerMove={onZoomMove}
+                onPointerUp={onZoomUp}
+                onPointerCancel={onZoomUp}
+                data-zoomed={zoom ? true : undefined}
+                style={zoom ? { transform: `scale(${ZOOM})`, transformOrigin: `${zoom.x * 100}% ${zoom.y * 100}%` } : undefined}
               />
               {preview.slow && <span className="stage__dot" aria-hidden="true" />}
+              {zoom && (
+                <button type="button" className="stage__chip stage__chip--btn stage__zoom" aria-label="拡大をやめる" onClick={() => setZoom(null)}>
+                  {ZOOM}× ✕
+                </button>
+              )}
               {/*
                * 動画の印。流れている間はスピーカーの印で音を出し入れする（音は消して始まる）。
                * 自動再生を止められたら ▶ で流す。流せない端末では長さだけ出す（最初のコマのまま）
@@ -642,6 +770,7 @@ export function App(): React.ReactElement {
               type="button"
               className="opener"
               aria-label="写真を選ぶ"
+              title={desk ? '写真を選ぶ（ドロップ・Ctrl+V でも開けます）' : undefined}
               aria-busy={busy !== null || undefined}
               disabled={busy !== null}
               onClick={() => fileRef.current?.click()}
@@ -653,6 +782,8 @@ export function App(): React.ReactElement {
                 {busy}
               </p>
             )}
+            {/* LINE などの中のブラウザだけ。作業を始める前に出口を知らせる */}
+            {!busy && inAppBrowser() && <p className="home__note">保存できないときは右上の … から「ブラウザで開く」</p>}
             <ShareApp />
           </div>
         )}
@@ -691,7 +822,14 @@ export function App(): React.ReactElement {
       )}
 
       {sheet === 'info' && <InfoSheet exif={exif} onClose={closeSheet} />}
-      {sheet === 'export' && <ExportSheet render={renderFull} video={loaded?.video != null} still={canvasRef} onClose={closeSheet} />}
+      {sheet === 'export' && <ExportSheet
+          render={renderFull}
+          video={loaded?.video != null}
+          still={canvasRef}
+          // await を挟まずに開く（iOS は操作の中でしか選択を開かない）
+          onNextPhoto={() => fileRef.current?.click()}
+          onClose={closeSheet}
+        />}
       {sheet === 'diagnostics' && (
         <Sheet title="この端末を調べる" size="full" onClose={closeSheet}>
           <Diagnostics />

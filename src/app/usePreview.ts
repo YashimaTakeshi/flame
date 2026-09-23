@@ -43,6 +43,8 @@ export function usePreview(
    * 描き直しはいつもの経路のまま（rAF で合流するので、合図が多くても1フレームに1回）
    */
   subscribe: ((onFrame: () => void) => () => void) | null = null,
+  /** 拡大して見ている倍率（ダブルタップ）。1 なら普段どおり */
+  zoom = 1,
 ): PreviewState {
   const [error, setError] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
@@ -63,7 +65,7 @@ export function usePreview(
         const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
         const cssWidth = Math.max(80, host.clientWidth - padX);
 
-        const target = makePreviewTarget(scene, cssWidth, window.devicePixelRatio || 1, exportLongEdge);
+        const target = makePreviewTarget(scene, cssWidth, window.devicePixelRatio || 1, exportLongEdge, zoom);
         if (canvas.width !== target.widthPx) canvas.width = target.widthPx;
         if (canvas.height !== target.heightPx) canvas.height = target.heightPx;
 
@@ -117,7 +119,7 @@ export function usePreview(
       if (raf.current) cancelAnimationFrame(raf.current);
       raf.current = 0;
     };
-  }, [canvasRef, hostRef, scene, image, exportLongEdge, mountKey, subscribe]);
+  }, [canvasRef, hostRef, scene, image, exportLongEdge, mountKey, subscribe, zoom]);
 
   useEffect(
     () => () => {

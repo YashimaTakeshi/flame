@@ -76,6 +76,7 @@ export function ExportSheet({
   render,
   video = false,
   still = null,
+  onNextPhoto,
   onClose,
 }: {
   render: Render;
@@ -83,6 +84,8 @@ export function ExportSheet({
   video?: boolean;
   /** 今のプレビュー。写真の書き出しを待つ間、薄く見せておく（空の画面にしない） */
   still?: React.RefObject<HTMLCanvasElement | null> | null;
+  /** 保存できたあとの「次の写真を選ぶ」。今の設定のまま次の1枚へ（写真の選択を開く） */
+  onNextPhoto?: () => void;
   onClose: () => void;
 }): React.ReactElement {
   const [exported, setExported] = useState<Exported | null>(null);
@@ -205,7 +208,7 @@ export function ExportSheet({
      * （実機で指摘された）。画像が小さくなっても、保存の導線が見えているほうが先。
      */
     <Sheet
-      title={blob ? '書き出しました' : video ? `書き出し中… ${Math.floor(progress * 100)}%` : '書き出し中…'}
+      title={outcome?.ok ? '保存しました ✓' : blob ? '書き出しました' : video ? `書き出し中… ${Math.floor(progress * 100)}%` : '書き出し中…'}
       size="tall"
       fill
       bodyClass="sheet__body--fit"
@@ -297,25 +300,36 @@ export function ExportSheet({
             {primary.label}
           </button>
         )}
+        {/* 主ボタンは1本。ほかの保存の仕方は文字のリンクで脇に（同じ重さのボタンを並べない） */}
         {blob && !inFrame() && (secondary || share) && (
-          <div className="btnrow">
+          <div className="linkrow">
             {secondary && (
-              <button type="button" className="btn btn--sec" onClick={() => save(secondary.prefer)}>
+              <button type="button" className="btn--link" onClick={() => save(secondary.prefer)}>
                 {secondary.label}
               </button>
             )}
             {share && (
-              <button type="button" className="btn btn--sec" onClick={() => save(share.prefer)}>
+              <button type="button" className="btn--link" onClick={() => save(share.prefer)}>
                 {share.label}
               </button>
             )}
           </div>
         )}
-        <button type="button" className="btn btn--sec" onClick={onClose}>
-          続けて編集する
-        </button>
-        {/* 作ったものを見せた直後が、人に教えたくなるとき */}
-        <ShareApp variant="button" />
+        {/*
+         * 保存できたら、同じ設定で次の1枚へ。写真を選び終えたら窓は閉じる（App）。
+         * 編集に戻る道は ✕ と戻るスワイプに残る
+         */}
+        {outcome?.ok && onNextPhoto ? (
+          <button type="button" className="btn btn--sec" onClick={onNextPhoto}>
+            次の写真を選ぶ
+          </button>
+        ) : (
+          <button type="button" className="btn btn--sec" onClick={onClose}>
+            続けて編集する
+          </button>
+        )}
+        {/* 作ったものを見せた直後が、人に教えたくなるとき。控えめな文字で */}
+        <ShareApp variant="quiet" />
       </div>
     </Sheet>
   );

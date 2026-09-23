@@ -50,13 +50,19 @@ export function makeExportTarget(scene: Scene, longEdgePx: number): RenderTarget
  * プレビュー。実効は min(cssWidth × min(dpr,2), 1400)。
  * kExport は「いまの書き出し設定で書き出したときの倍率」を渡す。
  */
+/** 拡大して見ているときの上限。拡大の間だけ（戻せば普段の上限に戻る） */
+export const PREVIEW_ZOOM_MAX_PX = 2240;
+
 export function makePreviewTarget(
   scene: Scene,
   cssWidth: number,
   dpr: number,
   exportLongEdge: number,
+  /** 拡大して見ている倍率。文字がにじまないよう、その分だけ細かく描く */
+  zoom = 1,
 ): RenderTarget {
-  const widthPx = Math.min(Math.round(cssWidth * Math.min(dpr, DPR_CAP)), PREVIEW_MAX_PX);
+  const cap = zoom > 1 ? PREVIEW_ZOOM_MAX_PX : PREVIEW_MAX_PX;
+  const widthPx = Math.min(Math.round(cssWidth * Math.min(dpr, DPR_CAP) * zoom), cap);
   const aspect = scene.canvas.heightLu / scene.canvas.widthLu;
   const longEdge = aspect >= 1 ? widthPx * aspect : widthPx;
   return makeTarget(scene, longEdge, 'preview', exportScaleFor(scene, exportLongEdge), dpr);

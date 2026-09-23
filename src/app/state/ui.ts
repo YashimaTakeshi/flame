@@ -47,6 +47,7 @@ interface UiStore {
 
 /** 注記が出ている時間。読み終わる長さだけ出して、あとは黙る */
 const HINT_MS = 2500;
+const HINT_MS_DESK = 4000;
 let hintTimer: ReturnType<typeof setTimeout> | null = null;
 
 /*
@@ -106,7 +107,9 @@ export const useUi = create<UiStore>((set) => ({
   setHint: (hint) => {
     if (hintTimer) clearTimeout(hintTimer);
     set({ hint });
-    if (hint) hintTimer = setTimeout(() => set({ hint: null }), HINT_MS);
+    // PC では注記がプレビューの端に出て目に入りにくいので、少し長く残す
+    const desk = typeof document !== 'undefined' && document.querySelector('.app[data-layout="desk"]') !== null;
+    if (hint) hintTimer = setTimeout(() => set({ hint: null }), desk ? HINT_MS_DESK : HINT_MS);
   },
 }));
 

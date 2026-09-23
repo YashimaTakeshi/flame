@@ -180,7 +180,22 @@
   grid-template-rows: minmax(0, 1fr);
   grid-template-columns: minmax(0, 1fr);
   place-items: center;
-  padding: var(--s3) var(--s4);
+  /* 左右は画面の縁と同じ 16px。以前の 32px は横位置の写真を1割小さくしていた */
+  padding: var(--s3) var(--gutter);
+}
+
+/*
+ * 背の低い端末（iPhone SE など）。写真が名刺ほどになっていた。
+ * 見出しと道具の列と写真の上下の余白を詰める。指で押す大きさ（44px）は変えない
+ */
+@media (max-height: 620px) {
+  :root {
+    --header-h: 40px;
+    --tabbar-h: 54px;
+  }
+  .stage {
+    padding: 12px var(--gutter);
+  }
 }
 
 /*
@@ -195,6 +210,24 @@
 }
 
 /* 全面のとき、写真は指で動かせる。ページのスクロールに取られないよう触れ方を宣言する */
+.stage__canvas {
+  /* ダブルタップをページの拡大に取られないように（拡大は canvas が自分で行う） */
+  touch-action: manipulation;
+}
+.stage__canvas[data-zoomed] {
+  touch-action: none;
+  cursor: move;
+  position: relative;
+  z-index: 1;
+}
+.stage__zoom {
+  top: var(--s1);
+  right: var(--s1);
+  bottom: auto;
+  left: auto;
+  translate: none;
+  z-index: 2;
+}
 .stage__canvas[data-pannable='true'] {
   touch-action: none;
   cursor: grab;
@@ -206,6 +239,9 @@
 
 .stage__hint {
   position: absolute;
+  /* 注記は読むだけ。下の写真（ダブルタップ・ドラッグ）への指を遮らない */
+  pointer-events: none;
+  z-index: 3;
   left: 50%;
   bottom: var(--s1);
   translate: -50% 0;
@@ -284,6 +320,13 @@
 .opener[aria-busy='true'] .opener__mark {
   animation: breath 1200ms ease-in-out infinite;
 }
+.home__note {
+  margin: 0;
+  max-width: 280px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--ink-2);
+}
 .home__busy {
   margin: 0;
   font-size: 13px;
@@ -315,10 +358,9 @@
 /* ───────── 帯（撮影情報が無いときなど） ───────── */
 .band {
   margin: 0 var(--gutter) var(--s1);
-  padding: var(--s1) var(--s2);
-  border: 1px solid var(--line);
-  border-left: 2px solid var(--ink);
-  background: var(--bg);
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
   font-size: var(--t2);
   line-height: var(--t2-lh);
   max-height: 40dvh;
@@ -334,6 +376,25 @@
   flex-wrap: wrap;
   gap: var(--s1);
   margin-top: var(--s1);
+}
+/* 撮影情報が無いときの帯。1行の見出しと、横1列の短い出口3つ（320px でも収まる） */
+.band--noexif .band__acts {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+.band--noexif .btn--s {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 8px;
+  font-size: 0.75rem;
+  position: relative;
+}
+/* 見た目は 36px、当たりは 44px */
+.band--noexif .btn--s::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
 }
 
 /* ───────── オプション行 ───────── */
@@ -845,6 +906,24 @@
 
 /* ───────── 共通部品 ───────── */
 
+/* 脇の選択肢。主ボタンの下に文字のリンクで */
+.linkrow {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.btn--link {
+  min-height: var(--tap);
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: var(--t2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .btn {
   width: 100%;
   min-height: 56px;
@@ -984,7 +1063,7 @@
 
 .card__row {
   display: grid;
-  grid-template-columns: 6.5rem 1fr;
+  grid-template-columns: 5rem 1fr;
   align-items: center;
   min-height: 48px;
   gap: var(--s1);
@@ -1035,6 +1114,18 @@
 .card__row--stack > input {
   grid-column: 1 / -1;
   min-height: calc(var(--tap) - 8px);
+  text-align: left;
+}
+.card__row--stack > span {
+  padding-top: 10px;
+}
+.card__note {
+  grid-column: 1 / -1;
+  margin-top: -6px;
+  padding-bottom: 8px;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--ink-2);
 }
 
 .sheet__label {
@@ -1142,6 +1233,20 @@
 .app[data-layout='desk'] .stage__canvas {
   /* 影は少し深く。大きな暗い面の中で写真の縁が立つ */
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+
+/* PC では注記を設定の欄のそば（プレビューの右下）に。押した場所から遠くならないように */
+.app[data-layout='desk'] .stage__hint {
+  left: auto;
+  right: var(--s2);
+  translate: none;
+}
+
+/* PC のホーム。落とせる場所だと形で示す（文字は増やさない） */
+.app[data-layout='desk'][data-empty='true'] .stage {
+  margin: var(--s3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
 }
 
 /* ── 設定の欄 ── */
@@ -1356,6 +1461,8 @@
 }
 /* 押せる印（音の出し入れ・再生）。見た目は小さく、指の当たりは広く */
 .stage__chip--btn {
+  /* 押せる印だけ枠を付ける。押せない「▶ 0:12」とは見た目で分かれる */
+  box-shadow: inset 0 0 0 1px var(--line-strong);
   pointer-events: auto;
   display: inline-flex;
   align-items: center;

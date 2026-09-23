@@ -48,3 +48,22 @@
     }, 2500);
   });
 })();
+
+/*
+ * LINE の中のブラウザでは保存も共有も効かないことが多い（分かるのは作業を終えた後だった）。
+ * LINE は URL に openExternalBrowser=1 が付いていると外のブラウザで開き直す。一度だけ付け直す。
+ * 印（sessionStorage）で繰り返さない。#info などの印は保つ。
+ */
+(function () {
+  var KEY = 'fuchidori:line-external';
+  try {
+    if (!/\bLine\//.test(navigator.userAgent || '')) return;
+    if (/[?&]openExternalBrowser=1/.test(location.search)) return;
+    if (sessionStorage.getItem(KEY)) return;
+    sessionStorage.setItem(KEY, '1');
+  } catch (e) {
+    return;
+  }
+  var q = location.search ? location.search + '&' : '?';
+  location.replace(location.pathname + q + 'openExternalBrowser=1' + location.hash);
+})();

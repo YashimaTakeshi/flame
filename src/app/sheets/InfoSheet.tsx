@@ -80,7 +80,7 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
       <div className="card">
         <label className="card__row">
           <span>タイトル</span>
-          <input data-field="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル（省略できます）" />
+          <input data-field="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="省略可" />
         </label>
         <label className="card__row">
           <span>作者</span>
@@ -88,14 +88,15 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
             data-field="artist"
             value={artist}
             onChange={(e) => setArtist(e.target.value)}
-            placeholder="名前（省略できます）"
+            placeholder="省略可"
           />
         </label>
       </div>
 
       <p className="sheet__label">撮影の情報</p>
       <div className="card">
-        <label className="card__row">
+        {/* 写真の値は長い（レンズ名など）。見出しの下に全幅で、最後まで見せる */}
+        <label className="card__row card__row--stack">
           <span>カメラ</span>
           <input
             data-field="camera"
@@ -104,7 +105,7 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
             placeholder={exif.camera ?? 'カメラ名（写真に記録なし）'}
           />
         </label>
-        <label className="card__row">
+        <label className="card__row card__row--stack">
           <span>レンズ</span>
           <input
             data-field="lens"
@@ -151,6 +152,8 @@ export function InfoSheet({ exif, onClose }: { exif: ExifFacts; onClose: () => v
         <label className="card__row">
           <span>日付</span>
           <input data-field="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          {/* 日付の欄は見本の字を持てず、空だと「読めていない」に見える。写真の値を添える */}
+          {!date && exif.dateTaken && <small className="card__note">写真：{formatWallClock(exif.dateTaken, dateFormat)}</small>}
         </label>
         <label className="card__row">
           <span>書き方</span>
