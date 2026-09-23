@@ -4,10 +4,13 @@
  * 余白があるときは額の帯に、余白が「なし」のときは写真の上のその辺に重ねる。
  * 以前は「重ね」が5つ目の置き場所で、しかも下にしか置けなかった。
  * 「揃え（左右）」と「寄せ（上下）」は別々のタブにあったのを、3×3 の点1つにまとめた。
+ * 文字は写真に揃える（上下の帯は写真の幅、左右の段は写真の高さの範囲）。
+ * 先頭のスイッチで文字そのものを切れる。
  */
 import type { CaptionPlace, LineCount } from '../../core/styles/types';
 import { useDoc } from '../state/doc';
-import { Anchor, Pics, Row, Stepper, type Opt } from '../ui/controls';
+import { useUi } from '../state/ui';
+import { Anchor, Pics, Row, Stepper, Switch, type Opt } from '../ui/controls';
 import { PlacePic } from '../ui/pics';
 import { CAPTION_PLACE_JA, CAPTION_PLACES_UI, LINE_OPTIONS, SIZE_OPTIONS, TRACK_OPTIONS } from './constants';
 
@@ -19,6 +22,10 @@ export function TextPanel(): React.ReactElement {
   const tracking = useDoc((s) => s.tracking);
   const set = useDoc((s) => s.set);
   const setCaptionPos = useDoc((s) => s.setCaptionPos);
+  const on = useDoc((s) => s.captionOn);
+  const setHint = useUi((s) => s.setHint);
+  const textY = useUi((s) => s.freedom.textY);
+  const off = (): void => setHint('「文字を入れる」をオンにしてください');
 
   const overlay = style.margin === 'none';
   const places: readonly Opt<CaptionPlace>[] = CAPTION_PLACES_UI.map((p) => ({
@@ -31,31 +38,45 @@ export function TextPanel(): React.ReactElement {
 
   return (
     <div className="pnl">
-      <Row label="置き場所">
-        <Pics label="文字の置き場所" options={places} value={style.caption} onChange={(v) => setStyle({ caption: v })} />
+      {/* 文字を入れない写真もある。切ると帯ごと消え、設定は薄く残る（入れ直せば元どおり） */}
+      <Row label="文字">
+        <div className="pair">
+          <Switch label="文字を入れる" on={on} onChange={(v) => set('captionOn', v)} />
+          <span className="pair__note">{on ? '入れる' : '入れない'}</span>
+        </div>
       </Row>
-      <Row label="位置">
+      <Row label="置き場所" dim={!on}>
+        <Pics label="文字の置き場所" options={places} value={style.caption} onChange={(v) => setStyle({ caption: v })} disabled={!on} onDisabledPick={off} />
+      </Row>
+      <Row label="位置" dim={!on}>
         <div className="pair">
           <Anchor
             label="帯の中の文字の位置"
             h={align}
             v={style.captionAlign}
             lockV={lockV}
+            activeV={textY}
             onChange={(h, v) => setCaptionPos(h, v)}
+            disabled={!on}
+            onDisabledPick={(why) =>
+              why === 'all' ? off() : setHint('文字の上下に余りがありません（写真を上下に寄せると動かせます）')
+            }
           />
           <Pics
             label="行数"
             options={LINE_OPTIONS}
             value={`${style.lines}`}
             onChange={(v) => setStyle({ lines: Number(v) as LineCount })}
+            disabled={!on}
+            onDisabledPick={off}
           />
         </div>
       </Row>
-      <Row label="大きさ">
-        <Stepper label="文字の大きさ" options={SIZE_OPTIONS} value={size} defaultValue="Medium" onChange={(v) => set('size', v)} />
+      <Row label="大きさ" dim={!on}>
+        <Stepper label="文字の大きさ" options={SIZE_OPTIONS} value={size} defaultValue="Medium" onChange={(v) => set('size', v)} disabled={!on} onDisabledPick={off} />
       </Row>
-      <Row label="字間">
-        <Stepper label="字間" options={TRACK_OPTIONS} value={tracking} defaultValue="Normal" onChange={(v) => set('tracking', v)} />
+      <Row label="字間" dim={!on}>
+        <Stepper label="字間" options={TRACK_OPTIONS} value={tracking} defaultValue="Normal" onChange={(v) => set('tracking', v)} disabled={!on} onDisabledPick={off} />
       </Row>
     </div>
   );

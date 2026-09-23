@@ -206,7 +206,8 @@ export function App(): React.ReactElement {
       style: doc.style,
       focus: doc.focus,
       photo: { id: 'photo', aspect: loaded.decoded.natural.w / loaded.decoded.natural.h },
-      facts: applyFieldSwitches(facts, fields),
+      // 「文字を入れる」を切ったら文字は1つも載せない（帯ごと消え、写真は余白の中央に収まる）
+      facts: doc.captionOn ? applyFieldSwitches(facts, fields) : {},
       gates: gatesFrom(fields),
       family: font.family,
       weight: font.weight,
@@ -247,6 +248,13 @@ export function App(): React.ReactElement {
       return [null, e instanceof Error ? e.message : '組み立てに失敗しました'];
     }
   }, [sceneInput]);
+
+  /* 写真の位置・文字の寄せが効くかを操作面へ（効かない点を薄くする） */
+  const freedom = scene?.meta.freedom;
+  useEffect(() => {
+    if (freedom) useUi.setState({ freedom });
+  }, [freedom]);
+
 
   /*
    * 画面の組み方。PC と スマホで canvas の置き場所（親）が違うので、切り替わると

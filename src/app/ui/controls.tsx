@@ -197,6 +197,8 @@ export function Anchor({
   v,
   onChange,
   lockV,
+  activeH = true,
+  activeV = true,
   disabled = false,
   onDisabledPick,
 }: {
@@ -205,16 +207,26 @@ export function Anchor({
   v: V;
   onChange: (h: H, v: V) => void;
   lockV?: V | undefined;
+  /**
+   * 左右・上下が効くか。効かない軸は真ん中の列（行）だけを生かし、ほかは薄くする。
+   * 値は書き換えない（覚えておき、効くようになったらその位置に戻る）
+   */
+  activeH?: boolean;
+  activeV?: boolean;
   disabled?: boolean;
-  onDisabledPick?: () => void;
+  /** 押せない点を押したとき。どちらの軸が効かないかを渡す */
+  onDisabledPick?: (why: 'all' | 'h' | 'v') => void;
 }): React.ReactElement {
-  const shownV = lockV ?? v;
+  const shownV = lockV ?? (activeV ? v : 'center');
+  const shownH = activeH ? h : 'center';
   return (
     <div className="anchor" role="radiogroup" aria-label={label} data-disabled={disabled || undefined}>
       {VS.map((vv) =>
         HS.map((hh) => {
-          const on = hh === h && vv === shownV;
+          const on = hh === shownH && vv === shownV;
           const lockedOut = lockV !== undefined && vv !== lockV;
+          const deadH = !activeH && hh !== 'center';
+          const deadV = lockV === undefined && !activeV && vv !== 'center';
           return (
             <button
               key={`${vv}-${hh}`}
@@ -223,14 +235,19 @@ export function Anchor({
               className="anchor__pt"
               aria-checked={on}
               aria-label={lockV ? H_JA[hh] : `${V_JA[vv]}・${H_JA[hh]}`}
-              aria-disabled={disabled || undefined}
-              data-off={lockedOut || undefined}
+              aria-disabled={disabled || deadH || deadV || undefined}
+              data-off={lockedOut || deadH || deadV || undefined}
               onClick={() => {
                 if (disabled) {
-                  onDisabledPick?.();
+                  onDisabledPick?.('all');
                   return;
                 }
-                onChange(hh, lockV ?? vv);
+                if (deadH || deadV) {
+                  onDisabledPick?.(deadH ? 'h' : 'v');
+                  return;
+                }
+                // 効かない軸の値はそのまま（覚えておく）
+                onChange(activeH ? hh : h, lockV !== undefined || !activeV ? v : vv);
               }}
             >
               <i />

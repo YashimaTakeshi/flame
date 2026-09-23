@@ -32,6 +32,8 @@ interface UiStore {
    * 写真は App が持つので、そこから知らせてもらう
    */
   hasFilm: boolean;
+  /** 写真の位置・文字の寄せが効くか（Scene の freedom）。効かない点を薄くする */
+  freedom: { photoX: boolean; photoY: boolean; textY: boolean };
   /**
    * 写真から取れた（または手で入れた）項目の中身。情報の一覧に「何が載るか」を見せるため。
    * 載せる／載せないのスイッチとは無関係に、値そのもの
@@ -68,6 +70,7 @@ export const useUi = create<UiStore>((set) => ({
   sheet: null,
   hint: null,
   hasFilm: false,
+  freedom: { photoX: true, photoY: true, textY: true },
   facts: {},
   infoFocus: null,
   openInfo: (focus = null) => {

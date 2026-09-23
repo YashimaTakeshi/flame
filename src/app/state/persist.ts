@@ -47,12 +47,23 @@ export interface Saved {
   readonly badgeValign: CaptionAlign;
   readonly badgeSize: BadgeSize;
   readonly badgeFramed: boolean;
+  readonly captionOn: boolean;
 }
 
 /* ── 1項目ずつの検証 ───────────────────────────────────── */
 
 const RATIOS = ['OR', 'SQ', 'TF', 'FF', 'NST', 'STN'] as const satisfies readonly Ratio[];
-const PHOTOS = ['center', 'top', 'bottom', 'left', 'right'] as const satisfies readonly PhotoPlace[];
+const PHOTOS = [
+  'center',
+  'top',
+  'bottom',
+  'left',
+  'right',
+  'top-left',
+  'top-right',
+  'bottom-left',
+  'bottom-right',
+] as const satisfies readonly PhotoPlace[];
 const CAPTIONS = ['above', 'below', 'left', 'right'] as const satisfies readonly CaptionPlace[];
 const CAP_ALIGNS = ['start', 'center', 'end'] as const satisfies readonly CaptionAlign[];
 const LINES = [1, 2, 3] as const satisfies readonly LineCount[];
@@ -129,6 +140,7 @@ export function readSaved(raw: string | null, defaults: Saved): Saved {
     badgeValign: one(o['badgeValign'], CAP_ALIGNS, defaults.badgeValign),
     badgeSize: one(o['badgeSize'], BADGE_SIZES, defaults.badgeSize),
     badgeFramed: bool(o['badgeFramed'], defaults.badgeFramed),
+    captionOn: bool(o['captionOn'], defaults.captionOn),
   };
 }
 

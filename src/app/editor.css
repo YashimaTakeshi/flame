@@ -516,6 +516,10 @@
   align-items: center;
   gap: var(--s2);
 }
+.pair__note {
+  font-size: 0.75rem;
+  color: var(--ink-2);
+}
 
 /* 絵のボタン */
 .pics {
@@ -893,6 +897,17 @@
 .irow[data-off] .irow__name {
   color: var(--ink-2);
 }
+.irows__off {
+  min-height: var(--tap);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: 0.75rem;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .irows__acts {
   display: flex;
   gap: var(--s1);
@@ -1233,6 +1248,13 @@
 .app[data-layout='desk'] .stage__canvas {
   /* 影は少し深く。大きな暗い面の中で写真の縁が立つ */
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+
+/* PC では帯のボタンを横に伸ばさない（画面幅いっぱいの3本は間延びする） */
+.app[data-layout='desk'] .band--noexif .btn--s {
+  flex: 0 0 auto;
+  min-width: 128px;
+  padding: 0 var(--s2);
 }
 
 /* PC では注記を設定の欄のそば（プレビューの右下）に。押した場所から遠くならないように */

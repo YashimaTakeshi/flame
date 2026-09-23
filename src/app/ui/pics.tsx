@@ -2,7 +2,7 @@
  * 絵のボタンの絵。28×28 の線画、色は currentColor。
  * **額（外枠）・写真（塗り）・文字（太い線）**の3つだけで描き、どの絵も同じ読み方にする。
  */
-import type { CaptionPlace, LineCount, PhotoPlace } from '../../core/styles/types';
+import type { CaptionPlace, LineCount } from '../../core/styles/types';
 
 const svg = (children: React.ReactNode): React.ReactElement => (
   <svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
@@ -33,24 +33,6 @@ export function PlacePic({ place, overlay }: { place: CaptionPlace; overlay: boo
     case 'right':
       return svg(<><rect x="3" y="4" width="22" height="20" rx="1.5" /><rect x="6" y="7" width="11" height="14" {...PHOTO} /><path d="M21 9v10" strokeWidth="1.8" /></>);
   }
-}
-
-/** 写真の位置（額の中でどちらに寄せるか） */
-export function PhotoPic({ place }: { place: PhotoPlace }): React.ReactElement {
-  const at: Record<PhotoPlace, [number, number]> = {
-    center: [8, 8],
-    top: [8, 5.5],
-    bottom: [8, 10.5],
-    left: [6.5, 8],
-    right: [9.5, 8],
-  };
-  const [x, y] = at[place];
-  return svg(
-    <>
-      <rect x="4" y="3" width="20" height="22" rx="1.5" />
-      <rect x={x} y={y} width="12" height="12" {...PHOTO} />
-    </>,
-  );
 }
 
 /** 行数 */

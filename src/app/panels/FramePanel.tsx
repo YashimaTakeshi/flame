@@ -4,17 +4,19 @@
  *
  * 余白を「なし」にすると写真がキャンバスの端まで届き、文字は写真の上に重なる（文字タブで辺を選ぶ）。
  * そのとき写真の位置と地色は効かない。薄く残し、押したら理由を出す。
+ *
+ * 写真の位置は 3×3 の点。写真は額の余りの中に収まるので、動けるのは横か縦のどちらかだけ。
+ * **その時に動ける方向の点だけを生かす**（比率・写真の形・文字の辺で変わる）。
+ * 以前は5つの絵のボタンで、半分が押しても何も起きず、避けるために文字の辺まで勝手に変えていた。
  */
 import { cssColor } from '../../core/scene/ops';
 import { DEFAULT_SPEC } from '../../core/styles/spec';
-import type { PhotoPlace } from '../../core/styles/types';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
-import { Pics, Row, Stepper, Swatches, Switch } from '../ui/controls';
-import { COLORS, MARGIN_OPTIONS, PHOTO_PLACES_UI, RATIO_OPTIONS, photoOption } from './constants';
+import { Anchor, Pics, Row, Stepper, Swatches, Switch } from '../ui/controls';
+import { COLORS, MARGIN_OPTIONS, RATIO_OPTIONS, hvOfPhoto, photoOfHv } from './constants';
 
 const SWATCHES = COLORS.map((c) => ({ key: c.key, label: c.label, css: cssColor(c.value) }));
-const side = (v: string): boolean => v === 'left' || v === 'right';
 
 export function FramePanel(): React.ReactElement {
   const style = useDoc((s) => s.style);
@@ -23,16 +25,14 @@ export function FramePanel(): React.ReactElement {
   const bordered = useDoc((s) => s.bordered);
   const set = useDoc((s) => s.set);
   const setHint = useUi((s) => s.setHint);
+  const freedom = useUi((s) => s.freedom);
 
   const bleed = style.margin === 'none';
-  const derived = style.ratio === 'OR';
-  const photoOptions = PHOTO_PLACES_UI.map((p) => {
-    const o = photoOption(p);
-    return p !== 'center' && derived ? { ...o, disabled: true } : o;
-  });
-  const photoWhy = (p: PhotoPlace): void => {
-    if (bleed) setHint('余白なしでは、写真を指で動かして切り取ります');
-    else if (derived && p !== 'center') setHint('元比では写真の周りに余りが無く、寄せられません');
+  const { h, v } = hvOfPhoto(style.photo);
+  const photoWhy = (why: 'all' | 'h' | 'v'): void => {
+    if (why === 'all') setHint('余白なしでは、写真を指で動かして切り取ります');
+    else if (style.ratio === 'OR') setHint('元比では写真の周りに余りが無く、寄せられません');
+    else setHint(why === 'h' ? 'いまの形では写真を左右に寄せられません' : 'いまの形では写真を上下に寄せられません');
   };
   const colorName = COLORS.find((c) => c.key === colorKey)?.label ?? '';
 
@@ -52,18 +52,19 @@ export function FramePanel(): React.ReactElement {
         />
       </Row>
       <Row label="写真" dim={bleed}>
-        <Pics
-          label="写真の位置"
-          options={photoOptions}
-          value={style.photo}
-          onChange={(v) => {
-            // 写真を左右に寄せると、左右の段にあった文字は下へ移る（doc.setStyle）。黙って動かさない
-            if (side(v) && side(style.caption)) setHint('文字は下に移しました');
-            setStyle({ photo: v });
-          }}
-          disabled={bleed}
-          onDisabledPick={photoWhy}
-        />
+        <div className="pair">
+          <Anchor
+            label="額の中の写真の位置"
+            h={h}
+            v={v}
+            activeH={freedom.photoX}
+            activeV={freedom.photoY}
+            onChange={(hh, vv) => setStyle({ photo: photoOfHv(hh, vv) })}
+            disabled={bleed}
+            onDisabledPick={photoWhy}
+          />
+          {!bleed && !freedom.photoX && !freedom.photoY && <span className="pair__note">余りなし</span>}
+        </div>
       </Row>
       <Row label="地色" note={bleed ? undefined : colorName} dim={bleed}>
         <Swatches

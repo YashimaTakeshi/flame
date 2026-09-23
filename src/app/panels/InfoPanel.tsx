@@ -34,6 +34,8 @@ export function InfoPanel(): React.ReactElement {
   const openInfo = useUi((s) => s.openInfo);
   const setHint = useUi((s) => s.setHint);
   const shown = effectiveFields(fields, skip);
+  const captionOn = useDoc((s) => s.captionOn);
+  const setTab = useUi((s) => s.setTab);
 
   /*
    * 戻すのは情報だけ（載せる項目・日付の書き方・タイトル・手入力）。
@@ -56,6 +58,12 @@ export function InfoPanel(): React.ReactElement {
 
   return (
     <div className="pnl pnl--list">
+      {/* 文字を切っているあいだは何も載らない。どこで入れ直すかを1行で */}
+      {!captionOn && (
+        <button type="button" className="irows__off" onClick={() => setTab('text')}>
+          文字は入れない設定です（文字タブで入れられます）
+        </button>
+      )}
       <div className="irows" role="group" aria-label="キャプションに載せる項目">
         {FIELDS.map((f) => {
           const v = facts[f.id];

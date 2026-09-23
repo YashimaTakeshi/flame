@@ -89,22 +89,56 @@ describe('組み合わせの空間', () => {
     expect(n.margin).toBe('none');
   });
 
-  it('文字が左右の段にあるとき、写真を同じ側に寄せる指定は中央に戻る', () => {
-    expect(normalize(sp({ caption: 'left', photo: 'right' })).photo).toBe('center');
-    expect(normalize(sp({ caption: 'right', photo: 'left' })).photo).toBe('center');
-    expect(normalize(sp({ caption: 'right', photo: 'top' })).photo).toBe('top');
+  it('★選んだ値は書き換えない★ 文字を左右に置いても写真の位置はそのまま', () => {
+    expect(normalize(sp({ caption: 'left', photo: 'right' })).photo).toBe('right');
+    expect(normalize(sp({ caption: 'right', photo: 'left' })).photo).toBe('left');
+    expect(normalize(sp({ caption: 'right', photo: 'top-left' })).photo).toBe('top-left');
   });
 
-  it('総当たりの数: 6比率 × 3行 × (余白3 × 16 × 寄せ3 + 全面 4辺 × 寄せ3) = 2,808', () => {
-    // 余白あり: 写真5 × 文字4（上下左右）= 20 から、左右×左右の 4 を除いた 16。寄せは3通り
-    // 全面（余白なし）: 写真の位置は効かない（指で決める）。文字は4辺に重ね、寄せは3通り
-    expect(SPECS).toHaveLength(6 * 3 * (3 * 16 * 3 + 4 * 3));
+  it('写真を左に寄せて文字を右に置くと、写真は左・文字は写真の右（依頼者の画像2→3）', () => {
+    const l = resolveLayout(styleFor(sp({ ratio: 'SQ', caption: 'right', photo: 'left' })), 0.5, 40);
+    const r = resolveLayout(styleFor(sp({ ratio: 'SQ', caption: 'right', photo: 'center' })), 0.5, 40);
+    expect(l.photo.x).toBeLessThan(r.photo.x);
+    expect(l.captionBox.x).toBeGreaterThan(l.photo.x + l.photo.w);
+    expect(l.freedom.photoX).toBe(true);
   });
 
-  it('全面では写真の位置は中央に畳まれる（指で決めるので選択肢ではない）。寄せは残る', () => {
+  it('余りの無い軸は効かないと知らせる（1:1 に横長の写真、文字は左 → 上下だけ動く）', () => {
+    const l = resolveLayout(styleFor(sp({ ratio: 'SQ', caption: 'left' })), 1.5, 40);
+    expect(l.freedom.photoX).toBe(false);
+    expect(l.freedom.photoY).toBe(true);
+    const or = resolveLayout(styleFor(sp({ ratio: 'OR' })), 1.5, 40);
+    expect(or.freedom.photoX || or.freedom.photoY).toBe(false);
+  });
+
+  it('★文字は写真に揃える★ 上下の帯は写真の幅、左右の段は写真の高さの範囲', () => {
+    const def = styleFor(sp({ ratio: 'SQ', caption: 'below', photo: 'left', margin: 'normal' }));
+    // 縦長の写真を左に寄せ、短い文字を左揃え → 写真の左端から始まる
+    const l = resolveLayout(def, 0.6, 30, undefined, null, { w: 120, align: 'left' });
+    expect(l.captionBox.x).toBeCloseTo(l.photo.x as number, 6);
+    expect(l.captionBox.w).toBeCloseTo(l.photo.w as number, 6);
+    // 写真より長い文字は広げる（額の内側に収まる）
+    const wide = resolveLayout(def, 0.6, 30, undefined, null, { w: 900, align: 'center' });
+    expect(wide.captionBox.w).toBeGreaterThan(wide.photo.w as number);
+    expect(wide.captionBox.x).toBeGreaterThanOrEqual((def.caption.sideInsetLu as number) - 0.01);
+    // 左の段は写真の上下の範囲で寄せる
+    const side = styleFor(sp({ ratio: 'SQ', caption: 'left', photo: 'bottom', captionAlign: 'start' }));
+    const s2 = resolveLayout(side, 1.5, 30);
+    expect(s2.captionBox.y).toBeCloseTo(s2.photo.y as number, 6);
+  });
+
+  it('総当たりの数: 6比率 × 3行 × (余白3 × 写真9 × 文字4 × 寄せ3 + 全面 4辺 × 寄せ3) = 6,048', () => {
+    // 全面（余白なし）: 写真の位置は効かない（指で決める）ので1通り。文字は4辺に重ね、寄せは3通り
+    expect(SPECS).toHaveLength(6 * 3 * (3 * 9 * 4 * 3 + 4 * 3));
+  });
+
+  it('全面では写真の位置は効かない（値は覚えている）。同じ絵になる', () => {
     const n = normalize(sp({ margin: 'none', caption: 'left', photo: 'top', captionAlign: 'end' }));
-    expect(n.photo).toBe('center');
-    expect(n.captionAlign).toBe('end');
+    expect(n.photo).toBe('top');
+    const a = resolveLayout(styleFor(n), 1.5, 30);
+    const b = resolveLayout(styleFor({ ...n, photo: 'center' }), 1.5, 30);
+    expect(a.photo).toEqual(b.photo);
+    expect(a.freedom.photoX || a.freedom.photoY).toBe(false);
   });
 
   it('全面の重ねは選んだ辺の、端から内側に置く', () => {

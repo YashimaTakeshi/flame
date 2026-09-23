@@ -38,7 +38,7 @@ describe('既定値', () => {
 describe('取り消し・やり直し', () => {
   const reset = (): void => {
     useDoc.getState().startPhoto();
-    useDoc.setState({ fields: DEFAULT_FIELDS, style: DEFAULT_SPEC });
+    useDoc.setState({ fields: DEFAULT_FIELDS, style: DEFAULT_SPEC, captionOn: true });
     __resetHistoryForTest();
   };
 
@@ -129,6 +129,24 @@ describe('取り消し・やり直し', () => {
     useDoc.getState().undo();
     expect(useDoc.getState().title).toBe('');
     expect(useDoc.getState().overrides.camera).toBeNull();
+  });
+
+  it('★触った軸だけが変わる★ 写真を左に寄せてから文字を右にしても、写真は左のまま', () => {
+    reset();
+    useDoc.getState().setStyle({ photo: 'left' });
+    useDoc.getState().setStyle({ caption: 'right' });
+    expect(useDoc.getState().style.photo).toBe('left');
+    useDoc.getState().setStyle({ caption: 'left' });
+    useDoc.getState().setStyle({ photo: 'right' });
+    expect(useDoc.getState().style.caption).toBe('left');
+  });
+
+  it('文字を切って入れ直せる（取り消しも1段）', () => {
+    reset();
+    useDoc.getState().set('captionOn', false);
+    expect(useDoc.getState().captionOn).toBe(false);
+    useDoc.getState().undo();
+    expect(useDoc.getState().captionOn).toBe(true);
   });
 
   it('写真を替えたら写真ごとの入力と履歴を捨てる。好みは残す', () => {

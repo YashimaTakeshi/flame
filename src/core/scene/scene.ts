@@ -32,6 +32,8 @@ export interface SceneMeta {
   readonly charsUsed: string;
   readonly fontsUsed: readonly FontRef[];
   readonly warnings: readonly SceneWarning[];
+  /** 写真の位置・文字の寄せが効くか（layout.ts の freedom）。UI が効かない点を薄くする */
+  readonly freedom?: { readonly photoX: boolean; readonly photoY: boolean; readonly textY: boolean };
 }
 
 export type DegradeStep = 'strip-after-pipe' | 'abbreviate' | 'drop';

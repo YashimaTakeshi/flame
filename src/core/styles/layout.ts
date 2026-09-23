@@ -6,7 +6,7 @@
  */
 import { CANVAS_WIDTH_LU, rect, size, type RectLu, type SizeLu } from '../units';
 import { MARGIN_SCALE } from './spec';
-import { CENTER_FOCUS, type CaptionAlign, type CaptionPlace, type Focus, type PhotoPlace, type StyleDef } from './types';
+import { CENTER_FOCUS, type Align, type CaptionAlign, type CaptionPlace, type Focus, type PhotoPlace, type StyleDef } from './types';
 
 export interface SrcNorm {
   readonly x: number;
@@ -41,6 +41,18 @@ export interface ResolvedLayout {
   readonly band: RectLu;
   /** 別の辺に取った帯。頼まなければ null */
   readonly extraBand: RectLu | null;
+  /**
+   * 写真の位置・文字の寄せが**効くか**。UI が効かない点を薄くするのに使う。
+   * photoX/photoY … 写真の周りに横／縦の余りがある（寄せると動く）
+   * textY … 文字の上下に余りがある（寄せ・3×3 の縦が効く）
+   */
+  readonly freedom: { readonly photoX: boolean; readonly photoY: boolean; readonly textY: boolean };
+}
+
+/** 上下の帯に置く文字の、組み上がった幅と揃え。写真の幅に揃えるのに使う */
+export interface TextSpan {
+  readonly w: number;
+  readonly align: Align;
 }
 
 export { MARGIN_SCALE };
@@ -71,17 +83,22 @@ function alignIn(bandTop: number, bandH: number, h: number, a: CaptionAlign): nu
   return a === 'start' ? bandTop : a === 'end' ? bandTop + slack : bandTop + slack / 2;
 }
 
-/** 比 aspect の矩形を box に収め、place の向きに寄せる */
+/** 比 aspect の矩形を box に収め、place の向きに寄せる（余りのある軸だけが動く） */
 function fitInto(box: RectLu, aspect: number, place: PhotoPlace): RectLu {
   const byWidth = box.w / aspect;
   const w = byWidth <= box.h ? box.w : box.h * aspect;
   const h = byWidth <= box.h ? byWidth : box.h;
-  const x =
-    place === 'left' ? box.x : place === 'right' ? box.x + box.w - w : box.x + (box.w - w) / 2;
-  const y =
-    place === 'top' ? box.y : place === 'bottom' ? box.y + box.h - h : box.y + (box.h - h) / 2;
+  const left = place === 'left' || place.endsWith('-left');
+  const right = place === 'right' || place.endsWith('-right');
+  const top = place === 'top' || place.startsWith('top-');
+  const bottom = place === 'bottom' || place.startsWith('bottom-');
+  const x = left ? box.x : right ? box.x + box.w - w : box.x + (box.w - w) / 2;
+  const y = top ? box.y : bottom ? box.y + box.h - h : box.y + (box.h - h) / 2;
   return rect(x, y, w, h);
 }
+
+/** 余りがあるとみなす最小の量（lu）。丸めの誤差で「効く」と言わない */
+const SLACK_EPS = 1;
 
 /**
  * キャプションを流し込める横幅。
@@ -109,6 +126,11 @@ export function resolveLayout(
   focus: Focus = CENTER_FOCUS,
   /** キャプションと別の辺に取る帯。同じ辺を頼まれたら無視する（呼ぶ側が1つの帯に畳む） */
   extra: ExtraBand | null = null,
+  /**
+   * 上下の帯の文字の幅と揃え。渡すと**文字を写真の幅に揃える**（入りきらなければ額の幅まで広げる）。
+   * 渡さなければ額の幅いっぱい（以前の規則）
+   */
+  text: TextSpan | null = null,
 ): ResolvedLayout {
   const W = CANVAS_WIDTH_LU as number;
   const c = def.caption;
@@ -184,9 +206,25 @@ export function resolveLayout(
    * 左右の帯を箱の高さで取ると、写真の下で上下の帯と重なる（実測: 16:9・写真上・文字下に
    * 左の刻印を置くと3行目と重なった）。上下に帯が無ければ従来どおり箱の高さ。
    */
-  const vertical = t.above >= 0 || t.below >= 0;
-  const colY = vertical ? photo.y : photoBox.y;
-  const colH = vertical ? photo.h : photoBox.h;
+  /*
+   * ★左右の帯は写真の高さの範囲★。文字は写真に揃える（写真の上端・中央・下端）。
+   * 以前は上下に帯が無いと額の高さ全体を使い、写真を下に寄せても文字が額の真ん中に残った
+   */
+  const colY = photo.y;
+  const colH = photo.h;
+  /*
+   * 上下の帯の横の範囲。★文字は写真の幅に揃える★（左揃えなら写真の左端から）。
+   * 文字が写真より長ければ、揃えの向きに広げ、額の内側（side）に収まるよう寄せる。
+   * 以前は額の幅いっぱいで、写真を左に寄せても文字は額の中央に残った
+   */
+  const spanFor = (need: number, a: Align): { x: number; w: number } => {
+    if (overlay) return { x: side, w: W - side * 2 };
+    const maxW = W - side * 2;
+    const w = Math.min(maxW, Math.max(photo.w, need));
+    const k = a === 'left' ? 0 : a === 'right' ? 1 : 0.5;
+    const x = Math.min(Math.max(photo.x + (photo.w - w) * k, side), W - side - w);
+    return { x, w };
+  };
   /*
    * 左右の帯の横幅。
    * キャプションの段（w を渡さない）は**写真の端＋隙間からキャンバスの端−余白まで**の余り全部。
@@ -194,14 +232,20 @@ export function resolveLayout(
    * 段の幅（300）に置くと、縦位置の写真で余りが広いとき、文字が右端に寄ったまま
    * 「余白の中央に置けない」（実機で指摘された）。刻印の帯（w を渡す）は端に w だけ取る。
    */
+  // 刻印の帯（w を渡す）は写真の幅。文字の帯は組んだ幅と揃えで決める。text が無ければ額の幅いっぱい
+  const span = (w?: number): { x: number; w: number } =>
+    w !== undefined ? spanFor(0, 'center') : text ? spanFor(text.w, text.align) : { x: side, w: W - side * 2 };
   const bandRect = (s: BandSide, w?: number): RectLu => {
     switch (s) {
       case 'below': {
         const y = photo.y + photo.h + gap;
-        return rect(side, y, W - side * 2, Math.max(0, canvasH - outer - y));
+        const sp = span(w);
+        return rect(sp.x, y, sp.w, Math.max(0, canvasH - outer - y));
       }
-      case 'above':
-        return rect(side, outer, W - side * 2, Math.max(0, photo.y - gap - outer));
+      case 'above': {
+        const sp = span(w);
+        return rect(sp.x, outer, sp.w, Math.max(0, photo.y - gap - outer));
+      }
       case 'left': {
         const bw = w ?? Math.max(0, photo.x - gap - outer);
         return rect(outer, colY, bw, colH);
@@ -248,11 +292,20 @@ export function resolveLayout(
     captionBand = bandRect(place);
     // 文字が無ければ段の幅は 0（写真に食い込ませないための従来の規則）
     const bw = (place === 'left' || place === 'right') && !hasCaption ? 0 : captionBand.w;
-    captionBox = rect(captionBand.x, alignIn(captionBand.y, captionBand.h, captionHeightLu, align), bw, captionHeightLu);
+    let y = alignIn(captionBand.y, captionBand.h, captionHeightLu, align);
+    // 左右の段で文字が写真より高いときは、額の内側に収める
+    y = Math.min(Math.max(y, outer), Math.max(outer, canvasH - outer - captionHeightLu));
+    captionBox = rect(captionBand.x, y, bw, captionHeightLu);
   }
   const extraBand = x2 ? bandRect(x2.place, x2.sizeLu) : null;
 
-  return { canvas: size(W, canvasH), photo, photoSrcNorm: srcNorm, captionBox, band: captionBand, extraBand };
+  const freedom = {
+    photoX: !bleed && photoBox.w - photo.w > SLACK_EPS,
+    photoY: !bleed && photoBox.h - photo.h > SLACK_EPS,
+    textY: hasCaption && (overlay ? place === 'left' || place === 'right' : captionBand.h - captionHeightLu > SLACK_EPS),
+  };
+
+  return { canvas: size(W, canvasH), photo, photoSrcNorm: srcNorm, captionBox, band: captionBand, extraBand, freedom };
 }
 
 /** §14.2 の不変条件。テストとデバッグビルドから呼ぶ */

@@ -33,6 +33,7 @@ const DEFAULTS: Saved = {
   badgeValign: 'center',
   badgeSize: 'M',
   badgeFramed: false,
+  captionOn: true,
 };
 
 const saved = (o: unknown): Saved => readSaved(JSON.stringify(o), DEFAULTS);
@@ -80,10 +81,15 @@ describe('設定の読み戻し', () => {
     expect(got.bordered).toBe(true);
   });
 
-  it('6軸の縛りは読み戻しでも効く（余白なしなら写真の位置は中央）', () => {
-    const got = saved({ ...DEFAULTS, style: { ...DEFAULTS.style, margin: 'none', caption: 'above', photo: 'top' } });
+  it('選んだ値は読み戻しで書き換えない（余白なしでも写真の位置は覚えている）', () => {
+    const got = saved({ ...DEFAULTS, style: { ...DEFAULTS.style, margin: 'none', caption: 'above', photo: 'top-left' } });
     expect(got.style.caption).toBe('above');
-    expect(got.style.photo).toBe('center');
+    expect(got.style.photo).toBe('top-left');
+  });
+
+  it('文字を入れるかは好みとして残る', () => {
+    expect(saved({ ...DEFAULTS, captionOn: false }).captionOn).toBe(false);
+    expect(saved({ ...DEFAULTS, captionOn: 'x' }).captionOn).toBe(true);
   });
 
   it('旧い保存の「重ね」は、余白なし・下として読む', () => {

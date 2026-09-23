@@ -59,6 +59,11 @@ export interface DocState {
   /** 刻印の外周にヘアラインの枠。地色と版の色が同じときに */
   readonly badgeFramed: boolean;
   /**
+   * 文字（キャプション）を入れるか。切ると文字の帯ごと消え、写真は余白の中央に収まる。
+   * 文字の設定（置き場所・大きさ…）は残り、入れ直せば元どおり。好みなので保存する
+   */
+  readonly captionOn: boolean;
+  /**
    * この写真では撮影情報（日付・カメラ・レンズ・露出・焦点距離）を載せない。
    * 撮影情報が無い写真の帯で「入れない」を選んだとき。**その1枚だけ**に効き、保存しない。
    * 以前は載せる項目（fields・保存される）を書き換えていて、次の富士の写真でも撮影情報が消えた
@@ -103,6 +108,7 @@ const BASE: DocState = {
   badgeValign: 'center',
   badgeSize: 'M',
   badgeFramed: false,
+  captionOn: true,
   skipShotFacts: false,
 };
 
@@ -124,6 +130,7 @@ const savedOf = (s: DocState): Saved => ({
   badgeValign: s.badgeValign,
   badgeSize: s.badgeSize,
   badgeFramed: s.badgeFramed,
+  captionOn: s.captionOn,
 });
 
 const INITIAL: DocState = { ...BASE, ...loadSettings(savedOf(BASE)) };
@@ -185,6 +192,7 @@ const snapshot = (s: DocState): DocState => ({
   badgeValign: s.badgeValign,
   badgeSize: s.badgeSize,
   badgeFramed: s.badgeFramed,
+  captionOn: s.captionOn,
   skipShotFacts: s.skipShotFacts,
 });
 
@@ -217,26 +225,16 @@ export const useDoc = create<DocStore>((set, get) => ({
   },
 
   /**
-   * 軸のうち1つを変える。**触った軸が勝つ。**
+   * 軸のうち1つを変える。**触った軸だけが変わる。**
    *
-   * 触っていない軸が勝手に動いて見えるのがいちばん混乱するので、
-   * 揃えるための動きは「いま触った軸に従わせる」方向にだけ起こす。
-   *
-   * - 文字を左右の段にしたら、同じ側に寄せていた写真は「中央」。
-   * - 写真を左右に寄せたら、左右の段にあった文字は「下」。
-   * 余白と文字の辺は独立（余白なしなら、選んだ辺に写真の上から重ねる）。
+   * 以前は効かない組み合わせを避けるため、相手の軸を勝手に動かしていた
+   * （文字を左右にすると写真は中央へ、写真を左右に寄せると文字は下へ）。
+   * 「写真と文字のどちらが優先か分からない」と依頼者が混乱した。
+   * 今は値を書き換えず、効かない軸は画面で薄くし、押すと理由を出す（FramePanel・TextPanel）。
    */
   setStyle(patch) {
     const cur = get().style;
-    const side = (v: string | undefined): boolean => v === 'left' || v === 'right';
-    let next: StyleSpec = { ...cur, ...patch };
-    if (patch.caption !== undefined && side(patch.caption) && side(cur.photo)) {
-      next = { ...next, photo: 'center' };
-    }
-    if (patch.photo !== undefined && side(patch.photo) && side(cur.caption)) {
-      next = { ...next, caption: 'below' };
-    }
-    const style = normalize(next);
+    const style = normalize({ ...cur, ...patch });
     if (sameStyle(style, cur)) return;
     set({ ...remember(get(), `style.${Object.keys(patch).join(',')}`), style });
   },

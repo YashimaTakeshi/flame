@@ -2,7 +2,7 @@ import { rgba, type Rgba } from '../../core/scene/ops';
 import { RATIO_IDS, RATIOS } from '../../core/styles/spec';
 import type { CaptionPlace, LineCount, MarginId, PhotoPlace, Ratio, SizeId, TrackingId } from '../../core/styles/types';
 import type { Opt } from '../ui/controls';
-import { LinesPic, PhotoPic, RatioPic } from '../ui/pics';
+import { LinesPic, RatioPic } from '../ui/pics';
 
 /** 背景色。白・Warm White・Ivory は並べると見分けがつかないので、選んでいる色の名前を出す */
 export const COLORS: { key: string; label: string; value: Rgba }[] = [
@@ -36,15 +36,23 @@ export const MARGIN_OPTIONS: readonly Opt<MarginId>[] = [
   { value: 'wide', label: '広い' },
 ];
 
-const PHOTO_LABEL: Record<PhotoPlace, string> = {
-  center: '写真を中央に',
-  top: '写真を上に寄せる',
-  bottom: '写真を下に寄せる',
-  left: '写真を左に寄せる',
-  right: '写真を右に寄せる',
-};
-export const PHOTO_PLACES_UI: readonly PhotoPlace[] = ['center', 'top', 'bottom', 'left', 'right'];
-export const photoOption = (p: PhotoPlace): Opt<PhotoPlace> => ({ value: p, label: PHOTO_LABEL[p], icon: <PhotoPic place={p} /> });
+/*
+ * 写真の位置（9通り）と 3×3 の点（左右 h × 上下 v）の読み替え。
+ * 写真の位置の上下は top/bottom、3×3 の上下は start/end（文字の寄せと同じ部品を使うため）
+ */
+export function hvOfPhoto(p: PhotoPlace): { h: 'left' | 'center' | 'right'; v: 'start' | 'center' | 'end' } {
+  const h = p === 'left' || p.endsWith('-left') ? 'left' : p === 'right' || p.endsWith('-right') ? 'right' : 'center';
+  const v = p === 'top' || p.startsWith('top-') ? 'start' : p === 'bottom' || p.startsWith('bottom-') ? 'end' : 'center';
+  return { h, v };
+}
+export function photoOfHv(h: 'left' | 'center' | 'right', v: 'start' | 'center' | 'end'): PhotoPlace {
+  const vv = v === 'start' ? 'top' : v === 'end' ? 'bottom' : '';
+  const hh = h === 'center' ? '' : h;
+  if (!vv && !hh) return 'center';
+  if (!vv) return hh as PhotoPlace;
+  if (!hh) return vv as PhotoPlace;
+  return `${vv}-${hh}` as PhotoPlace;
+}
 
 export const CAPTION_PLACES_UI: readonly CaptionPlace[] = ['above', 'below', 'left', 'right'];
 export const CAPTION_PLACE_JA: Record<CaptionPlace, string> = { above: '上', below: '下', left: '左', right: '右' };

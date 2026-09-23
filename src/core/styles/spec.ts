@@ -51,7 +51,17 @@ export const RATIOS: Readonly<
 };
 
 export const RATIO_IDS = Object.keys(RATIOS) as readonly Ratio[];
-export const PHOTO_PLACES: readonly PhotoPlace[] = ['center', 'top', 'bottom', 'left', 'right'];
+export const PHOTO_PLACES: readonly PhotoPlace[] = [
+  'top-left',
+  'top',
+  'top-right',
+  'left',
+  'center',
+  'right',
+  'bottom-left',
+  'bottom',
+  'bottom-right',
+];
 export const CAPTION_PLACES: readonly CaptionPlace[] = ['above', 'below', 'left', 'right'];
 export const LINE_COUNTS: readonly LineCount[] = [1, 2, 3];
 export const MARGINS: readonly MarginId[] = ['narrow', 'normal', 'wide', 'none'];
@@ -63,7 +73,7 @@ export const MARGIN_SCALE: Readonly<Record<MarginId, number>> = { narrow: 0.45, 
 /** 重ね文字の、キャンバス端からの距離。余白の倍率に**依らない**（余白なしでも文字は端に寄らない） */
 export const OVERLAY_INSET_LU = 34;
 
-const isSide = (p: PhotoPlace | CaptionPlace): boolean => p === 'left' || p === 'right';
+const isSide = (p: CaptionPlace): boolean => p === 'left' || p === 'right';
 
 /** 左右に置く文字の段の幅。★余白の倍率は掛けない */
 export const SIDE_BAND_LU = 300;
@@ -104,20 +114,14 @@ function linesFor(n: LineCount, side: boolean): readonly CaptionLineSpec[] {
 export const SIDE_SCRIM_LU = 520;
 
 /**
- * 組み合わせの整合。ここで揃えるので、UI 側は1つの軸だけ変えて渡してよい。
- *
- * 1. 文字を左右の段に置くとき、写真も同じ側に寄せる指定は意味を持たない
- *    （段を差し引いた残りに置くので、寄せる先が無い）。写真は中央に戻す。
- * 2. 全面（余白なし）では切り取りの中心は指で決めるので、写真の位置は効かない。
- *
- * 余白「なし」と文字の辺は独立。余白なしなら、選んだ辺に写真の上から重ねる。
+ * 組み合わせの整合。**利用者の選んだ値は書き換えない**（触った軸以外が勝手に動くと混乱する）。
+ * 効かない組み合わせ（全面での写真の位置、余りの無い軸への寄せ）は、描くときに効かないだけで、値は覚えておく。
+ * ここで直すのは旧い保存の読み替えだけ。
  */
 export function normalize(spec: StyleSpec): StyleSpec {
   let s = spec;
   // 旧い保存（'overlay'）を読んだら、下に重ねる（以前の見た目のまま）
   if ((s.caption as string) === 'overlay') s = { ...s, caption: 'below', margin: 'none' };
-  if (isSide(s.caption) && isSide(s.photo)) s = { ...s, photo: 'center' };
-  if (s.margin === 'none' && s.photo !== 'center') s = { ...s, photo: 'center' };
   return s;
 }
 
@@ -190,7 +194,10 @@ export const FRMM_PRESETS: Readonly<Record<string, StyleSpec>> = {
 export const specKey = (s: StyleSpec): string =>
   `${s.ratio}/${s.photo}/${s.caption}/${s.captionAlign}/${s.lines}/${s.margin}`;
 
-/** 全組み合わせ（整合後の重複を除く）。テストが総当たりに使う */
+/**
+ * 全組み合わせ（重複を除く）。テストが総当たりに使う。
+ * 全面では写真の位置は描くときに効かない（値は覚えているだけ）ので、中央の1通りだけ数える
+ */
 export function allSpecs(): StyleSpec[] {
   const seen = new Set<string>();
   const out: StyleSpec[] = [];
@@ -200,6 +207,7 @@ export function allSpecs(): StyleSpec[] {
         for (const caption of CAPTION_PLACES)
           for (const captionAlign of CAPTION_ALIGNS)
             for (const lines of LINE_COUNTS) {
+              if (margin === 'none' && photo !== 'center') continue;
               const s = normalize({ ratio, photo, caption, captionAlign, lines, margin });
               const key = specKey(s);
               if (seen.has(key)) continue;

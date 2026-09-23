@@ -175,7 +175,15 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
     badge && bspec && !shared && !overlay ? { place: bspec.place, sizeLu: sideBand ? badge.w : badge.h } : null;
 
   /* 2. 組み上がった高さで矩形を決める */
-  const layout = resolveLayout(def, input.photo.aspect, need, input.focus ?? CENTER_FOCUS, extra);
+  /*
+   * 上下の帯の文字は写真の幅に揃える。組んだ行のいちばん長い幅（刻印と分け合うなら刻印の幅も）を渡す
+   */
+  const longest = typeset.lines.reduce((m, l) => Math.max(m, l.widthLu), 0);
+  const textW = badge && shared ? Math.max(longest, badge.w) : longest;
+  const layout = resolveLayout(def, input.photo.aspect, need, input.focus ?? CENTER_FOCUS, extra, {
+    w: textW,
+    align: input.align,
+  });
 
   /*
    * 2b. 文字と刻印の置き場所。
@@ -332,6 +340,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
       charsUsed: built.charsUsed,
       fontsUsed: built.fontsUsed,
       warnings,
+      freedom: layout.freedom,
     },
   };
 }
