@@ -3,22 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fuchidori — 写真に、撮影情報の縁取りを</title>
-<meta name="description" content="写真からカメラ・レンズ・露出を読み取り、余白と文字を整えて書き出す無料の Web アプリ。インストール不要。写真は端末の外に出ません。">
+<title>Fuchidori（ふちどり）— 写真に撮影情報の額をつける</title>
+<meta name="description" content="写真を選ぶと、カメラ・レンズ・F値・シャッター速度・ISO を読み取り、余白に小さく組んで書き出します。ブラウザで開く Web アプリ。無料・登録なし。写真はサーバーに送りません。">
 <link rel="canonical" href="https://yashimastudio.com/fuchidori/">
 <link rel="alternate" hreflang="ja" href="https://yashimastudio.com/fuchidori/">
 <link rel="alternate" hreflang="en" href="https://yashimastudio.com/fuchidori/en/">
 <link rel="alternate" hreflang="x-default" href="https://yashimastudio.com/fuchidori/">
-<meta name="theme-color" content="#f6f4f1" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f2ee">
 <link rel="icon" href="/fuchidori/img/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="/fuchidori/img/apple-touch-icon.png">
-<link rel="preload" href="/fuchidori/fonts/Jost-bold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/fuchidori/assets/site.css">
+<script src="/fuchidori/assets/share.js" defer></script>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Fuchidori">
-<meta property="og:title" content="Fuchidori — 写真に、撮影情報の縁取りを">
-<meta property="og:description" content="写真からカメラ・レンズ・露出を読み取り、余白と文字を整えて書き出す無料の Web アプリ。インストール不要。写真は端末の外に出ません。">
+<meta property="og:title" content="Fuchidori（ふちどり）— 写真に撮影情報の額をつける">
+<meta property="og:description" content="写真を選ぶと、カメラ・レンズ・F値・シャッター速度・ISO を読み取り、余白に小さく組んで書き出します。ブラウザで開く Web アプリ。無料・登録なし。写真はサーバーに送りません。">
 <meta property="og:url" content="https://yashimastudio.com/fuchidori/">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:image" content="https://yashimastudio.com/fuchidori/img/og-ja.jpg">
@@ -28,114 +27,146 @@
 </head>
 <body>
 <header class="wrap top">
-  <a class="brand" href="iPhone・iPad（Safari）,Safari でアプリを開く,下の共有ボタン（□に↑）を押す,「ホーム画面に追加」を選ぶ,Android（Chrome）,Chrome でアプリを開く,右上の︙メニューを押す,「ホーム画面に追加」または「アプリをインストール」を選ぶ"><span class="brand__mark" aria-hidden="true"></span>Fuchidori</a>
-  <nav class="lang" aria-label="言語"><span aria-current="true">日本語</span><a href="/fuchidori/en/" hreflang="en" lang="en">English</a></nav>
+  <a class="brand" href="/fuchidori/">Fuchidori</a>
+  <nav aria-label="言語"><span aria-current="true">日本語</span><a href="/fuchidori/en/" hreflang="en" lang="en">English</a><a class="go" href="https://fuchidori.yashimastudio.com/">アプリを開く</a></nav>
 </header>
 <main>
   <section class="wrap hero">
     <div>
-      <p class="eyebrow">Photo frame & caption</p>
-      <h1>写真に、<br>撮影情報の縁取りを。</h1>
-      <p class="lead">カメラ・レンズ・露出・撮影日を写真から読み取り、余白と文字を整えて書き出します。ブラウザで開くだけ、インストールも登録も要りません。</p>
-      <div class="cta">
-        <a class="btn" href="https://fuchidori.yashimastudio.com/">アプリを開く<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-        <span class="cta__note">無料・登録不要</span>
+      <p class="kicker">写真に撮影情報の額をつける Web アプリ</p>
+      <h1><span class="num">F1.8・15秒・ISO3200</span>あの夜の設定ごと、<br>額に入れる。</h1>
+      <p class="lead">写真を選ぶと、カメラとレンズ、露出の記録を読み取って、余白に小さく組みます。比率と地色を決めたら、そのまま保存して投稿へ。ブラウザで動くので、インストールも登録もいりません。</p>
+      <div class="act">
+        <a class="btn" href="https://fuchidori.yashimastudio.com/">アプリを開く</a>
+        <span class="note">無料で使えます</span>
       </div>
     </div>
-    <div class="device"><img src="/fuchidori/img/ui-phone-frame-390.webp" srcset="/fuchidori/img/ui-phone-frame-390.webp 390w, /fuchidori/img/ui-phone-frame-780.webp 780w" sizes="(max-width: 860px) 78vw, 300px" width="390" height="664" alt="Fuchidori の編集画面。夕暮れの湖の写真に白い余白と撮影情報が付いている" fetchpriority="high" decoding="async"></div>
+    <figure class="work">
+      <img src="/fuchidori/img/hero-640.webp" srcset="/fuchidori/img/hero-640.webp 640w, /fuchidori/img/hero-1280.webp 1280w" sizes="(max-width: 899px) 92vw, 540px" width="640" height="800" alt="琵琶湖の鳥居と天の川の写真に白い額がつき、下に撮影日・カメラ・露出が3行で入っている" fetchpriority="high" decoding="async">
+      <figcaption class="note">作例｜4:5・White・Didot・3行</figcaption>
+    </figure>
   </section>
 
-  <section class="wrap sec" aria-labelledby="works">
-    <div class="sec__hd">
-      <div><span class="sec__num">Works</span><h2 id="works">同じ写真でも、額が変わると見え方が変わる</h2></div>
-      <p>比率・余白・地色・書体を選ぶだけ。文字の大きさや位置は、写真の大きさに合わせて自動で整います。</p>
+  <div class="wall" aria-label="作例">
+    <figure><img src="/fuchidori/img/after-560.webp" srcset="/fuchidori/img/after-560.webp 560w, /fuchidori/img/after-1120.webp 1120w" sizes="(max-width: 899px) 60vw, 30vw" width="560" height="700" alt="冬の木と二人のシルエット。アイボリーの額" loading="lazy" decoding="async"></figure>
+    <figure><img src="/fuchidori/img/v-bleed-480.webp" srcset="/fuchidori/img/v-bleed-480.webp 480w, /fuchidori/img/v-bleed-960.webp 960w" sizes="(max-width: 899px) 60vw, 30vw" width="480" height="320" alt="夕日の浜辺の散歩。額なしで写真に文字を重ねたもの" loading="lazy" decoding="async"></figure>
+    <figure><img src="/fuchidori/img/r-916-480.webp" srcset="/fuchidori/img/r-916-480.webp 480w, /fuchidori/img/r-916-960.webp 960w" sizes="(max-width: 899px) 60vw, 30vw" width="480" height="853" alt="天の川を見上げる二人。黒い 9:16 の額" loading="lazy" decoding="async"></figure>
+    <figure><img src="/fuchidori/img/v-black-480.webp" srcset="/fuchidori/img/v-black-480.webp 480w, /fuchidori/img/v-black-960.webp 960w" sizes="(max-width: 899px) 60vw, 30vw" width="480" height="480" alt="夕日の浜辺の散歩。黒い正方形の額" loading="lazy" decoding="async"></figure>
+    <figure><img src="/fuchidori/img/r-45-480.webp" srcset="/fuchidori/img/r-45-480.webp 480w, /fuchidori/img/r-45-960.webp 960w" sizes="(max-width: 899px) 60vw, 30vw" width="480" height="600" alt="天の川を見上げる二人。白い 4:5 の額" loading="lazy" decoding="async"></figure>
+  </div>
+
+  <section class="wrap sec" aria-labelledby="s-loupe">
+    <h2 id="s-loupe">カメラが残した記録を読んで、写真の下に3行で組む</h2>
+    <p>撮影日、カメラ、レンズ、焦点距離、F値、シャッター速度、ISO。写真のファイルに入っている記録をそのまま使います。記録が無い項目は、その場で打ち込めます。</p>
+    <div class="sec__body loupe">
+      <div>
+        <div class="loupe__img"><img src="/fuchidori/img/hero-caption-720.webp" srcset="/fuchidori/img/hero-caption-720.webp 720w, /fuchidori/img/hero-caption-1440.webp 1440w" sizes="(max-width: 899px) 92vw, 640px" width="720" height="311" alt="冒頭の作例の文字の部分を拡大したもの。2025.05.24、SONY ILCE-7M4、FE 20mm F1.8 G, 20mm, F1.8 15s ISO3200 の3行" loading="lazy" decoding="async"></div>
+        <table class="map">
+          <tr><th scope="row">1行目</th><td>撮影日　<span class="note">書き方は 2025.05.24／2025年5月24日 など6通り</span></td></tr>
+          <tr><th scope="row">2行目</th><td>カメラ　<span class="note">太字で目立たせる</span></td></tr>
+          <tr><th scope="row">3行目</th><td>レンズ・焦点距離・F値・シャッター速度・ISO</td></tr>
+        </table>
+        <p class="note mt2">富士フイルムの写真は、フィルムシミュレーション名（CLASSIC CHROME など）も読み取ります。どの項目を何行目に出すかはドラッグで入れ替えられ、行数は1〜4行から選べます。</p>
+      </div>
+      <figure class="shot">
+        <img src="/fuchidori/img/ui-info-360.webp" srcset="/fuchidori/img/ui-info-360.webp 360w, /fuchidori/img/ui-info-720.webp 720w" sizes="(max-width: 899px) 60vw, 280px" width="360" height="613" alt="Fuchidori の「情報」の画面。行数・区切り文字・日付の書き方と、項目ごとの入力欄が並ぶ" loading="lazy" decoding="async">
+        <figcaption class="note">「情報」の画面。項目ごとに、その場で書き換えられる</figcaption>
+      </figure>
     </div>
-    <div class="gallery">
-      <figure><img src="/fuchidori/img/demo-dusk-640.webp" srcset="/fuchidori/img/demo-dusk-640.webp 640w, /fuchidori/img/demo-dusk-1280.webp 1280w" sizes="(max-width: 600px) 92vw, (max-width: 860px) 46vw, 340px" width="640" height="800" alt="夕暮れの湖。4:5・White・Futura・3行" loading="lazy" decoding="async"><figcaption>4:5 · White · Futura · 3行</figcaption></figure>
-      <figure><img src="/fuchidori/img/demo-sea-640.webp" srcset="/fuchidori/img/demo-sea-640.webp 640w, /fuchidori/img/demo-sea-1280.webp 1280w" sizes="(max-width: 600px) 92vw, (max-width: 860px) 46vw, 340px" width="640" height="824" alt="灯台のある海。元の比率・Ivory・Didot・2行" loading="lazy" decoding="async"><figcaption>元の比率 · Ivory · Didot · 2行</figcaption></figure>
-      <figure><img src="/fuchidori/img/demo-city-640.webp" srcset="/fuchidori/img/demo-city-640.webp 640w, /fuchidori/img/demo-city-1280.webp 1280w" sizes="(max-width: 600px) 92vw, (max-width: 860px) 46vw, 340px" width="640" height="640" alt="夜の街並み。1:1・Black・DIN・2行" loading="lazy" decoding="async"><figcaption>1:1 · Black · DIN · 2行</figcaption></figure>
-    </div>
-    <p class="gallery__note">作例の画像はイメージです（写真の代わりに描いた絵を、Fuchidori で縁取りしたもの）。撮影情報も作例用の値です。</p>
   </section>
 
-  <section class="wrap sec" aria-labelledby="features">
-    <div class="sec__hd">
-      <div><span class="sec__num">Features</span><h2 id="features">整えるための道具を、必要なだけ</h2></div>
-      <p>細かく作り込むこともできますが、写真を選んだ時点で、そのまま出せる形に整っています。</p>
+  <section class="wrap sec" aria-labelledby="s-ba">
+    <h2 id="s-ba">撮って出しの一枚が、額に入るとこうなる</h2>
+    <div class="sec__body ba">
+      <figure><img src="/fuchidori/img/before-560.webp" srcset="/fuchidori/img/before-560.webp 560w, /fuchidori/img/before-1120.webp 1120w" sizes="(max-width: 899px) 46vw, 380px" width="560" height="840" alt="夕暮れの丘に立つ冬の木と二人のシルエット。額のない元の写真" loading="lazy" decoding="async"><figcaption class="note">撮って出し</figcaption></figure>
+      <figure><img src="/fuchidori/img/after-560.webp" srcset="/fuchidori/img/after-560.webp 560w, /fuchidori/img/after-1120.webp 1120w" sizes="(max-width: 899px) 46vw, 480px" width="560" height="700" alt="同じ写真にアイボリーの額がつき、下に撮影日とカメラの情報が2行で入っている" loading="lazy" decoding="async"><figcaption class="note">Fuchidori を通したあと｜4:5・Ivory・Futura</figcaption></figure>
     </div>
-    <ul class="features">
-      <li><span class="k">01</span><h3>撮影情報を自動で</h3><p>カメラ・レンズ・F値・シャッター速度・ISO・焦点距離・撮影日を写真から読み取ります。富士フイルムのフィルムシミュレーション名にも対応。記録が無い項目は手で入力できます。</p></li>
-      <li><span class="k">02</span><h3>SNS の比率にそのまま</h3><p>元の比率のほか、4:5・3:4・2:3・1:1・9:16・16:9・1.91:1。Instagram・X・Threads・TikTok に投稿する形で書き出せます。</p></li>
-      <li><span class="k">03</span><h3>余白・地色・枠線</h3><p>余白は「なし」から「広い」までの5段。「なし」なら写真の上に文字を重ねます。地色は9色、写真の枠線は5段。</p></li>
-      <li><span class="k">04</span><h3>14種類の書体</h3><p>Helvetica・Futura・DIN・Didot 風などの欧文書体（太字を含む）と日本語の書体。字の大きさと字間も選べます。</p></li>
-      <li><span class="k">05</span><h3>文字の並びを自由に</h3><p>1〜4行。どの情報を何行目に出すかはドラッグで入れ替え。区切り文字（, · / — | 空白）や日付の書き方も選べます。</p></li>
-      <li><span class="k">06</span><h3>動画にも同じ縁取り</h3><p>60秒までの動画にも、写真と同じ額と文字を付けて書き出せます（ブラウザが動画の書き出しに対応している場合）。</p></li>
-    </ul>
   </section>
 
-  <section class="wrap sec" aria-labelledby="private">
+  <section class="wrap sec" aria-labelledby="s-works">
+    <div class="works-hd">
+      <div>
+        <h2 id="s-works">同じ写真でも、額を替えると印象が変わる</h2>
+        <p class="mt2">比率は8種類、地色は9色、書体は14種類。余白を「なし」にすると、文字を写真の上に重ねます。</p>
+      </div>
+      <figure><img src="/fuchidori/img/v-bleed-480.webp" srcset="/fuchidori/img/v-bleed-480.webp 480w, /fuchidori/img/v-bleed-960.webp 960w" sizes="(max-width: 899px) 92vw, 760px" width="480" height="320" alt="夕日の浜辺で犬と散歩する人のシルエット。額はなく、写真の下端に白い文字が重なっている" loading="lazy" decoding="async"><figcaption class="note">余白なし（文字を写真に重ねる）｜元の比率・Futura</figcaption></figure>
+    </div>
+    <div class="sec__body works">
+      <figure><img src="/fuchidori/img/v-white-480.webp" srcset="/fuchidori/img/v-white-480.webp 480w, /fuchidori/img/v-white-960.webp 960w" sizes="(max-width: 899px) 46vw, 360px" width="480" height="600" alt="同じ浜辺の写真に白い額" loading="lazy" decoding="async"><figcaption class="note">4:5・White・Helvetica</figcaption></figure>
+      <figure><img src="/fuchidori/img/v-tall-480.webp" srcset="/fuchidori/img/v-tall-480.webp 480w, /fuchidori/img/v-tall-960.webp 960w" sizes="(max-width: 899px) 46vw, 360px" width="480" height="853" alt="同じ写真を縦長の 9:16 に。上下に広い余白" loading="lazy" decoding="async"><figcaption class="note">9:16・Warm White・Didot・3行</figcaption></figure>
+      <figure><img src="/fuchidori/img/v-black-480.webp" srcset="/fuchidori/img/v-black-480.webp 480w, /fuchidori/img/v-black-960.webp 960w" sizes="(max-width: 899px) 46vw, 360px" width="480" height="480" alt="同じ写真に黒い正方形の額" loading="lazy" decoding="async"><figcaption class="note">1:1・Black・DIN</figcaption></figure>
+      <figure><img src="/fuchidori/img/v-sakura-480.webp" srcset="/fuchidori/img/v-sakura-480.webp 480w, /fuchidori/img/v-sakura-960.webp 960w" sizes="(max-width: 899px) 46vw, 360px" width="480" height="348" alt="同じ写真に淡い桜色の細い額" loading="lazy" decoding="async"><figcaption class="note">元の比率・Sakura・Baskerville</figcaption></figure>
+      <figure><img src="/fuchidori/img/v-wide-480.webp" srcset="/fuchidori/img/v-wide-480.webp 480w, /fuchidori/img/v-wide-960.webp 960w" sizes="(max-width: 899px) 46vw, 360px" width="480" height="270" alt="同じ写真に濃い灰色の横長の額" loading="lazy" decoding="async"><figcaption class="note">16:9・Gunmetal・Futura・1行</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="wrap sec" aria-labelledby="s-ratios">
+    <h2 id="s-ratios">投稿先の形に合わせて、そのまま書き出す</h2>
+    <div class="sec__body ratios">
+      <figure><img src="/fuchidori/img/r-45-480.webp" srcset="/fuchidori/img/r-45-480.webp 480w, /fuchidori/img/r-45-960.webp 960w" sizes="(max-width: 899px) 46vw, 380px" width="480" height="600" alt="天の川を見上げる二人の写真を 4:5 の額で書き出したもの" loading="lazy" decoding="async"><figcaption><b>4:5</b><span class="note">Instagram の縦長</span></figcaption></figure>
+      <figure><img src="/fuchidori/img/r-916-480.webp" srcset="/fuchidori/img/r-916-480.webp 480w, /fuchidori/img/r-916-960.webp 960w" sizes="(max-width: 899px) 46vw, 380px" width="480" height="853" alt="天の川を見上げる二人の写真を 9:16 の額で書き出したもの" loading="lazy" decoding="async"><figcaption><b>9:16</b><span class="note">ストーリーズ・リール・TikTok</span></figcaption></figure>
+      <figure><img src="/fuchidori/img/r-11-480.webp" srcset="/fuchidori/img/r-11-480.webp 480w, /fuchidori/img/r-11-960.webp 960w" sizes="(max-width: 899px) 46vw, 380px" width="480" height="480" alt="天の川を見上げる二人の写真を 1:1 の額で書き出したもの" loading="lazy" decoding="async"><figcaption><b>1:1</b><span class="note">Instagram・X の正方形</span></figcaption></figure>
+      <figure><img src="/fuchidori/img/r-169-480.webp" srcset="/fuchidori/img/r-169-480.webp 480w, /fuchidori/img/r-169-960.webp 960w" sizes="(max-width: 899px) 46vw, 380px" width="480" height="270" alt="天の川を見上げる二人の写真を 16:9 の額で書き出したもの" loading="lazy" decoding="async"><figcaption><b>16:9</b><span class="note">X・YouTube の横長</span></figcaption></figure>
+    </div>
+    <p class="note mt3">ほかに、元の比率・3:4・2:3・1.91:1。</p>
+  </section>
+
+  <section class="wrap sec" aria-labelledby="s-priv">
     <div class="private">
       <div>
-        <h2 id="private">写真は、端末の外に出ません</h2>
-        <p>読み込みから書き出しまで、すべてお使いの端末のブラウザの中で処理します。</p>
-        <p><a href="/fuchidori/privacy/">プライバシーポリシー</a></p>
+        <h2 id="s-priv">写真は、どこにも送りません</h2>
+        <p class="mt2">読み込みから書き出しまで、お使いのスマホやパソコンのブラウザの中で処理します。Fuchidori のサーバーには、写真を受け取る仕組みがありません。</p>
+        <p class="note mt2"><a href="/fuchidori/privacy/">プライバシーポリシー</a></p>
       </div>
-      <ul>
-        <li><strong>アップロードしません。</strong> 写真や動画をサーバーに送る仕組みがありません。</li>
-        <li><strong>アクセス解析・広告を入れていません。</strong> Cookie も使いません。</li>
-        <li><strong>位置情報を取り除いて書き出します。</strong> 撮影情報（EXIF）は残し、GPS だけを消します。</li>
-        <li><strong>設定はこの端末にだけ残ります。</strong> 次に開いたとき、前回の額から始められます。</li>
-      </ul>
+      <dl class="facts">
+        <div><dt>アップロードしない</dt><dd>写真も動画も、端末の外に出ません。</dd></div>
+        <div><dt>位置情報を消して書き出す</dt><dd>カメラや露出の記録は残し、GPS だけを外します。</dd></div>
+        <div><dt>アクセス解析・広告・Cookie なし</dt><dd>誰が何を作ったかを、こちらでは知りようがありません。</dd></div>
+      </dl>
     </div>
   </section>
 
-  <section class="wrap sec" aria-labelledby="how">
-    <div class="sec__hd">
-      <div><span class="sec__num">How to</span><h2 id="how">使い方は3つだけ</h2></div>
-    </div>
-    <ol class="steps">
-      <li><h3>写真を選ぶ</h3><p>真ん中の枠を押して写真か動画を選びます。パソコンならドラッグ＆ドロップや貼り付けでも。</p></li>
-      <li><h3>整える</h3><p>比率・余白・文字・書体を選びます。下のタブを切り替えながら、仕上がりを見て決められます。</p></li>
-      <li><h3>保存・共有</h3><p>iPhone は共有シートから「画像を保存」やそのまま SNS へ。パソコンは保存先を選んでダウンロード。</p></li>
+  <section class="wrap sec" aria-labelledby="s-how">
+    <h2 id="s-how">選んで、整えて、保存する</h2>
+    <ol class="sec__body steps">
+      <li><img src="/fuchidori/img/ui-home-360.webp" srcset="/fuchidori/img/ui-home-360.webp 360w, /fuchidori/img/ui-home-720.webp 720w" sizes="(max-width: 899px) 30vw, 280px" width="360" height="613" alt="Fuchidori を開いたところ。まん中に写真を選ぶ枠がある" loading="lazy" decoding="async"><h3><span>1</span>写真を選ぶ</h3><p>まん中の枠を押して、写真か動画を選びます。パソコンなら、ドラッグや貼り付けでも。</p></li>
+      <li><img src="/fuchidori/img/ui-edit-360.webp" srcset="/fuchidori/img/ui-edit-360.webp 360w, /fuchidori/img/ui-edit-720.webp 720w" sizes="(max-width: 899px) 30vw, 280px" width="360" height="613" alt="編集の画面。上に仕上がり、下に比率・余白・地色の操作" loading="lazy" decoding="async"><h3><span>2</span>整える</h3><p>比率・余白・地色・文字を、下のタブで切り替えながら決めます。</p></li>
+      <li><img src="/fuchidori/img/ui-export-360.webp" srcset="/fuchidori/img/ui-export-360.webp 360w, /fuchidori/img/ui-export-720.webp 720w" sizes="(max-width: 899px) 30vw, 280px" width="360" height="613" alt="書き出しの画面。「写真に保存 / 共有」のボタン" loading="lazy" decoding="async"><h3><span>3</span>保存する</h3><p>iPhone は共有シートから写真に保存。Instagram や X にもそのまま送れます。</p></li>
     </ol>
+    <div class="act">
+      <a class="btn" href="https://fuchidori.yashimastudio.com/">アプリを開く</a>
+    </div>
+    <p class="note mt2 measure">ホーム画面に追加すると、アプリのように開けます。iPhone は Safari の共有ボタンから「ホーム画面に追加」、Android は Chrome のメニューから「ホーム画面に追加」。</p>
   </section>
 
-  <section class="wrap sec" aria-labelledby="install">
-    <div class="sec__hd">
-      <div><span class="sec__num">Install</span><h2 id="install">ホーム画面に置くと、アプリのように使えます</h2></div>
-      <p>App Store からのインストールは要りません。ホーム画面のアイコンから、ブラウザの枠なしで開けます。</p>
+  <section class="wrap sec share" aria-labelledby="s-share" data-share data-url="https://yashimastudio.com/fuchidori/" data-text="Fuchidori — 写真に撮影情報の額をつける、無料の Web アプリ" data-copied="リンクをコピーしました">
+    <h2 id="s-share">写真を撮る友だちに、このページを</h2>
+    <p>気に入ったら、写真仲間に教えてください。リンクを送ると、作例の画像つきで表示されます。</p>
+    <div class="act">
+      <button type="button" class="btn" data-act="native" hidden>共有する</button>
+      <a class="btn btn--line" href="https://x.com/intent/post?text=Fuchidori%20%E2%80%94%20%E5%86%99%E7%9C%9F%E3%81%AB%E6%92%AE%E5%BD%B1%E6%83%85%E5%A0%B1%E3%81%AE%E9%A1%8D%E3%82%92%E3%81%A4%E3%81%91%E3%82%8B%E3%80%81%E7%84%A1%E6%96%99%E3%81%AE%20Web%20%E3%82%A2%E3%83%97%E3%83%AA&amp;url=https%3A%2F%2Fyashimastudio.com%2Ffuchidori%2F" target="_blank" rel="noopener">X でポスト</a>
+      <a class="btn btn--line" href="https://social-plugins.line.me/lineit/share?url=https%3A%2F%2Fyashimastudio.com%2Ffuchidori%2F" target="_blank" rel="noopener">LINE で送る</a>
+      <button type="button" class="btn btn--line" data-act="copy">リンクをコピー</button>
     </div>
-    <div class="cols">
-      <div class="card"><h3>iPhone・iPad（Safari）</h3><ol><li>Safari でアプリを開く</li><li>下の共有ボタン（□に↑）を押す</li><li>「ホーム画面に追加」を選ぶ</li></ol></div>
-      <div class="card"><h3>Android（Chrome）</h3><ol><li>Chrome でアプリを開く</li><li>右上の︙メニューを押す</li><li>「ホーム画面に追加」または「アプリをインストール」を選ぶ</li></ol></div>
-    </div>
+    <p class="note share__done" role="status"></p>
   </section>
 
-  <section class="wrap sec" aria-labelledby="specs">
-    <div class="sec__hd">
-      <div><span class="sec__num">Specs</span><h2 id="specs">動作環境と書き出し</h2></div>
-    </div>
-    <dl class="specs">
-      <dt>対応ブラウザ</dt><dd>iPhone・iPad の Safari、Android の Chrome、パソコンの Chrome・Edge・Safari（いずれも最新版を推奨）</dd>
-      <dt>写真</dt><dd>JPEG で書き出し（長辺 4096px）。撮影情報（EXIF）は残し、位置情報は消します</dd>
-      <dt>動画</dt><dd>60秒まで。MP4 で書き出し（長辺 1920px）。ブラウザによって MOV・WebM になることがあります</dd>
-      <dt>料金</dt><dd>無料。アカウント登録も要りません</dd>
+  <section class="wrap sec" aria-labelledby="s-spec">
+    <h2 id="s-spec">動作環境と書き出し</h2>
+    <dl class="sec__body specs">
+      <dt>対応ブラウザ</dt><dd>iPhone・iPad の Safari、Android の Chrome、パソコンの Chrome・Edge・Safari（最新版を推奨）</dd>
+      <dt>写真</dt><dd>JPEG で書き出し（長辺 4,096px）。撮影情報は残し、位置情報は消します</dd>
+      <dt>動画</dt><dd>60秒まで、同じ額と文字をつけて書き出し（長辺 1,920px の MP4。ブラウザによって MOV・WebM）</dd>
+      <dt>料金</dt><dd>無料。アカウント登録もいりません</dd>
     </dl>
   </section>
-
-  <section class="wrap end">
-    <h2>お気に入りの一枚に、縁取りを。</h2>
-    <div class="cta"><a class="btn" href="https://fuchidori.yashimastudio.com/">アプリを開く<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
-  </section>
 </main>
-<footer class="wrap foot">
+<footer class="wrap foot note">
   <div class="foot__row">
-    <span class="latin">© 2026 Yashima Studio</span>
-    <nav aria-label="フッター">
-      <a href="/fuchidori/privacy/">プライバシーポリシー</a>
-      <a href="/fuchidori/licenses/Jost-OFL.txt">書体のライセンス</a>
-    </nav>
+    <span>© 2026 Yashima Studio</span>
+    <nav aria-label="フッター"><a href="/fuchidori/privacy/">プライバシーポリシー</a></nav>
   </div>
+  <p>作例の撮影情報は、説明のために入れた値です。</p>
   <p>記載の会社名・製品名は、各社の商標または登録商標です。Fuchidori は各社とは関係のない個人の制作物です。</p>
 </footer>
 </body>

@@ -1,8 +1,8 @@
 /**
  * 紹介ページの作例と画面写真を、**アプリ本体で実際に作る**。
- * 作例の絵は demo-photos.py が作る（実写が用意できたら work/ の絵を差し替えて流し直す）。
+ * 写真は依頼者の実写に、作例用の撮影情報を書き込んだもの（real-photos.py）。
  *
- *   npm run build && python3 site/tools/demo-photos.py && node site/tools/render-demos.mjs
+ *   npm run build && python3 site/tools/real-photos.py && node site/tools/render-demos.mjs
  *
  * 書き出しは画面の「書き出す」から。結果の画像（data: の JPEG）をそのまま受け取る。
  */
@@ -30,34 +30,39 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 const exe = process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
 
-/** 作例ごとの設定。押す部品は画面の名前（読み上げ名）で指す */
+/*
+ * 作例ごとの設定。押す部品は画面の名前（読み上げ名）で指す。
+ * ratio は比率ボタンの名前の頭（「4:5 の比率」など）。margin は 0=なし〜4=広い。size は 0=極小〜3=大
+ */
+const R = { OR: '元の比率', FF: '4:5 の比率', SQ: '1:1 の比率', NST: '9:16 の比率', STN: '16:9 の比率' };
 const DEMOS = [
-  {
-    out: 'demo-dusk', photo: 'dusk.jpg',
-    frame: { ratio: '4:5 の比率', margin: 3, color: 'White' },
-    text: { place: '下', lines: '3行', size: 1 },
-    font: 'Futura', film: 'CLASSIC CHROME', badge: 'なし',
-  },
-  {
-    out: 'demo-sea', photo: 'sea.jpg',
-    frame: { ratio: '元の比率', margin: 2, color: 'Ivory' },
-    text: { place: '下', lines: '2行', size: 1 },
-    font: 'Didot',
-  },
-  {
-    out: 'demo-city', photo: 'city.jpg',
-    frame: { ratio: '1:1 の比率', margin: 3, color: 'Black' },
-    text: { place: '下', lines: '2行', size: 1 },
-    font: 'DIN',
-  },
+  // 冒頭の1枚
+  { out: 'hero', photo: 'torii', ratio: R.FF, margin: 3, color: 'White', lines: '3行', size: 2, font: 'Didot' },
+  // 撮って出しと、通したあと
+  { out: 'after', photo: 'tree', ratio: R.FF, margin: 2, color: 'Ivory', lines: '2行', size: 2, font: 'Futura', film: 'CLASSIC Neg.', shots: true },
+  // 同じ写真で額を替える
+  { out: 'v-white', photo: 'beach', ratio: R.FF, margin: 3, color: 'White', lines: '2行', size: 2, font: 'Helvetica', film: 'PRO Neg. Std' },
+  { out: 'v-black', photo: 'beach', ratio: R.SQ, margin: 3, color: 'Black', lines: '2行', size: 2, font: 'DIN', film: 'PRO Neg. Std' },
+  { out: 'v-tall', photo: 'beach', ratio: R.NST, margin: 3, color: 'Warm White', lines: '3行', size: 2, font: 'Didot', film: 'PRO Neg. Std' },
+  { out: 'v-bleed', photo: 'beach', ratio: R.OR, margin: 0, color: 'White', lines: '2行', size: 2, font: 'Futura', film: 'PRO Neg. Std' },
+  { out: 'v-sakura', photo: 'beach', ratio: R.OR, margin: 2, color: 'Sakura', lines: '2行', size: 2, font: 'Baskerville', film: 'PRO Neg. Std' },
+  { out: 'v-wide', photo: 'beach', ratio: R.STN, margin: 3, color: 'Gunmetal', lines: '1行', size: 2, font: 'Futura', film: 'PRO Neg. Std' },
+  // SNS の比率
+  { out: 'r-45', photo: 'stars', ratio: R.FF, margin: 3, color: 'White', lines: '2行', size: 2, font: 'Futura' },
+  { out: 'r-916', photo: 'stars', ratio: R.NST, margin: 3, color: 'Black', lines: '2行', size: 2, font: 'Futura' },
+  { out: 'r-11', photo: 'stars', ratio: R.SQ, margin: 3, color: 'Onyx', lines: '2行', size: 2, font: 'Futura' },
+  { out: 'r-169', photo: 'stars', ratio: R.STN, margin: 3, color: 'Warm White', lines: '1行', size: 2, font: 'Futura' },
 ];
 
 async function open(ctx, photo) {
   const page = await ctx.newPage();
+  await page.addInitScript(iosShare);
   await page.goto(origin, { waitUntil: 'networkidle' });
-  await page.setInputFiles('input[type=file]', resolve(WORK, photo));
-  await page.waitForSelector('canvas.stage__canvas', { timeout: 15000 });
-  await page.waitForTimeout(600);
+  if (photo) {
+    await page.setInputFiles('input[type=file]', resolve(WORK, `real-${photo}.jpg`));
+    await page.waitForSelector('canvas.stage__canvas', { timeout: 15000 });
+    await page.waitForTimeout(600);
+  }
   return page;
 }
 
@@ -68,21 +73,20 @@ async function tab(page, name) {
 
 async function apply(page, d) {
   await tab(page, 'フレーム');
-  await page.getByRole('radio', { name: d.frame.ratio, exact: false }).first().click();
-  await page.getByRole('slider', { name: '余白の広さ' }).fill(String(d.frame.margin));
-  await page.getByRole('radio', { name: d.frame.color, exact: true }).click();
+  await page.getByRole('radio', { name: d.ratio, exact: false }).first().click();
+  await page.getByRole('slider', { name: '余白の広さ' }).fill(String(d.margin));
+  if (d.margin > 0) await page.getByRole('radio', { name: d.color, exact: true }).click();
   await tab(page, '文字');
-  await page.getByRole('radiogroup', { name: '文字の置き場所' }).getByRole('radio', { name: `文字を${d.text.place}の余白に`, exact: true }).click();
-  await page.getByRole('slider', { name: '文字の大きさ' }).fill(String(d.text.size));
+  const place = d.margin > 0 ? '文字を下の余白に' : '写真の下に重ねる';
+  await page.getByRole('radiogroup', { name: '文字の置き場所' }).getByRole('radio', { name: place, exact: true }).click();
+  await page.getByRole('slider', { name: '文字の大きさ' }).fill(String(d.size));
   await tab(page, '情報');
-  await page.getByRole('radio', { name: d.text.lines, exact: true }).click();
+  await page.getByRole('radio', { name: d.lines, exact: true }).click();
   await tab(page, '書体');
   await page.getByRole('radio', { name: d.font, exact: true }).click();
-  if (d.film) {
-    await tab(page, '刻印');
-    await page.getByRole('combobox', { name: '仕上がり（刻む名前）' }).selectOption(d.film);
-    await page.getByRole('radio', { name: d.badge, exact: true }).click();
-  }
+  await tab(page, '刻印');
+  if (d.film) await page.getByRole('combobox', { name: '仕上がり（刻む名前）' }).selectOption(d.film);
+  await page.getByRole('radio', { name: 'なし', exact: true }).click();
   await page.waitForTimeout(800);
 }
 
@@ -95,28 +99,35 @@ async function exportJpeg(page, out) {
   console.log('作例', out);
 }
 
-const phone = await browser.newContext({ ...devices['iPhone 13'] });
-for (const d of DEMOS) {
-  const ctx = await browser.newContext({ ...devices['iPhone 13'] });
-  const page = await open(ctx, d.photo);
-  await apply(page, d);
-  if (d.out === 'demo-dusk') {
-    // 画面写真（スマホ）: フレームと文字のタブ
-    await tab(page, 'フレーム');
-    await page.screenshot({ path: resolve(WORK, 'ui-phone-frame.png') });
-    await tab(page, '情報');
-    await page.screenshot({ path: resolve(WORK, 'ui-phone-info.png') });
-  }
-  await exportJpeg(page, d.out);
+const phone = { ...devices['iPhone 13'] };
+/** iPhone の Safari と同じく「ファイルを共有できる」ことにする（保存の画面が実機と同じ文言になる） */
+const iosShare = () => {
+  Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+  Object.defineProperty(navigator, 'share', { value: async () => {}, configurable: true });
+};
+{
+  // 画面写真: 何も開いていないホーム
+  const ctx = await browser.newContext(phone);
+  const page = await open(ctx, null);
+  await page.screenshot({ path: resolve(WORK, 'ui-home.png') });
   await ctx.close();
 }
-await phone.close();
-
-// 画面写真（PC）
-const desk = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
-{
-  const page = await open(desk, 'dusk.jpg');
-  await page.screenshot({ path: resolve(WORK, 'ui-desk.png') });
+for (const d of DEMOS) {
+  const ctx = await browser.newContext(phone);
+  const page = await open(ctx, d.photo);
+  await apply(page, d);
+  if (d.shots) {
+    await tab(page, 'フレーム');
+    await page.screenshot({ path: resolve(WORK, 'ui-edit.png') });
+    await tab(page, '情報');
+    await page.screenshot({ path: resolve(WORK, 'ui-info.png') });
+  }
+  await exportJpeg(page, d.out);
+  if (d.shots) {
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: resolve(WORK, 'ui-export.png') });
+  }
+  await ctx.close();
 }
 await browser.close();
 server.close();

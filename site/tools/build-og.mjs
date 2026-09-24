@@ -1,7 +1,8 @@
 /**
- * SNS で共有したときの画像（1200×630）。ページと同じ書体・紙色で、作例を2枚並べる。
+ * SNS で共有したときの画像（1200×630）。ページと同じ紙色・明朝で、作例を2枚並べる。
+ * 明朝体は手元に無いので、描くときだけ Noto Serif JP を借りる（OG_SERIF にファイルの場所。配信物には入れない）。
  *
- *   node site/tools/build-og.mjs
+ *   OG_SERIF=…/noto-serif-jp-japanese-600-normal.woff2 node site/tools/build-og.mjs
  */
 import { chromium } from 'playwright';
 import { writeFileSync } from 'node:fs';
@@ -10,11 +11,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PUB = resolve(HERE, '../public/fuchidori');
-const APPFONTS = resolve(HERE, '../../public/fonts');
+const SERIF = process.env.OG_SERIF;
+if (!SERIF) throw new Error('OG_SERIF（明朝体の woff2）を指定してください');
 const u = (p) => pathToFileURL(p).href;
 const COPY = {
-  ja: { h: '写真に、<br>撮影情報の縁取りを。', s: 'ブラウザで開くだけ。写真は端末の外に出ません。' },
-  en: { h: 'Frame your photos<br>with their story.', s: 'Runs in your browser. Photos never leave your device.' },
+  ja: { k: '写真に撮影情報の額をつける Web アプリ', n: 'F1.8・15秒・ISO3200', h: 'あの夜の設定ごと、<br>額に入れる。' },
+  en: { k: 'Frames your photos with their shooting details', n: 'f/1.8 · 15 s · ISO 3200', h: 'Frame the night,<br>settings and all.' },
 };
 const exe = process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const b = await chromium.launch({ executablePath: exe, args: ['--no-sandbox', '--allow-file-access-from-files'] });
@@ -22,25 +24,23 @@ const page = await b.newPage({ viewport: { width: 1200, height: 630 }, deviceSca
 for (const lang of ['ja', 'en']) {
   const c = COPY[lang];
   const html = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><style>
-@font-face{font-family:Jost;src:url(${u(PUB + '/fonts/Jost-bold.woff2')});font-weight:700}
-@font-face{font-family:Jost;src:url(${u(PUB + '/fonts/Jost-regular.woff2')});font-weight:400}
-@font-face{font-family:NSJ;src:url(${u(APPFONTS + '/NotoSansJP-regular.woff2')})}
-*{box-sizing:border-box}body{margin:0;width:1200px;height:630px;background:#f6f4f1;color:#1c1b19;font-family:Jost,NSJ,sans-serif;overflow:hidden;position:relative}
-.t{position:absolute;left:80px;top:0;bottom:0;width:500px;display:flex;flex-direction:column;justify-content:center}
-.b{display:flex;align-items:center;gap:14px;font-size:30px;font-weight:700;letter-spacing:.04em;margin-bottom:44px}
-.m{width:30px;height:30px;border:3px solid currentColor;border-radius:4px;position:relative}.m:after{content:'';position:absolute;inset:4px 4px 9px;background:currentColor;border-radius:1px}
-h1{margin:0;font-size:${lang === 'ja' ? 48 : 54}px;line-height:${lang === 'ja' ? 1.35 : 1.1};font-weight:700}
-p{margin:28px 0 0;font-size:20px;color:#5b5852}
-img{position:absolute;box-shadow:0 2px 4px rgba(0,0,0,.08),0 24px 48px -16px rgba(0,0,0,.35)}
-.a{height:440px;right:210px;top:110px}.c{height:370px;right:48px;top:170px}
+@font-face{font-family:S;src:url(${u(SERIF)})}
+*{box-sizing:border-box;margin:0}body{width:1200px;height:630px;background:#f4f2ee;color:#23211f;font-family:S,serif;overflow:hidden;position:relative}
+.t{position:absolute;left:72px;top:0;bottom:0;width:520px;display:flex;flex-direction:column;justify-content:center}
+.b{font-size:28px;letter-spacing:.06em;margin-bottom:56px}
+.k{font-size:17px;color:#6b6760;letter-spacing:.06em;margin-bottom:22px}
+.n{font-size:26px;color:#6b6760;letter-spacing:.04em;margin-bottom:10px}
+h1{font-size:${lang === 'ja' ? 46 : 50}px;line-height:${lang === 'ja' ? 1.45 : 1.15};font-weight:600;letter-spacing:.02em}
+img{position:absolute;box-shadow:0 2px 4px rgba(35,33,31,.1),0 24px 48px -18px rgba(35,33,31,.45)}
+.a{height:470px;right:236px;top:80px}.c{height:400px;right:64px;top:150px}
 </style></head><body>
-<div class="t"><div class="b"><span class="m"></span>Fuchidori</div><h1>${c.h}</h1><p>${c.s}</p></div>
-<img class="c" src="${u(PUB + '/img/demo-city-1280.webp')}"><img class="a" src="${u(PUB + '/img/demo-dusk-1280.webp')}">
+<div class="t"><div class="b">Fuchidori</div><div class="k">${c.k}</div><div class="n">${c.n}</div><h1>${c.h}</h1></div>
+<img class="c" src="${u(PUB + '/img/after-1120.webp')}"><img class="a" src="${u(PUB + '/img/hero-1280.webp')}">
 </body></html>`;
   const f = resolve(HERE, `work/og-${lang}.html`);
   writeFileSync(f, html);
   await page.goto(u(f));
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(500);
   await page.screenshot({ path: resolve(PUB, `img/og-${lang}.jpg`), type: 'jpeg', quality: 86 });
   console.log('og', lang);
 }
