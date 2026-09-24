@@ -14,12 +14,14 @@
 import { create } from 'zustand';
 import { DEFAULT_SPEC, normalize } from '../../core/styles/spec';
 import { DEFAULT_LINE_LAYOUT, groupsFor } from '../../core/styles/tokens';
-import { CENTER_FOCUS, type Align, type CaptionAlign, type FieldId, type Focus, type LineLayout, type SizeId, type StyleSpec, type TrackingId } from '../../core/styles/types';
+import { CENTER_FOCUS, type Align, type CaptionAlign, type FieldId, type Focus, type LineLayout, type SeparatorId, type SizeId, type StyleSpec, type TrackingId } from '../../core/styles/types';
 import type { BadgeMode, BadgeSize } from '../../core/badge';
 import type { BandSide } from '../../core/styles/layout';
 import type { DateFormatId, WallClock } from '../../core/wallclock';
 import type { LatinFontKey } from '../fonts-catalog';
 import { loadSettings, saveSettings, type Saved } from './persist';
+import type { BorderWeight } from './border';
+export { BORDER_LU, type BorderWeight } from './border';
 
 export interface Overrides {
   readonly camera: string | null;
@@ -66,6 +68,10 @@ export interface DocState {
   readonly captionOn: boolean;
   /** どの項目を何行目に置くか（情報タブでドラッグして決める）。好みなので保存する */
   readonly lineLayout: LineLayout;
+  /** 項目の区切り（「, 」「 · 」…）。好みなので保存する */
+  readonly separator: SeparatorId;
+  /** 写真の枠線の太さ。bordered が入のときだけ効く */
+  readonly borderWeight: BorderWeight;
   /**
    * この写真では撮影情報（日付・カメラ・レンズ・露出・焦点距離）を載せない。
    * 撮影情報が無い写真の帯で「入れない」を選んだとき。**その1枚だけ**に効き、保存しない。
@@ -113,6 +119,8 @@ const BASE: DocState = {
   badgeFramed: false,
   captionOn: true,
   lineLayout: DEFAULT_LINE_LAYOUT,
+  separator: 'comma',
+  borderWeight: 'hair',
   skipShotFacts: false,
 };
 
@@ -136,6 +144,8 @@ const savedOf = (s: DocState): Saved => ({
   badgeFramed: s.badgeFramed,
   captionOn: s.captionOn,
   lineLayout: s.lineLayout,
+  separator: s.separator,
+  borderWeight: s.borderWeight,
 });
 
 const INITIAL: DocState = { ...BASE, ...loadSettings(savedOf(BASE)) };
@@ -150,6 +160,8 @@ interface DocStore extends DocState {
   resetFocus(): void;
   toggleField(id: FieldId): void;
   setOverride<K extends keyof Overrides>(key: K, value: Overrides[K]): void;
+  /** 枠線。null で無し。入り切りと太さを1段で変える */
+  setBorder(weight: BorderWeight | null): void;
   /** 文字の帯の中の位置（3×3 の点）。左右（align）と上下（寄せ）を1段で変える */
   setCaptionPos(align: Align, v: CaptionAlign): void;
   /** 刻印の位置（3×3 の点）。1段で変える */
@@ -204,6 +216,8 @@ const snapshot = (s: DocState): DocState => ({
   badgeFramed: s.badgeFramed,
   captionOn: s.captionOn,
   lineLayout: s.lineLayout,
+  separator: s.separator,
+  borderWeight: s.borderWeight,
   skipShotFacts: s.skipShotFacts,
 });
 
@@ -289,6 +303,13 @@ export const useDoc = create<DocStore>((set, get) => ({
     const next: FieldId[][] = [0, 1, 2, 3].map((k) => shown[k] ?? []);
     if (JSON.stringify(next) === JSON.stringify(cur.lineLayout)) return;
     set({ ...remember(cur, 'layout', true), lineLayout: next });
+  },
+
+  setBorder(weight) {
+    const cur = get();
+    const bordered = weight !== null;
+    if (cur.bordered === bordered && (!bordered || cur.borderWeight === weight)) return;
+    set({ ...remember(cur, 'border'), bordered, ...(weight ? { borderWeight: weight } : {}) });
   },
 
   setCaptionPos(align, v) {

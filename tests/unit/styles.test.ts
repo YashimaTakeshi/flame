@@ -518,6 +518,28 @@ describe('Scene の組み立て', () => {
     expect(buildScene(inputFor(), measurer).ops.filter((o) => o.op === 'strokeRect')).toHaveLength(0);
   });
 
+  it('太い枠線は写真の外側に引く（写真を隠さない）。全面では内側', () => {
+    const scene = buildScene(inputFor({ style: sp({ ratio: 'SQ', margin: 'normal' }), bordered: true, borderLu: 12 }), measurer);
+    const photo = scene.ops.find((o) => o.op === 'photo');
+    const r = scene.ops.find((o) => o.op === 'strokeRect');
+    expect(photo?.op === 'photo' && r?.op === 'strokeRect').toBe(true);
+    if (photo?.op !== 'photo' || r?.op !== 'strokeRect') return;
+    // 線の内側の縁（中心 − 太さ/2）が写真の縁に一致する
+    expect((r.rect.x as number) + 6).toBeCloseTo(photo.dst.x as number, 6);
+    const bleed = buildScene(inputFor({ style: sp({ margin: 'none' }), bordered: true, borderLu: 12 }), measurer);
+    const rb = bleed.ops.find((o) => o.op === 'strokeRect');
+    expect(rb?.op === 'strokeRect' && (rb.rect.x as number)).toBeCloseTo(6, 6);
+  });
+
+  it('区切りを選べる（行の中の項目のつなぎ）', () => {
+    const facts = { title: 'Kyoto', date: '2026.09.20' };
+    const text = (separator?: 'comma' | 'middot' | 'slash') =>
+      typesetCaption(styleFor(sp({ lines: 1 }), undefined, separator), { facts, gates: ALL_ON, ...TYPO }, 5000, measurer).lines[0]?.text;
+    expect(text()).toBe('Kyoto, 2026.09.20');
+    expect(text('middot')).toBe('Kyoto · 2026.09.20');
+    expect(text('slash')).toBe('Kyoto / 2026.09.20');
+  });
+
   it('全面の枠線はキャンバスの内側に収まる', () => {
     const scene = buildScene(inputFor({ style: sp({ margin: 'none', caption: 'below' }), bordered: true }), measurer);
     const r = scene.ops.find((o) => o.op === 'strokeRect');

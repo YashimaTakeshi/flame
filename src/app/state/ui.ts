@@ -1,13 +1,14 @@
 /** 画面の状態。設定そのものとは分けて持つ */
 import { create } from 'zustand';
 import type { FieldId } from '../../core/styles/types';
+import type { WallClock } from '../../core/wallclock';
 
 /**
  * 5つの道具。以前の6タブ（配置・組み・地色・書体・刻印・情報）を、触る対象で分け直した。
  * 余白・地色・枠線はどれも「額」の性質なのでフレームに、文字の置き場所・揃え・寄せ・大きさ・字間は文字に
  */
 export type TabId = 'frame' | 'text' | 'font' | 'badge' | 'info';
-export type SheetId = 'info' | 'export' | 'diagnostics' | 'view' | null;
+export type SheetId = 'export' | 'diagnostics' | 'view' | null;
 type OpenSheet = Exclude<SheetId, null>;
 
 export const TABS: { id: TabId; label: string }[] = [
@@ -43,6 +44,10 @@ interface UiStore {
    * 載せる／載せないのスイッチとは無関係に、値そのもの
    */
   facts: Partial<Record<FieldId, string>>;
+  /** 写真そのものの値（手入力を除く）。入力欄の見本の字に使う */
+  photoFacts: Partial<Record<FieldId, string>>;
+  /** 写真の撮影日（手入力を除く） */
+  photoDate: WallClock | null;
   /** 情報シートを開いたとき、最初に入力する欄 */
   infoFocus: FieldId | null;
   openInfo(focus?: FieldId | null): void;
@@ -61,7 +66,7 @@ let hintTimer: ReturnType<typeof setTimeout> | null = null;
  * iPhone の戻るスワイプやブラウザの戻るで、アプリごと離れて写真を失うのではなく、
  * 面が1段閉じるだけになる。自己診断は画面に入口が無いので、この印が唯一の入口でもある。
  */
-const SHEET_HASH: Record<OpenSheet, string> = { info: '#info', export: '#export', diagnostics: '#diag', view: '#view' };
+const SHEET_HASH: Record<OpenSheet, string> = { export: '#export', diagnostics: '#diag', view: '#view' };
 const sheetOf = (hash: string): OpenSheet | null =>
   (Object.keys(SHEET_HASH) as OpenSheet[]).find((k) => SHEET_HASH[k] === hash) ?? null;
 const hasHistory = (): boolean =>
@@ -78,11 +83,12 @@ export const useUi = create<UiStore>((set) => ({
   freedom: { photoX: true, photoY: true, textY: true },
   linesFit: 4,
   facts: {},
+  photoFacts: {},
+  photoDate: null,
   infoFocus: null,
-  openInfo: (focus = null) => {
-    set({ infoFocus: focus });
-    useUi.getState().openSheet('info');
-  },
+  // 情報タブ（PC は情報の欄）を開き、その欄から入力を始める。別の画面は開かない
+  openInfo: (focus = null) =>
+    set((s) => ({ tab: 'info', openSecs: { ...s.openSecs, info: true }, infoFocus: focus, hint: null })),
   openSecs: { frame: true, text: true, font: false, badge: false, info: false },
   toggleSec: (id) => set((s) => ({ openSecs: { ...s.openSecs, [id]: !s.openSecs[id] } })),
   setTab: (tab) => set({ tab, hint: null }),

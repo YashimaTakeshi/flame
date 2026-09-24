@@ -1,19 +1,22 @@
 /**
  * 情報。キャプションに載せる項目を、**中身と一緒に、何行目に出るかの組ごとに**並べる。
  *
- * 1項目は「つまみ・名前・今の中身・載せるスイッチ」。名前を押すと情報シートがその欄から開く。
+ * 1項目は「つまみ・名前・中身（その場で直接入力）・載せるスイッチ」。
+ * 以前は名前を押すと別の画面（情報シート）が開いた。依頼者の提案で、その場で打てるようにした。
  * つまみ（⠿）をドラッグすると、ほかの行へ移したり順番を入れ替えたりできる（キーボードは上下キー）。
  * 組の数は「行数」と連動する（1行なら組は1つ）。行数は文字タブと同じ設定。
  */
 import { useEffect, useRef, useState } from 'react';
 import { groupsFor } from '../../core/styles/tokens';
-import type { FieldId, LineCount } from '../../core/styles/types';
+import type { FieldId, LineCount, SeparatorId } from '../../core/styles/types';
 import { SHOT_FACTS, effectiveFields } from '../caption';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
-import { Row, Switch } from '../ui/controls';
+import { Pics, Row, Switch, type Opt } from '../ui/controls';
 import { LinesPicker, useLinesUsed } from './LinesPicker';
-import { IconEdit, IconReset } from '../ui/icons';
+import { IconReset } from '../ui/icons';
+import { DATE_FORMATS, formatWallClock, type DateFormatId, type WallClock } from '../../core/wallclock';
+import { FieldEditor } from './FieldEditor';
 
 /** 一覧に出す項目。撮影地（place）は未実装なので出さない（割り振りの中には残る） */
 const FIELDS: { id: FieldId; label: string; editable: boolean; empty: string }[] = [
@@ -28,6 +31,18 @@ const FIELDS: { id: FieldId; label: string; editable: boolean; empty: string }[]
 ];
 
 /** 行ごとの見え方（spec.ts の linesFor と同じ）。組の見出しに小さく添える */
+const SEPARATOR_OPTIONS: readonly Opt<SeparatorId>[] = [
+  { value: 'comma', label: 'カンマ', text: ',' },
+  { value: 'middot', label: '中黒', text: '·' },
+  { value: 'slash', label: 'スラッシュ', text: '/' },
+  { value: 'emdash', label: 'ダッシュ', text: '—' },
+  { value: 'pipe', label: '縦線', text: '|' },
+  { value: 'space', label: '空白', text: '空白' },
+];
+
+const SAMPLE_DATE: WallClock = { y: 2026, m: 9, d: 20, hh: 17, mm: 42, ss: 11 };
+const asFormat = (v: string): DateFormatId => DATE_FORMATS.find((f) => f === v) ?? 'dots';
+
 const LOOK: Record<LineCount, readonly string[]> = {
   1: ['標準'],
   2: ['標準', '小さく薄く'],
@@ -47,16 +62,27 @@ export function InfoPanel(): React.ReactElement {
   // 組の数は実際に組まれている行数（入らない行数は最後の行に続く）
   const lines = useLinesUsed();
   const moveField = useDoc((s) => s.moveField);
-  const facts = useUi((s) => s.facts);
-  const openInfo = useUi((s) => s.openInfo);
   const setHint = useUi((s) => s.setHint);
   const shown = effectiveFields(fields, skip);
   const captionOn = useDoc((s) => s.captionOn);
+  const separator = useDoc((s) => s.separator);
+  const dateFormat = useDoc((s) => s.dateFormat);
+  const photoDate = useUi((s) => s.photoDate);
+  const infoFocus = useUi((s) => s.infoFocus);
+  // ほかのタブ（刻印の「その他」・撮影情報の無い写真の帯）から来たら、その欄から入力を始める
+  useEffect(() => {
+    if (!infoFocus) return;
+    const el = rootRef.current?.querySelector<HTMLElement>(`[data-field="${infoFocus}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+    el?.focus();
+    useUi.setState({ infoFocus: null });
+  }, [infoFocus]);
   const setTab = useUi((s) => s.setTab);
 
   const known = new Set(FIELDS.map((f) => f.id));
   const groups = groupsFor(layout, lines).map((g) => g.filter((id) => known.has(id)));
   const meta = (id: FieldId) => FIELDS.find((f) => f.id === id)!;
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
   /*
    * 戻すのは情報だけ（載せる項目・日付の書き方・タイトル・手入力・行の割り振り）。
@@ -78,7 +104,6 @@ export function InfoPanel(): React.ReactElement {
   };
 
   /* ── ドラッグ ── */
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const [drag, setDrag] = useState<{ id: FieldId; target: Target | null } | null>(null);
   /** 動かしたあと、つまみにフォーカスを戻す（組をまたぐと要素が作り直される） */
   const refocus = useRef<FieldId | null>(null);
@@ -161,6 +186,19 @@ export function InfoPanel(): React.ReactElement {
       <Row label="行数">
         <LinesPicker />
       </Row>
+      {/* 項目の区切り（依頼者の要望で選べるようにした）。字そのものを見せて選ぶ */}
+      <Row label="区切り">
+        <Pics label="項目の区切り" variant="text" options={SEPARATOR_OPTIONS} value={separator} onChange={(v) => set('separator', v)} />
+      </Row>
+      <Row label="日付">
+        <select className="pselect" aria-label="日付の書き方" value={dateFormat} onChange={(e) => set('dateFormat', asFormat(e.target.value))}>
+          {DATE_FORMATS.map((f) => (
+            <option key={f} value={f}>
+              {formatWallClock(photoDate ?? SAMPLE_DATE, f)}
+            </option>
+          ))}
+        </select>
+      </Row>
       <p className="irows__how">⠿ をドラッグして、項目を出す行や順番を変えられます</p>
       {groups.map((g, gi) => (
         <section key={gi} className="igroup" data-group={gi} data-drop-end={(drag?.target?.g === gi && drag.target.i === g.length) || undefined}>
@@ -171,16 +209,6 @@ export function InfoPanel(): React.ReactElement {
           {g.length === 0 && <p className="igroup__empty">ここに項目をドラッグ</p>}
           {g.map((id, i) => {
             const f = meta(id);
-            const v = facts[id];
-            const body = (
-              <>
-                <span className="irow__name">{f.label}</span>
-                <span className="irow__val" data-empty={v ? undefined : true}>
-                  {v ?? f.empty}
-                  {f.editable && <span aria-hidden="true"> ›</span>}
-                </span>
-              </>
-            );
             return (
               <div
                 key={id}
@@ -205,13 +233,8 @@ export function InfoPanel(): React.ReactElement {
                     {[3, 9].map((x) => [3, 9, 15].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.5" fill="currentColor" />))}
                   </svg>
                 </button>
-                {f.editable ? (
-                  <button type="button" className="irow__main" aria-label={`${f.label}を編集`} onClick={() => openInfo(id)}>
-                    {body}
-                  </button>
-                ) : (
-                  <span className="irow__main">{body}</span>
-                )}
+                <span className="irow__name">{f.label}</span>
+                <FieldEditor id={id} />
                 <Switch label={`${f.label}を載せる`} on={shown[id]} onChange={() => toggle(id)} />
               </div>
             );
@@ -219,10 +242,6 @@ export function InfoPanel(): React.ReactElement {
         </section>
       ))}
       <div className="irows__acts">
-        <button type="button" className="btn--s" onClick={() => openInfo(null)}>
-          <IconEdit size={16} />
-          まとめて編集
-        </button>
         <button type="button" className="btn--s" aria-label="情報を初期値に戻す" onClick={reset}>
           <IconReset size={16} />
           情報を戻す

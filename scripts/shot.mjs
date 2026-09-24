@@ -127,10 +127,9 @@ console.log('書き出しの窓（スマホ）:', JSON.stringify(phoneDialogs));
  * 面は履歴に載る。iPhone の戻るスワイプ（＝history.back）で、アプリごと離れるのではなく面が1段閉じる。
  * ★実測: 以前は面を閉じるつもりで端を払うとページを離れ、写真と設定を失った。★
  */
-await page.getByRole('tab', { name: '情報' }).click();
-await page.waitForTimeout(250);
-await page.getByRole('button', { name: '編集' }).first().click();
-await page.waitForTimeout(400);
+// 書き出しの面で確かめる（情報は面ではなく、その場で入力する形になった）
+await page.getByRole('button', { name: '書き出す' }).click();
+await page.waitForTimeout(1500);
 const sheetOpened = await page.evaluate(() => ({ sheet: !!document.querySelector('.sheet'), hash: location.hash }));
 await page.evaluate(() => history.back());
 await page.waitForTimeout(500);

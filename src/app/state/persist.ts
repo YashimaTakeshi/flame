@@ -12,6 +12,7 @@
 import { normalize } from '../../core/styles/spec';
 import type { BadgeMode, BadgeSize } from '../../core/badge';
 import type { BandSide } from '../../core/styles/layout';
+import type { BorderWeight } from './border';
 import type {
   Align,
   CaptionAlign,
@@ -20,6 +21,7 @@ import type {
   LineCount,
   LineLayout,
   MarginId,
+  SeparatorId,
   PhotoPlace,
   Ratio,
   SizeId,
@@ -50,6 +52,8 @@ export interface Saved {
   readonly badgeFramed: boolean;
   readonly captionOn: boolean;
   readonly lineLayout: LineLayout;
+  readonly separator: SeparatorId;
+  readonly borderWeight: BorderWeight;
 }
 
 /* ── 1項目ずつの検証 ───────────────────────────────────── */
@@ -69,6 +73,8 @@ const PHOTOS = [
 const CAPTIONS = ['above', 'below', 'left', 'right'] as const satisfies readonly CaptionPlace[];
 const CAP_ALIGNS = ['start', 'center', 'end'] as const satisfies readonly CaptionAlign[];
 const LINES = [1, 2, 3, 4] as const satisfies readonly LineCount[];
+const SEPARATORS = ['comma', 'middot', 'slash', 'emdash', 'pipe', 'space'] as const satisfies readonly SeparatorId[];
+const BORDER_WEIGHTS = ['hair', 'thin', 'medium', 'thick'] as const satisfies readonly BorderWeight[];
 const MARGINS = ['thin', 'narrow', 'normal', 'wide', 'none'] as const satisfies readonly MarginId[];
 const ALIGNS = ['left', 'center', 'right'] as const satisfies readonly Align[];
 const TRACKS = ['Tight', 'Normal', 'Wide', 'Widest'] as const satisfies readonly TrackingId[];
@@ -168,6 +174,8 @@ export function readSaved(raw: string | null, defaults: Saved): Saved {
     badgeFramed: bool(o['badgeFramed'], defaults.badgeFramed),
     captionOn: bool(o['captionOn'], defaults.captionOn),
     lineLayout: readLayout(o['lineLayout'], defaults.lineLayout),
+    separator: one(o['separator'], SEPARATORS, defaults.separator),
+    borderWeight: one(o['borderWeight'], BORDER_WEIGHTS, defaults.borderWeight),
   };
 }
 

@@ -31,8 +31,7 @@ import { flushSettings } from './state/persist';
 import { fontRefFor, preloadLatinFonts } from './fonts-catalog';
 import { colorOf } from './panels/constants';
 import { ExportSheet, type Render } from './sheets/ExportSheet';
-import { InfoSheet } from './sheets/InfoSheet';
-import { useDoc } from './state/doc';
+import { BORDER_LU, useDoc } from './state/doc';
 import { bindSheetHistory, useUi } from './state/ui';
 import { IconExpand, IconMuted, IconPhoto, IconPlay, IconRedo, IconShare, IconSound, IconUndo } from './ui/icons';
 import { Viewer } from './Viewer';
@@ -189,7 +188,11 @@ export function App(): React.ReactElement {
           overrides: doc.overrides,
         })
       : {};
-    useUi.setState({ facts });
+    // 写真そのものの値（入力欄の見本の字）。手入力・タイトル・作者を除いて組む
+    const photoFacts = loaded
+      ? collectFacts(loaded.exif, { dateFormat: doc.dateFormat, title: '', artist: '', fields: doc.fields, overrides: { camera: null, lens: null, date: null, film: null } })
+      : {};
+    useUi.setState({ facts, photoFacts, photoDate: loaded?.exif.dateTaken ?? null });
   }, [loaded, doc.dateFormat, doc.title, doc.artist, doc.fields, doc.overrides]);
 
   const sceneInput: SceneInput | null = useMemo(() => {
@@ -219,6 +222,8 @@ export function App(): React.ReactElement {
       tracking: doc.tracking,
       size: doc.size,
       bordered: doc.bordered,
+      borderLu: BORDER_LU[doc.borderWeight],
+      separator: doc.separator,
       background,
       ink: inkFor(background),
       // 刻印は「載せる項目」のスイッチとは独立。文字列から外しても刻印だけ残せる
@@ -619,7 +624,7 @@ export function App(): React.ReactElement {
       }}
       onEdit={() => {
         setBandDismissed(true);
-        openSheet('info');
+        useUi.getState().openInfo('date');
       }}
       onSkip={() => {
         // この1枚だけ。保存される「載せる項目」は触らない（次の写真で撮影情報が消えていた）
@@ -858,7 +863,6 @@ export function App(): React.ReactElement {
         </>
       )}
 
-      {sheet === 'info' && <InfoSheet exif={exif} onClose={closeSheet} />}
       {sheet === 'view' && scene && (
         <Viewer
           scene={scene}

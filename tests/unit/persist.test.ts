@@ -36,6 +36,8 @@ const DEFAULTS: Saved = {
   badgeFramed: false,
   captionOn: true,
   lineLayout: DEFAULT_LINE_LAYOUT,
+  separator: 'comma',
+  borderWeight: 'hair',
 };
 
 const saved = (o: unknown): Saved => readSaved(JSON.stringify(o), DEFAULTS);

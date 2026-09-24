@@ -6,6 +6,7 @@
  * 「揃え（左右）」と「寄せ（上下）」は別々のタブにあったのを、3×3 の点1つにまとめた。
  * 文字は写真に揃える（上下の帯は写真の幅、左右の段は写真の高さの範囲）。
  * 先頭のスイッチで文字そのものを切れる。
+ * 役割: ここは「どこにどう見せるか」。何を何行にどう並べるか（行数・区切り・並び）は情報タブ。
  */
 import type { CaptionPlace } from '../../core/styles/types';
 import { useDoc } from '../state/doc';
@@ -13,7 +14,7 @@ import { useUi } from '../state/ui';
 import { Anchor, Pics, Row, Stepper, Switch, type Opt } from '../ui/controls';
 import { PlacePic } from '../ui/pics';
 import { CAPTION_PLACE_JA, CAPTION_PLACES_UI, SIZE_OPTIONS, TRACK_OPTIONS } from './constants';
-import { LinesPicker } from './LinesPicker';
+import { useLinesUsed } from './LinesPicker';
 
 export function TextPanel(): React.ReactElement {
   const style = useDoc((s) => s.style);
@@ -27,6 +28,8 @@ export function TextPanel(): React.ReactElement {
   const setHint = useUi((s) => s.setHint);
   const textY = useUi((s) => s.freedom.textY);
   const off = (): void => setHint('「文字を入れる」をオンにしてください');
+  const used = useLinesUsed();
+  const openInfo = useUi((s) => s.openInfo);
 
   const overlay = style.margin === 'none';
   const places: readonly Opt<CaptionPlace>[] = CAPTION_PLACES_UI.map((p) => ({
@@ -63,8 +66,17 @@ export function TextPanel(): React.ReactElement {
               why === 'all' ? off() : setHint('文字の上下に余りがありません（写真を上下に寄せると動かせます）')
             }
           />
-          <LinesPicker disabled={!on} onDisabledPick={off} />
+
         </div>
+      </Row>
+      {/*
+       * 行数と「何を何行目に出すか」は情報タブにまとめた（役割で分けた。以前は両方のタブに行数があり、
+       * 連動していることが分からなかった）。ここからは入口だけ
+       */}
+      <Row label="行数" dim={!on}>
+        <button type="button" className="plink" onClick={() => openInfo()}>
+          {used}行 ・ 並びと区切りは「情報」で ›
+        </button>
       </Row>
       <Row label="大きさ" dim={!on}>
         <Stepper label="文字の大きさ" options={SIZE_OPTIONS} value={size} defaultValue="Medium" onChange={(v) => set('size', v)} disabled={!on} onDisabledPick={off} />

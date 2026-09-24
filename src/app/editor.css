@@ -527,6 +527,17 @@
   align-items: center;
   gap: var(--s2);
 }
+.plink {
+  min-height: var(--tap);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .pair__note {
   font-size: 0.75rem;
   color: var(--ink-2);
@@ -810,7 +821,12 @@
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 4px 2px;
+  /*
+   * 選んだ色の輪（外に 5.5px 出る）が切れないだけの余白。
+   * 横に送る列は縦にも切り抜かれるので、上下にも取る（以前は輪の上が欠けて、上の行に被って見えた）
+   */
+  padding: 7px 6px;
+  margin: -3px 0;
 }
 .swatches::-webkit-scrollbar {
   display: none;
@@ -929,7 +945,8 @@
 }
 .irow {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  /* つまみ・名前・中身（その場で入力）・載せるスイッチ */
+  grid-template-columns: auto 4.5em minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--s1);
   box-shadow: inset 0 -1px 0 var(--line);
@@ -947,8 +964,43 @@
   text-align: left;
   font-size: var(--t2);
 }
+.irow__name {
+  font-size: var(--t2);
+  color: var(--ink);
+}
+/* その場で打つ欄。ふだんは地に溶け、触ると下線が明るくなる */
+.pinput {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8125rem;
+  color-scheme: dark;
+}
+.pinput::placeholder {
+  color: var(--ink-3);
+}
+.pinput:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--ink-2);
+}
+.filmsel {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.irow .pselect {
+  max-width: none;
+  min-height: 36px;
+}
 .irow__val {
-  justify-self: end;
+  justify-self: start;
+  padding: 0 8px;
   max-width: 100%;
   color: var(--ink-2);
   font-size: 0.75rem;

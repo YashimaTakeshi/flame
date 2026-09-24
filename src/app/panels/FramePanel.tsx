@@ -13,8 +13,17 @@ import { cssColor } from '../../core/scene/ops';
 import { DEFAULT_SPEC } from '../../core/styles/spec';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
-import { Anchor, Pics, Row, Stepper, Swatches, Switch } from '../ui/controls';
+import { Anchor, Pics, Row, Stepper, Swatches, type Opt } from '../ui/controls';
+import type { BorderWeight } from '../state/doc';
 import { COLORS, MARGIN_OPTIONS, RATIO_OPTIONS, hvOfPhoto, photoOfHv } from './constants';
+
+const BORDER_OPTIONS: readonly Opt<BorderWeight | 'none'>[] = [
+  { value: 'none', label: 'なし' },
+  { value: 'hair', label: '極細' },
+  { value: 'thin', label: '細い' },
+  { value: 'medium', label: '中' },
+  { value: 'thick', label: '太い' },
+];
 
 const SWATCHES = COLORS.map((c) => ({ key: c.key, label: c.label, css: cssColor(c.value) }));
 
@@ -23,6 +32,8 @@ export function FramePanel(): React.ReactElement {
   const setStyle = useDoc((s) => s.setStyle);
   const colorKey = useDoc((s) => s.colorKey);
   const bordered = useDoc((s) => s.bordered);
+  const borderWeight = useDoc((s) => s.borderWeight);
+  const setBorder = useDoc((s) => s.setBorder);
   const set = useDoc((s) => s.set);
   const setHint = useUi((s) => s.setHint);
   const freedom = useUi((s) => s.freedom);
@@ -77,7 +88,14 @@ export function FramePanel(): React.ReactElement {
         />
       </Row>
       <Row label="枠線">
-        <Switch label="写真の枠線" on={bordered} onChange={(on) => set('bordered', on)} />
+        {/* 入り切りと太さを1本で（依頼者の要望で太さを選べるようにした） */}
+        <Stepper
+          label="写真の枠線の太さ"
+          options={BORDER_OPTIONS}
+          value={bordered ? borderWeight : 'none'}
+          defaultValue="none"
+          onChange={(v) => setBorder(v === 'none' ? null : v)}
+        />
       </Row>
     </div>
   );

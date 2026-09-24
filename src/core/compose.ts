@@ -20,7 +20,7 @@ import type { Scene, SceneWarning } from './scene/scene';
 import { captionWidthLu, layoutViolations, resolveLayout, type ExtraBand } from './styles/layout';
 import { RATIOS, styleFor } from './styles/spec';
 import { SIZE_LU } from './styles/tokens';
-import { CENTER_FOCUS, type Align, type CaptionAlign, type Focus, type LineCount, type StyleDef, type LineLayout, type SizeId, type StyleSpec, type TrackingId } from './styles/types';
+import { CENTER_FOCUS, type Align, type CaptionAlign, type Focus, type LineCount, type StyleDef, type LineLayout, type SeparatorId, type SizeId, type StyleSpec, type TrackingId } from './styles/types';
 
 export interface SceneInput {
   /** 比率 × 写真の位置 × 文字の位置 × 寄せ × 行数 × 余白 */
@@ -48,6 +48,10 @@ export interface SceneInput {
    * スタイルと直交する軸（参考アプリの Color タブの Standard / Bordered）。
    */
   readonly bordered: boolean;
+  /** 枠線の太さ（lu）。無ければヘアライン（BORDER_LU）。依頼者の要望で太さを選べるようにした */
+  readonly borderLu?: number;
+  /** 項目の区切り（「, 」「 · 」…）。無ければカンマ */
+  readonly separator?: SeparatorId;
   readonly background: Rgba;
   readonly ink: Rgba;
   /**
@@ -137,7 +141,7 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
    * 行数ごとに組んでみて、入る行数（linesFit）を調べる。選んだ行数が入らなければ、入る行数まで減らす
    */
   const typeOf = (n: LineCount) => {
-    const d = styleFor({ ...input.style, lines: n }, input.lineLayout);
+    const d = styleFor({ ...input.style, lines: n }, input.lineLayout, input.separator);
     const w = captionWidthLu(d);
     const t = typesetCaption(
       d,
@@ -310,24 +314,29 @@ export function buildScene(input: SceneInput, measurer: TextMeasurer): Scene {
     dst: layout.photo,
   });
 
-  /* 4. 枠線（Bordered）。写真の外周をヘアラインでなぞる */
+  /*
+   * 4. 枠線（Bordered）。写真の外周をなぞる。
+   * 線はパスの中心に引かれる。太い線で写真を隠さないよう、余白があるときは**写真の外側**に引く
+   * （外側の余白が足りなければ入る分だけ外へ）。全面では外側がキャンバスの外に落ちるので内側に引く
+   */
   if (input.bordered) {
-    /*
-     * 線はパスの中心に引かれるので、全面ブリードのときは外側の半分が
-     * キャンバスの外に落ちて線が半分の太さに見える。その分だけ内側に寄せる。
-     */
-    const half = def.spec.margin === 'none' ? BORDER_LU / 2 : 0;
+    const w = input.borderLu ?? BORDER_LU;
+    const p = layout.photo;
+    const px0 = p.x as number;
+    const py0 = p.y as number;
+    const pw = p.w as number;
+    const ph = p.h as number;
+    const cw = layout.canvas.w as number;
+    const ch = layout.canvas.h as number;
+    const room = Math.min(px0, py0, cw - px0 - pw, ch - py0 - ph);
+    // 正なら外へ広げる、負なら内へ縮める（線の中心の位置）
+    const off = def.spec.margin === 'none' ? -w / 2 : Math.min(w / 2, Math.max(0, room - w / 2));
     b.add({
       op: 'strokeRect',
       resolution: 'invariant',
-      rect: rect(
-        (layout.photo.x as number) + half,
-        (layout.photo.y as number) + half,
-        (layout.photo.w as number) - half * 2,
-        (layout.photo.h as number) - half * 2,
-      ),
+      rect: rect(px0 - off, py0 - off, pw + off * 2, ph + off * 2),
       color: overlay ? OVERLAY_INK : input.ink,
-      width: hairline(lu(BORDER_LU), px(1)),
+      width: hairline(lu(w), px(1)),
       snap: 'device-pixel-when-preview',
     });
   }

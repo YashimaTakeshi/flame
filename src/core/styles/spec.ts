@@ -15,6 +15,7 @@ import type {
   LineCount,
   LineLayout,
   MarginId,
+  SeparatorId,
   PhotoPlace,
   Ratio,
   StyleDef,
@@ -77,7 +78,7 @@ export const SIDE_BAND_LU = 300;
  * 行数ごとの行構成。参考アプリの観測（1行: 全部カンマ区切り／3行: 2行目ボールド・3行目グレー）を基準にした。
  * 左右の段では折り返しを許す。段が狭いので折らないと入らない。
  */
-function linesFor(n: LineCount, side: boolean, layout: LineLayout): readonly CaptionLineSpec[] {
+function linesFor(n: LineCount, side: boolean, layout: LineLayout, sep: SeparatorId): readonly CaptionLineSpec[] {
   // どの項目を何行目に置くかは利用者の割り振り（既定は以前の固定の組みと同じ）
   const g = groupsFor(layout, n).map(tokensOf);
   const wrap = (k: number): { maxWrap?: number } => (side ? { maxWrap: k } : {});
@@ -91,26 +92,26 @@ function linesFor(n: LineCount, side: boolean, layout: LineLayout): readonly Cap
   switch (n) {
     case 1:
       return [
-        { id: 'l1', fields: g[0]!, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.32, ...wrap(4), ...alignSide },
+        { id: 'l1', fields: g[0]!, separator: sep, emphasis: 'normal', relSize: 1.0, leading: 1.32, ...wrap(4), ...alignSide },
       ];
     case 2:
       return [
-        { id: 'l1', fields: g[0]!, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
-        { id: 'l2', fields: g[1]!, separator: 'comma', emphasis: 'muted', relSize: 0.9, leading: 1.42, ...wrap(3), ...alignSide },
+        { id: 'l1', fields: g[0]!, separator: sep, emphasis: 'normal', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
+        { id: 'l2', fields: g[1]!, separator: sep, emphasis: 'muted', relSize: 0.9, leading: 1.42, ...wrap(3), ...alignSide },
       ];
     case 3:
       return [
-        { id: 'l1', fields: g[0]!, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
-        { id: 'l2', fields: g[1]!, separator: 'comma', emphasis: 'bold', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
-        { id: 'l3', fields: g[2]!, separator: 'comma', emphasis: 'muted', relSize: 0.92, leading: 1.42, ...wrap(3), ...alignSide },
+        { id: 'l1', fields: g[0]!, separator: sep, emphasis: 'normal', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
+        { id: 'l2', fields: g[1]!, separator: sep, emphasis: 'bold', relSize: 1.0, leading: 1.42, ...wrap(2), ...alignSide },
+        { id: 'l3', fields: g[2]!, separator: sep, emphasis: 'muted', relSize: 0.92, leading: 1.42, ...wrap(3), ...alignSide },
       ];
     case 4:
       // 3行の組みに、小さく薄い行をもう1つ。行が増えるぶん行間は少し詰める
       return [
-        { id: 'l1', fields: g[0]!, separator: 'comma', emphasis: 'normal', relSize: 1.0, leading: 1.38, ...wrap(2), ...alignSide },
-        { id: 'l2', fields: g[1]!, separator: 'comma', emphasis: 'bold', relSize: 1.0, leading: 1.38, ...wrap(2), ...alignSide },
-        { id: 'l3', fields: g[2]!, separator: 'comma', emphasis: 'muted', relSize: 0.92, leading: 1.38, ...wrap(2), ...alignSide },
-        { id: 'l4', fields: g[3]!, separator: 'comma', emphasis: 'muted', relSize: 0.92, leading: 1.38, ...wrap(2), ...alignSide },
+        { id: 'l1', fields: g[0]!, separator: sep, emphasis: 'normal', relSize: 1.0, leading: 1.38, ...wrap(2), ...alignSide },
+        { id: 'l2', fields: g[1]!, separator: sep, emphasis: 'bold', relSize: 1.0, leading: 1.38, ...wrap(2), ...alignSide },
+        { id: 'l3', fields: g[2]!, separator: sep, emphasis: 'muted', relSize: 0.92, leading: 1.38, ...wrap(2), ...alignSide },
+        { id: 'l4', fields: g[3]!, separator: sep, emphasis: 'muted', relSize: 0.92, leading: 1.38, ...wrap(2), ...alignSide },
       ];
   }
 }
@@ -139,7 +140,7 @@ export const sameSpec = (a: StyleSpec, b: StyleSpec): boolean =>
   a.lines === b.lines &&
   a.margin === b.margin;
 
-export function styleFor(raw: StyleSpec, layout: LineLayout = DEFAULT_LINE_LAYOUT): StyleDef {
+export function styleFor(raw: StyleSpec, layout: LineLayout = DEFAULT_LINE_LAYOUT, separator: SeparatorId = 'comma'): StyleDef {
   const spec = normalize(raw);
   const r = RATIOS[spec.ratio];
   const base = Math.round(r.insetLu * MARGIN_SCALE[spec.margin]);
@@ -157,7 +158,7 @@ export function styleFor(raw: StyleSpec, layout: LineLayout = DEFAULT_LINE_LAYOU
       sideInsetLu: lu(overlay ? OVERLAY_INSET_LU : base),
       outerInsetLu: lu(overlay ? OVERLAY_INSET_LU : Math.round(base * 1.1)),
       bandLu: lu(SIDE_BAND_LU),
-      lines: linesFor(spec.lines, side, layout),
+      lines: linesFor(spec.lines, side, layout, separator),
       ...(overlay
         ? {
             // 0.58 は「白い写真の上でも本文コントラストが 4.5:1 を超える」最小の濃さ（§4.6）
