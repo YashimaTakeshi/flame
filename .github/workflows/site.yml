@@ -42,21 +42,25 @@ jobs:
         if: steps.key.outputs.ok == 'true'
         env:
           URL: https://yashimastudio.com
+        # 本文はいったん変数に受ける。curl | grep -q だと、grep が先に終わって curl が
+        # 書き込みに失敗し（SIGPIPE）、pipefail で「無い」と誤判定する（初回の配信で実際に起きた）
         run: |
           set -euo pipefail
+          body() { curl -fsS "$1" 2>/dev/null || true; }
           ok=""
           for i in $(seq 1 30); do
-            if curl -fsS "$URL/fuchidori/" 2>/dev/null | grep -q "Fuchidori"; then ok=1; break; fi
+            B=$(body "$URL/fuchidori/")
+            if grep -q "Fuchidori" <<<"$B"; then ok=1; break; fi
             echo "まだ届かない。待つ…"; sleep 10
           done
           [ -n "$ok" ] || { echo "紹介ページが開けない"; exit 1; }
-          curl -fsS "$URL/fuchidori/en/" | grep -q 'lang="en"' || { echo "英語版が無い"; exit 1; }
-          curl -fsS "$URL/fuchidori/privacy/" | grep -q "プライバシーポリシー" || { echo "プライバシーポリシーが無い"; exit 1; }
+          grep -q 'lang="en"' <<<"$(body "$URL/fuchidori/en/")" || { echo "英語版が無い"; exit 1; }
+          grep -q "プライバシーポリシー" <<<"$(body "$URL/fuchidori/privacy/")" || { echo "プライバシーポリシーが無い"; exit 1; }
           H=$(curl -fsSI "$URL/fuchidori/")
-          echo "$H" | grep -qi "^content-security-policy:.*default-src 'none'" || { echo "CSP が効いていない"; exit 1; }
-          echo "$H" | grep -qi "^cache-control:.*no-cache" || { echo "ページの Cache-Control が no-cache でない"; exit 1; }
+          grep -qi "^content-security-policy:.*default-src 'none'" <<<"$H" || { echo "CSP が効いていない"; exit 1; }
+          grep -qi "^cache-control:.*no-cache" <<<"$H" || { echo "ページの Cache-Control が no-cache でない"; exit 1; }
           L=$(curl -sS -o /dev/null -w "%{http_code} %{redirect_url}" "$URL/")
           echo "トップ: $L"
-          echo "$L" | grep -q "^302 .*/fuchidori/$" || { echo "トップが紹介ページへ転送されていない"; exit 1; }
+          grep -q "^302 .*/fuchidori/$" <<<"$L" || { echo "トップが紹介ページへ転送されていない"; exit 1; }
           curl -fsS -o /dev/null "$URL/fuchidori/img/og-ja.jpg" || { echo "共有用の画像が無い"; exit 1; }
           echo "OK: $URL/fuchidori/"
