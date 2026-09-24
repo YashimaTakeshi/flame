@@ -11,3 +11,5 @@ coverage/
 # アセットのビルド作業用（成果物は public/ にコミットする）
 .fontwork/
 .geowork/
+# 紹介ページの作例づくりの作業場（成果物は site/public/ にコミットする）
+site/tools/work/

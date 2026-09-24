@@ -331,6 +331,21 @@
   font-size: 0.75rem;
   color: var(--ink-2);
 }
+.home__about {
+  /* 「アプリを共有」と組にして見せる（間を詰める） */
+  margin-top: calc(var(--s2) * -1);
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--s2);
+  color: var(--ink-3);
+  font-size: var(--t2);
+  letter-spacing: var(--t2-ls);
+  text-underline-offset: 3px;
+}
+.home__about:active {
+  color: var(--ink);
+}
 .home__busy {
   margin: 0;
   font-size: 13px;

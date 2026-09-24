@@ -1,0 +1,16 @@
+/*
+ * yashimastudio.com（Fuchidori の紹介ページ）。アプリ本体（../wrangler.jsonc）とは別の Worker。
+ * 静的ファイルだけ（Worker のコードは無い）。配信は .github/workflows/site.yml。
+ * トップ（/）は構想が固まるまで /fuchidori/ へ一時転送（public/_redirects）。
+ */
+{
+  "name": "yashimastudio-site",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./public",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [{ "pattern": "yashimastudio.com", "custom_domain": true }],
+  "workers_dev": false
+}

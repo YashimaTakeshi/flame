@@ -1,0 +1,572 @@
+/*
+ * Fuchidori 紹介ページ。
+ * 写真が主役なので、ページ自体は色を持たない（紙と墨だけ）。額縁のような広い余白と細い線。
+ * 地色はアプリの Warm White。暗い画面設定では Onyx に切り替える。
+ */
+@font-face {
+  font-family: 'Jost';
+  src: url('../fonts/Jost-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Jost';
+  src: url('../fonts/Jost-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --paper: #f6f4f1;
+  --paper-2: #ece9e4;
+  --card: #ffffff;
+  --ink: #1c1b19;
+  --ink-2: #5b5852;
+  --ink-3: #8a867f;
+  --rule: #dcd8d1;
+  --btn: #1c1b19;
+  --btn-ink: #f6f4f1;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 12px 32px -12px rgb(0 0 0 / 0.22);
+  --latin: 'Jost', 'Futura', 'Avenir Next', system-ui, sans-serif;
+  --jp: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic UI', 'Yu Gothic', Meiryo, system-ui, sans-serif;
+  --w: 1120px;
+  --gutter: clamp(16px, 5vw, 48px);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #141414;
+    --paper-2: #1c1c1c;
+    --card: #202020;
+    --ink: #edebe7;
+    --ink-2: #b1ada6;
+    --ink-3: #85817b;
+    --rule: #2f2e2c;
+    --btn: #edebe7;
+    --btn-ink: #141414;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -16px rgb(0 0 0 / 0.8);
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--jp);
+  font-size: 16px;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+:lang(en) body {
+  font-family: var(--latin);
+  line-height: 1.65;
+}
+/* 日本語の見出しは文節で折り返す（対応ブラウザのみ。ほかは従来どおり） */
+:lang(ja) h1,
+:lang(ja) h2,
+:lang(ja) h3 {
+  word-break: auto-phrase;
+}
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+a {
+  color: inherit;
+}
+.wrap {
+  width: 100%;
+  max-width: calc(var(--w) + var(--gutter) * 2);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+.latin {
+  font-family: var(--latin);
+}
+
+/* ── 見出しまわり ── */
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--latin);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+.brand__mark {
+  width: 22px;
+  height: 22px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  position: relative;
+}
+.brand__mark::after {
+  content: '';
+  position: absolute;
+  inset: 3px 3px 7px;
+  background: currentColor;
+  border-radius: 1px;
+}
+.lang {
+  display: flex;
+  gap: 4px;
+  font-family: var(--latin);
+  font-size: 14px;
+}
+.lang a,
+.lang span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--ink-2);
+}
+.lang [aria-current] {
+  color: var(--ink);
+  background: var(--paper-2);
+}
+
+/* ── 冒頭 ── */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+  align-items: center;
+  gap: clamp(32px, 6vw, 80px);
+  padding-top: clamp(24px, 6vw, 72px);
+  padding-bottom: clamp(56px, 9vw, 112px);
+}
+.eyebrow {
+  margin: 0 0 18px;
+  font-family: var(--latin);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.hero h1 {
+  margin: 0;
+  font-size: clamp(32px, 5vw, 54px);
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+:lang(en) .hero h1 {
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+}
+.lead {
+  margin: 24px 0 0;
+  max-width: 34em;
+  font-size: clamp(16px, 1.6vw, 18px);
+  color: var(--ink-2);
+}
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: 36px;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 26px;
+  border-radius: 999px;
+  background: var(--btn);
+  color: var(--btn-ink);
+  font-weight: 700;
+  font-size: 16px;
+  text-decoration: none;
+  transition: transform 0.15s ease;
+}
+.btn:hover {
+  transform: translateY(-1px);
+}
+.btn:focus-visible,
+.lang a:focus-visible,
+.brand:focus-visible,
+.foot a:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+.btn svg {
+  width: 16px;
+  height: 16px;
+}
+.cta__note {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* スマホの画面写真。枠は描き足した簡単なもの */
+.device {
+  justify-self: center;
+  width: min(320px, 78vw);
+  padding: 10px;
+  border-radius: 44px;
+  background: #0b0b0b;
+  box-shadow: var(--shadow), inset 0 0 0 1.5px #2b2b2b;
+}
+.device img {
+  border-radius: 34px;
+  width: 100%;
+}
+
+/* ── 節 ── */
+.sec {
+  padding-top: clamp(56px, 9vw, 104px);
+  padding-bottom: clamp(56px, 9vw, 104px);
+  border-top: 1px solid var(--rule);
+}
+.sec__hd {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 16px clamp(24px, 5vw, 64px);
+  align-items: end;
+  margin-bottom: clamp(32px, 5vw, 56px);
+}
+.sec__num {
+  display: block;
+  margin-bottom: 10px;
+  font-family: var(--latin);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+.sec h2 {
+  margin: 0;
+  font-size: clamp(26px, 3.4vw, 38px);
+  line-height: 1.35;
+  text-wrap: balance;
+}
+.sec__hd p {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+/* ── 作例 ── */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 3vw, 32px);
+  align-items: end;
+  margin: 0;
+}
+.gallery figure {
+  margin: 0;
+}
+.gallery img {
+  width: 100%;
+  box-shadow: var(--shadow);
+}
+.gallery figcaption {
+  margin-top: 14px;
+  font-family: var(--latin);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.gallery__note {
+  margin: 28px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* ── 特長 ── */
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 clamp(24px, 4vw, 48px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.features li {
+  padding: 26px 0 30px;
+  border-top: 1px solid var(--rule);
+}
+.features h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.5;
+}
+.features p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+.features .k {
+  display: block;
+  margin-bottom: 14px;
+  font-family: var(--latin);
+  font-size: 13px;
+  color: var(--ink-3);
+  letter-spacing: 0.12em;
+}
+
+/* ── 端末の外に出ない ── */
+.private {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 24px clamp(24px, 5vw, 64px);
+  padding: clamp(28px, 5vw, 56px);
+  border-radius: 20px;
+  background: var(--paper-2);
+}
+.private h2 {
+  font-size: clamp(24px, 3vw, 32px);
+}
+.private ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.private li {
+  position: relative;
+  padding: 10px 0 10px 28px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-2);
+}
+.private li:last-child {
+  border-bottom: 0;
+}
+.private li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 1.05em;
+  width: 12px;
+  height: 7px;
+  border-left: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  transform: rotate(-45deg);
+}
+.private li strong {
+  color: var(--ink);
+}
+
+/* ── 使い方 ── */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(20px, 3vw, 32px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.steps li {
+  counter-increment: step;
+}
+.steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 18px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  font-family: var(--latin);
+  font-weight: 700;
+}
+.steps h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+.steps p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+/* ── ホーム画面に追加・動作環境 ── */
+.cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(24px, 4vw, 48px);
+}
+.card {
+  padding: 28px;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  background: var(--card);
+}
+.card h3 {
+  margin: 0 0 12px;
+  font-size: 17px;
+}
+.card ol,
+.card ul {
+  margin: 0;
+  padding-left: 1.3em;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+.card li + li {
+  margin-top: 6px;
+}
+.specs {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+}
+.specs dt,
+.specs dd {
+  margin: 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--rule);
+  font-size: 15px;
+}
+.specs dt {
+  padding-right: clamp(20px, 4vw, 48px);
+  font-weight: 700;
+}
+.specs dd {
+  color: var(--ink-2);
+}
+
+/* ── しめくくり ── */
+.end {
+  padding-top: clamp(56px, 9vw, 104px);
+  padding-bottom: clamp(56px, 9vw, 104px);
+  border-top: 1px solid var(--rule);
+  text-align: center;
+}
+.end h2 {
+  margin: 0;
+  font-size: clamp(26px, 3.6vw, 40px);
+  text-wrap: balance;
+}
+.end .cta {
+  justify-content: center;
+}
+
+.foot {
+  padding-top: 28px;
+  padding-bottom: 40px;
+  border-top: 1px solid var(--rule);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.foot__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+}
+.foot nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.foot p {
+  margin: 12px 0 0;
+  max-width: 60em;
+}
+
+/* ── プライバシーポリシー（読み物） ── */
+.doc {
+  max-width: 44em;
+  padding-top: clamp(24px, 5vw, 56px);
+  padding-bottom: clamp(56px, 9vw, 104px);
+}
+.doc h1 {
+  margin: 0 0 8px;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.35;
+}
+.doc .date {
+  margin: 0 0 40px;
+  color: var(--ink-3);
+  font-size: 14px;
+}
+.doc h2 {
+  margin: 44px 0 10px;
+  font-size: 20px;
+}
+.doc p,
+.doc li {
+  color: var(--ink-2);
+}
+.doc ul {
+  padding-left: 1.3em;
+}
+
+/* ── 狭い画面 ── */
+@media (max-width: 860px) {
+  .hero,
+  .sec__hd,
+  .private {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gallery figure:first-child {
+    grid-column: 1 / -1;
+    width: 72%;
+    justify-self: center;
+  }
+}
+@media (max-width: 600px) {
+  .features,
+  .steps,
+  .cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gallery {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gallery figure:first-child {
+    width: 100%;
+  }
+  .specs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .specs dt {
+    padding-bottom: 0;
+  }
+  .specs dd {
+    border-top: 0;
+    padding-top: 4px;
+  }
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+}

@@ -43,6 +43,8 @@ import { useViewportHeight } from './useViewportHeight';
 import './theme.css';
 import './editor.css';
 
+/** 紹介ページ。アプリとは別のドメインの直下（将来ほかのアプリも同じ並びに置く） */
+const ABOUT_URL = 'https://yashimastudio.com/fuchidori/';
 const EXPORT_LONG_EDGE = 4096;
 
 /**
@@ -827,6 +829,10 @@ export function App(): React.ReactElement {
             {/* LINE などの中のブラウザだけ。作業を始める前に出口を知らせる */}
             {!busy && inAppBrowser() && <p className="home__note">保存できないときは右上の … から「ブラウザで開く」</p>}
             <ShareApp />
+            {/* 紹介ページ（yashimastudio.com）。作業中の画面は残したいので別のタブで開く */}
+            <a className="home__about" href={ABOUT_URL} target="_blank" rel="noopener">
+              Fuchidori について
+            </a>
           </div>
         )}
       </div>

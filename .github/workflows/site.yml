@@ -1,0 +1,62 @@
+# 紹介ページ（yashimastudio.com）を Cloudflare Workers へ公開する。アプリ本体（cloudflare.yml）とは別の Worker。
+# site/ の中身は手元で作ってコミットする（site/tools/*）。ここでは作らず、そのまま配る。
+# 鍵はアプリ本体と同じ Secrets を使う。
+name: site
+
+on:
+  push:
+    branches: ['claude/mobile-photo-frame-app-2rx12i', 'main']
+    paths: ['site/public/**', 'site/wrangler.jsonc', '.github/workflows/site.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 鍵があるか
+        id: key
+        run: echo "ok=${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: 配信（wrangler deploy）
+        if: steps.key.outputs.ok == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          workingDirectory: site
+          command: deploy
+
+      # 届いたものを確かめる（初回は証明書の発行に数分かかる）
+      - name: 配信後の確認
+        if: steps.key.outputs.ok == 'true'
+        env:
+          URL: https://yashimastudio.com
+        run: |
+          set -euo pipefail
+          ok=""
+          for i in $(seq 1 30); do
+            if curl -fsS "$URL/fuchidori/" 2>/dev/null | grep -q "Fuchidori"; then ok=1; break; fi
+            echo "まだ届かない。待つ…"; sleep 10
+          done
+          [ -n "$ok" ] || { echo "紹介ページが開けない"; exit 1; }
+          curl -fsS "$URL/fuchidori/en/" | grep -q 'lang="en"' || { echo "英語版が無い"; exit 1; }
+          curl -fsS "$URL/fuchidori/privacy/" | grep -q "プライバシーポリシー" || { echo "プライバシーポリシーが無い"; exit 1; }
+          H=$(curl -fsSI "$URL/fuchidori/")
+          echo "$H" | grep -qi "^content-security-policy:.*default-src 'none'" || { echo "CSP が効いていない"; exit 1; }
+          echo "$H" | grep -qi "^cache-control:.*no-cache" || { echo "ページの Cache-Control が no-cache でない"; exit 1; }
+          L=$(curl -sS -o /dev/null -w "%{http_code} %{redirect_url}" "$URL/")
+          echo "トップ: $L"
+          echo "$L" | grep -q "^302 .*/fuchidori/$" || { echo "トップが紹介ページへ転送されていない"; exit 1; }
+          curl -fsS -o /dev/null "$URL/fuchidori/img/og-ja.jpg" || { echo "共有用の画像が無い"; exit 1; }
+          echo "OK: $URL/fuchidori/"
