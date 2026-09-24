@@ -294,7 +294,9 @@ const scrolls = await page.evaluate(() => ({
       const h = document.elementFromPoint(cx, y);
       return h === el || el.contains(h) || (h && h.contains(el));
     };
-    const reach = hits(cy - 21) && hits(cy + 21);
+    // 3×3 の点は1行に収めるため 24px 角（WCAG 2.2 の最小）で見る。ほかは 44px 角
+    const half = el.closest('.anchor') ? 11 : 21;
+    const reach = hits(cy - half) && hits(cy + half);
     return reach ? null : {
       t: el.textContent?.trim().slice(0, 14),
       h: Math.round(r.height),

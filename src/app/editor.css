@@ -750,9 +750,13 @@
   flex: none;
   display: grid;
   width: max-content;
-  grid-template-columns: repeat(3, 17px);
-  grid-auto-rows: 17px;
-  gap: 2px;
+  /*
+   * 1点の当たりは 24px 角（隙間なく並べる。WCAG 2.2 の最小の大きさ）。
+   * 3×3 を1行に収めるため、ほかの部品の 44px 角は取らない
+   */
+  grid-template-columns: repeat(3, 24px);
+  grid-auto-rows: 24px;
+  gap: 0;
   padding: 3px;
   border-radius: 8px;
   background: var(--surface);
@@ -766,11 +770,7 @@
   /* 見た目は小さいが、押せる範囲は隣と接するまで広げる */
   position: relative;
 }
-.anchor__pt::after {
-  content: '';
-  position: absolute;
-  inset: -3px;
-}
+
 .anchor__pt i {
   /*
    * 3つの見え方をはっきり分ける（以前は灰の濃さの違いだけで、どこが押せるか分からなかった）
