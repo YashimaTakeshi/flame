@@ -54,6 +54,9 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # 既定で入る wrangler 3.90 は wrangler.jsonc の assets だけの Worker を読めず
+          # 「Missing entry-point」で落ちた（初回の配信で実測）。4 系を使う
+          wranglerVersion: '4'
           command: deploy
 
       # CSP は「書いたつもり」で効かないことが最も多い。届いた版も確かめる
