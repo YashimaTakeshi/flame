@@ -11,5 +11,11 @@
     // /about → /about.html のような読み替えはしない（そういうページは無い）。無いものは 404
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none"
-  }
+  },
+  // 独自ドメイン。DNS と証明書は Cloudflare が作る（yashimastudio.com は Cloudflare で取得）。
+  // 付け外しには API トークンに Zone / Workers Routes / Edit が要る。
+  // 将来のアプリは同じドメインの別のサブドメインに置く
+  "routes": [{ "pattern": "fuchidori.yashimastudio.com", "custom_domain": true }],
+  // routes を書くと workers.dev が既定で切れることがあるため明示して残す（移行期間の旧 URL）
+  "workers_dev": true
 }

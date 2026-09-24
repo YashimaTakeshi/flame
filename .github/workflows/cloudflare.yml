@@ -59,23 +59,30 @@ jobs:
           wranglerVersion: '4'
           command: deploy
 
-      # CSP は「書いたつもり」で効かないことが最も多い。届いた版も確かめる
+      # CSP は「書いたつもり」で効かないことが最も多い。届いた版も確かめる。
+      # workers.dev と独自ドメインの両方を見る（独自ドメインは初回だけ証明書の発行に数分かかる）
       - name: 配信後の確認（CSP と版）
         if: steps.key.outputs.ok == 'true'
         env:
-          URL: ${{ steps.deploy.outputs.deployment-url }}
+          DEV_URL: ${{ steps.deploy.outputs.deployment-url }}
+          CUSTOM_URL: https://fuchidori.yashimastudio.com
         run: |
           set -euo pipefail
-          [ -n "$URL" ] || { echo "配信先の URL が取れなかった"; exit 1; }
-          echo "配信先: $URL"
-          for i in 1 2 3 4 5 6; do
-            V=$(curl -fsS "$URL/version.json" | jq -r .commit || true)
-            [ "$V" = "${GITHUB_SHA:0:7}" ] && break
-            echo "まだ古い版（$V）。待つ…"; sleep 10
-          done
-          [ "$V" = "${GITHUB_SHA:0:7}" ] || { echo "配信された版が違う: $V ≠ ${GITHUB_SHA:0:7}"; exit 1; }
-          H=$(curl -fsSI "$URL/")
-          echo "$H" | grep -qi "^content-security-policy:" || { echo "CSP ヘッダが無い"; exit 1; }
-          echo "$H" | grep -qi "frame-ancestors 'none'" || { echo "CSP の中身が想定と違う"; exit 1; }
-          echo "$H" | grep -qi "^cache-control:.*no-cache" || { echo "入口の Cache-Control が no-cache でない"; exit 1; }
-          echo "OK: $URL"
+          check() {
+            local URL=$1 TRIES=$2 V=""
+            echo "配信先: $URL"
+            for i in $(seq 1 "$TRIES"); do
+              V=$(curl -fsS "$URL/version.json" 2>/dev/null | jq -r .commit || true)
+              [ "$V" = "${GITHUB_SHA:0:7}" ] && break
+              echo "まだ届かない／古い版（${V:-応答なし}）。待つ…"; sleep 10
+            done
+            [ "$V" = "${GITHUB_SHA:0:7}" ] || { echo "配信された版が違う: ${V:-応答なし} ≠ ${GITHUB_SHA:0:7}"; exit 1; }
+            H=$(curl -fsSI "$URL/")
+            echo "$H" | grep -qi "^content-security-policy:" || { echo "CSP ヘッダが無い"; exit 1; }
+            echo "$H" | grep -qi "frame-ancestors 'none'" || { echo "CSP の中身が想定と違う"; exit 1; }
+            echo "$H" | grep -qi "^cache-control:.*no-cache" || { echo "入口の Cache-Control が no-cache でない"; exit 1; }
+            echo "OK: $URL"
+          }
+          [ -n "$DEV_URL" ] || { echo "配信先の URL が取れなかった"; exit 1; }
+          check "$DEV_URL" 6
+          check "$CUSTOM_URL" 30
