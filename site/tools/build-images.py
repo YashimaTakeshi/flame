@@ -3,6 +3,7 @@
 
     python3 site/tools/build-images.py
 """
+import json
 import os
 from PIL import Image
 
@@ -51,8 +52,53 @@ def caption_crop(src):
     return im.crop(box)
 
 
+def exact_photo(src, inset=3):
+    """書き出した作例の中の写真の矩形を、原寸で1画素まで測る（冒頭の元写真を切り出すため）。
+    縁の JPEG のにじみを避けて、inset 画素だけ内側で切る。返り値は (左, 上, 右, 下) の画素"""
+    im = Image.open(os.path.join(WORK, src)).convert("L")
+    w, h = im.size
+    px = im.load()
+    bg = px[2, h - 2]
+    diff = lambda v: abs(v - bg) > 12
+    cx, cy = w // 2, h // 2
+    top = next(y for y in range(h) if diff(px[cx, y]))
+    bottom = next(y for y in range(h - 1, -1, -1) if diff(px[cx, y]) and y < h * 0.8)
+    mid = (top + bottom) // 2
+    left = next(x for x in range(w) if diff(px[x, mid]))
+    right = next(x for x in range(w - 1, -1, -1) if diff(px[x, mid]))
+    return (left + inset, top + inset, right + 1 - inset, bottom + 1 - inset)
+
+
+# 冒頭の元写真（全画面で見せる）。書き出した hero の写真の部分を原寸から切り出す。
+# 最後に額の画像と重なるので、同じ書き出しから作る（元写真の長辺が 3,000px 以上あれば、それだけ精細になる）
+def hero_photo():
+    box = exact_photo("hero.jpg")
+    im = Image.open(os.path.join(WORK, "hero.jpg")).convert("RGB").crop(box)
+    save(im, "hero-photo", (1600, 2400), q=80)
+    W, H = Image.open(os.path.join(WORK, "hero.jpg")).size
+    return [round(box[0] / W, 5), round(box[1] / H, 5), round((box[2] - box[0]) / W, 5), round((box[3] - box[1]) / H, 5)]
+
+
+if os.environ.get("ONLY") == "hero-photo":
+    crop = hero_photo()
+    path = os.path.join(OUT, "frames.json")
+    with open(path) as fp:
+        frames = json.load(fp)
+    frames["hero"]["crop"] = crop
+    with open(path, "w") as fp:
+        json.dump(frames, fp, indent=1)
+    sizes = json.load(open(os.path.join(HERE, "image-sizes.json")))
+    for w in (1600, 2400):
+        with Image.open(os.path.join(OUT, f"hero-photo-{w}.webp")) as im:
+            sizes[f"hero-photo-{w}"] = im.size
+    with open(os.path.join(HERE, "image-sizes.json"), "w") as fp:
+        json.dump(dict(sorted(sizes.items())), fp, indent=0)
+    print("hero crop", crop)
+    raise SystemExit(0)
+
 # 冒頭と作例
 webp("hero.jpg", "hero", (640, 1280, 1920))
+HERO_CROP = hero_photo()
 webp("after.jpg", "after", (560, 1120, 1600))
 save(Image.open(os.path.join(WORK, "real-tree.jpg")), "before", (560, 1120))
 FRAMED = ("hero", "after", "v-white", "v-black", "v-tall", "v-bleed", "v-sakura", "v-wide", "r-45", "r-916", "r-11", "r-169",
@@ -70,7 +116,6 @@ for n in ("ui-home", "ui-edit", "ui-info", "ui-export"):
     webp(f"{n}.png", n, (360, 720), q=82)
 
 # 画像の縦横（ページの width/height に使う。読み込み中に紙面が跳ねないように）
-import json
 sizes = {}
 for f in sorted(os.listdir(OUT)):
     if f.endswith(".webp"):
@@ -136,6 +181,8 @@ for n in FRAMED:
     raw_path = os.path.join(WORK, f"real-{RAW.get(n) or RAW[n.split('-')[0]]}.jpg")
     rw, rh = Image.open(raw_path).size
     frames[n] = photo_box(f"{n}.jpg", rw / rh, raw_path)
+# 冒頭の元写真（hero-photo）が、額の画像の中で占める矩形。写真が縮みきったときにこの位置に重なる
+frames["hero"]["crop"] = HERO_CROP
 with open(os.path.join(OUT, "frames.json"), "w") as fp:
     json.dump(frames, fp, indent=1)
 # 検算: 額の中の写真の縦横比が、元の写真と合っているか

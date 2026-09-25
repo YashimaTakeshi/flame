@@ -2,22 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fuchidori — A frame for your photo, with the settings that made it</title>
-<meta name="description" content="Pick a photo and Fuchidori reads the camera, lens, aperture, shutter speed and ISO, then sets them quietly in the margin. A free web app. No sign-up. Your photos never leave your device.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fuchidori — Frame your photo, shooting details and all</title>
+<meta name="description" content="Pick a photo and Fuchidori reads the camera, lens, aperture, shutter speed and ISO, then sets them in the margin of a frame. A free web app. No sign-up. Your photos never leave your device.">
 <link rel="canonical" href="https://yashimastudio.com/fuchidori/en/">
 <link rel="alternate" hreflang="ja" href="https://yashimastudio.com/fuchidori/">
 <link rel="alternate" hreflang="en" href="https://yashimastudio.com/fuchidori/en/">
 <link rel="alternate" hreflang="x-default" href="https://yashimastudio.com/fuchidori/">
-<meta name="theme-color" content="#f4f2ee">
+<meta name="theme-color" content="#1f1e1c">
+<meta name="color-scheme" content="dark">
 <link rel="icon" href="/fuchidori/img/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="/fuchidori/img/apple-touch-icon.png">
-<link rel="stylesheet" href="/fuchidori/assets/site.css">
-<script src="/fuchidori/assets/share.js" defer></script>
+<link rel="preload" href="/fuchidori/fonts/PlayfairDisplay-regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fuchidori/assets/fuchidori.css">
+<script src="/fuchidori/assets/boot.js"></script>
+<script src="/fuchidori/assets/fuchidori.js" defer></script>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Fuchidori">
-<meta property="og:title" content="Fuchidori — A frame for your photo, with the settings that made it">
-<meta property="og:description" content="Pick a photo and Fuchidori reads the camera, lens, aperture, shutter speed and ISO, then sets them quietly in the margin. A free web app. No sign-up. Your photos never leave your device.">
+<meta property="og:title" content="Fuchidori — Frame your photo, shooting details and all">
+<meta property="og:description" content="Pick a photo and Fuchidori reads the camera, lens, aperture, shutter speed and ISO, then sets them in the margin of a frame. A free web app. No sign-up. Your photos never leave your device.">
 <meta property="og:url" content="https://yashimastudio.com/fuchidori/en/">
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://yashimastudio.com/fuchidori/img/og-en.jpg">
@@ -26,149 +29,417 @@
 <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
-<header class="wrap top">
+<a class="skip" href="#works">Skip to the gallery</a>
+<header class="top">
   <a class="brand" href="/fuchidori/en/">Fuchidori</a>
-  <nav aria-label="Language"><a href="/fuchidori/" hreflang="ja" lang="ja">日本語</a><span aria-current="true">English</span><a class="go" href="https://fuchidori.yashimastudio.com/">Open the app</a></nav>
+  <nav class="top__nav" aria-label="Page actions">
+    <a class="top__lang" href="/fuchidori/" hreflang="ja" lang="ja">日本語</a>
+    <a href="#share" data-tell>Share</a>
+    <a class="top__go" href="https://fuchidori.yashimastudio.com/">Open the app</a>
+  </nav>
 </header>
+
 <main>
-  <section class="wrap hero">
-    <div>
-      <p class="kicker">A web app that frames your photos with their shooting details</p>
-      <h1><span class="num">f/1.8 · 15 s · ISO 3200</span>Frame the night,<br>settings and all.</h1>
-      <p class="lead">Pick a photo and Fuchidori reads the camera, lens and exposure, then sets them in small type in the margin. Choose a ratio and a colour, save, and post. It runs in your browser, so there is nothing to install and no account to make.</p>
-      <div class="act">
-        <a class="btn" href="https://fuchidori.yashimastudio.com/">Open the app</a>
-        <span class="note">Free to use · Interface in Japanese</span>
+  <!-- 1–2. 冒頭と、撮って出しが額に入るまで（JS があれば画面に留めてスクロールで進める） -->
+  <section class="hero" id="top" data-scene="hero" aria-labelledby="h-hero">
+    <div class="hero__stage">
+      <div class="hero__view">
+        <div class="hero__photo" data-crop="0.04577 0.21948 0.90845 0.48389">
+          <img src="/fuchidori/img/hero-photo-1600.webp" srcset="/fuchidori/img/hero-photo-1600.webp 1600w, /fuchidori/img/hero-photo-2400.webp 2400w" sizes="(max-aspect-ratio: 1502/1000) 150vh, 100vw" width="1600" height="1065" alt="A vermilion torii standing in Lake Biwa at night under the Milky Way. The photo straight out of camera, before framing" fetchpriority="high" decoding="async">
+        </div>
+        <div class="hero__scrim" aria-hidden="true"></div>
+        <div class="hero__intro">
+          <p class="kicker">Fuchidori<span class="kicker__sep"></span><span class="kicker__ja">Free web app</span></p>
+          <h1 id="h-hero"><span class="ib">Frame your photo,</span> <span class="ib">shooting details and all.</span></h1>
+          <p class="hero__lead">Pick a photo and Fuchidori reads the camera, lens, aperture, shutter speed and ISO, then sets them in small type in the margin. No account, nothing to install. The app itself is in Japanese.</p>
+          <div class="acts">
+            <a class="btn" href="https://fuchidori.yashimastudio.com/">Open the app</a>
+            <a class="btn btn--line" href="#share" data-tell>Tell a friend</a>
+          </div>
+        </div>
+        <p class="hero__tag"><b>Straight out of camera</b><span>2025.05.24 · SONY ILCE-7M4 · F1.8 15s ISO3200</span></p>
+        <p class="hero__cue" aria-hidden="true"><span class="hero__cue-line"></span>Scroll<span class="hero__cue-jp">into the frame</span></p>
+      </div>
+      <div class="hero__final">
+        <figure class="hero__work">
+          <div class="hero__frame">
+            <span class="glow" aria-hidden="true"></span>
+            <span class="mat" aria-hidden="true"></span>
+            <img class="hero__print" src="/fuchidori/img/hero-640.webp" srcset="/fuchidori/img/hero-640.webp 640w, /fuchidori/img/hero-1280.webp 1280w, /fuchidori/img/hero-1920.webp 1920w" sizes="(min-width: 1100px) 61vh, (orientation: landscape) 61vh, 86vw" width="640" height="800" alt="The same photo of the torii and the Milky Way in a white frame, with 2025.05.24, SONY ILCE-7M4 and FE 20mm F1.8 G, 20mm, F1.8 15s ISO3200 in three lines below" data-cap="0.3663 0.2674" decoding="async">
+          </div>
+          <dl class="hero__nums" aria-label="Shooting details of this photo">
+            <div><dt>Aperture</dt><dd>F1.8</dd></div>
+            <div><dt>Shutter</dt><dd>15s</dd></div>
+            <div><dt>ISO</dt><dd>ISO3200</dd></div>
+          </dl>
+          <figcaption class="label hero__label">
+            <span class="label__say"><small>Exported with Fuchidori</small>Export it, and this is the print.</span>
+            <span class="label__head"><span class="label__no">01</span><span class="label__title">Torii and the Milky Way</span></span>
+            <span class="label__col"><span class="label__meta">2025.05.24<span class="sep"> / </span>SONY ILCE-7M4</span></span>
+            <span class="label__col"><span class="label__spec"><i class="sw g-white" aria-hidden="true"></i>4:5 · White · Didot · 3 lines</span><span class="label__size">JPEG 3,277 × 4,096 px</span></span>
+            <a class="tell" href="#share" data-tell>Show this to a photographer friend</a>
+          </figcaption>
+        </figure>
       </div>
     </div>
-    <figure class="work">
-      <img src="/fuchidori/img/hero-640.webp" srcset="/fuchidori/img/hero-640.webp 640w, /fuchidori/img/hero-1280.webp 1280w" sizes="(max-width: 899px) 92vw, 540px" width="640" height="800" alt="A torii gate on Lake Biwa under the Milky Way, in a white frame with the date, camera and exposure in three lines below" fetchpriority="high" decoding="async">
-      <figcaption class="note">Sample | 4:5 · White · Didot · 3 lines</figcaption>
-    </figure>
   </section>
 
-  <div class="wall" aria-label="Samples">
-    <figure><img src="/fuchidori/img/after-560.webp" srcset="/fuchidori/img/after-560.webp 560w, /fuchidori/img/after-1120.webp 1120w" sizes="(max-width: 899px) 60vw, 30vw" width="560" height="700" alt="Silhouettes of a winter tree and two people, in an ivory frame" loading="lazy" decoding="async"></figure>
-    <figure><img src="/fuchidori/img/v-bleed-480.webp" srcset="/fuchidori/img/v-bleed-480.webp 480w, /fuchidori/img/v-bleed-960.webp 960w" sizes="(max-width: 899px) 60vw, 30vw" width="480" height="320" alt="A sunset walk on the beach, no frame, caption on the photo" loading="lazy" decoding="async"></figure>
-    <figure><img src="/fuchidori/img/r-916-480.webp" srcset="/fuchidori/img/r-916-480.webp 480w, /fuchidori/img/r-916-960.webp 960w" sizes="(max-width: 899px) 60vw, 30vw" width="480" height="853" alt="Two people under the Milky Way, in a black 9:16 frame" loading="lazy" decoding="async"></figure>
-    <figure><img src="/fuchidori/img/v-black-480.webp" srcset="/fuchidori/img/v-black-480.webp 480w, /fuchidori/img/v-black-960.webp 960w" sizes="(max-width: 899px) 60vw, 30vw" width="480" height="480" alt="A sunset walk on the beach, in a black square frame" loading="lazy" decoding="async"></figure>
-    <figure><img src="/fuchidori/img/r-45-480.webp" srcset="/fuchidori/img/r-45-480.webp 480w, /fuchidori/img/r-45-960.webp 960w" sizes="(max-width: 899px) 60vw, 30vw" width="480" height="600" alt="Two people under the Milky Way, in a white 4:5 frame" loading="lazy" decoding="async"></figure>
+  <!-- 3. Room 01 の入口（出品目録） -->
+  <section class="r1" id="works" aria-labelledby="h-r1">
+    <div class="wrap r1__grid">
+      <div class="rv">
+        <p class="kicker">Room 01<span class="kicker__sep"></span><span class="kicker__ja">Gallery</span></p>
+        <h2 id="h-r1"><span class="ib">Put it in a frame,</span> <span class="ib">and a snapshot</span> <span class="ib">becomes a print.</span></h2>
+        <p class="lead">Every image here was exported from the app and hung as it came out. The label under each one gives the ratio, colour and typeface.</p>
+      </div>
+      <nav class="rv" aria-label="List of works (select one to walk to it)">
+        <p class="kicker list__hd">List of works</p>
+        <ol class="list">
+          <li><a href="#w-02" data-go="0"><span class="list__no">02</span><span class="list__t">Winter tree, two figures</span><span class="list__s"><i class="sw g-ivory" aria-hidden="true"></i>4:5 · Ivory · Futura · 2 lines</span></a></li>
+          <li><a href="#w-03" data-go="1"><span class="list__no">03</span><span class="list__t">Torii and the Milky Way</span><span class="list__s"><i class="sw g-black" aria-hidden="true"></i>1:1 · Black · DIN · 2 lines</span></a></li>
+          <li><a href="#w-04" data-go="2"><span class="list__no">04</span><span class="list__t">Under the Milky Way</span><span class="list__s"><i class="sw sw--none" aria-hidden="true"></i>No margin · Futura · caption on the photo</span></a></li>
+          <li><a href="#w-05" data-go="3"><span class="list__no">05</span><span class="list__t">Torii and the Milky Way</span><span class="list__s"><i class="sw g-ivory" aria-hidden="true"></i>16:9 · Ivory · Didot · 1 line</span></a></li>
+          <li><a href="#w-06" data-go="4"><span class="list__no">06</span><span class="list__t">Winter tree, two figures</span><span class="list__s"><i class="sw g-black" aria-hidden="true"></i>9:16 · Black · Didot · 2 lines</span></a></li>
+          <li><a href="#w-07" data-go="5"><span class="list__no">07</span><span class="list__t">Under the Milky Way</span><span class="list__s"><i class="sw g-ivory" aria-hidden="true"></i>Original ratio · Ivory · Baskerville · 2 lines</span></a></li>
+          <li><a href="#w-08" data-go="6"><span class="list__no">08</span><span class="list__t">Torii and the Milky Way</span><span class="list__s"><i class="sw sw--none" aria-hidden="true"></i>No margin · Futura · caption on the photo</span></a></li>
+          <li><a href="#w-09" data-go="7"><span class="list__no">09</span><span class="list__t">Winter tree, two figures</span><span class="list__s"><i class="sw g-white" aria-hidden="true"></i>Original ratio · White · Helvetica · 3 lines</span></a></li>
+        </ol>
+      </nav>
+    </div>
+  </section>
+
+  <!-- 3. 展示室（縦のスクロールで横へ歩く。作品が中央に来たところで少し止まる） -->
+  <section class="walk" data-scene="walk" data-hold="0.26" data-pace="0.9" aria-label="Works in the gallery">
+    <div class="walk__stage">
+      <div class="walk__track">
+        <figure class="work f-after g-ivory" id="w-02" tabindex="-1">
+          <div class="work__frame"><span class="glow" aria-hidden="true"></span>
+            <img src="/fuchidori/img/after-560.webp" srcset="/fuchidori/img/after-560.webp 560w, /fuchidori/img/after-1120.webp 1120w, /fuchidori/img/after-1600.webp 1600w" sizes="(max-width: 760px) 78vw, 386px" width="560" height="700" alt="A bare winter tree and two silhouettes on a hill at dusk, in an ivory frame with the date and shooting details in two lines below" loading="lazy" decoding="async">
+          </div>
+          <figcaption class="label">
+            <span class="label__no">02</span>
+            <span class="label__title">Winter tree, two figures</span>
+            <span class="label__meta">2025.02.15 / FUJIFILM X-T5 / CLASSIC Neg.</span>
+            <span class="label__spec"><i class="sw g-ivory" aria-hidden="true"></i>4:5 · Ivory · Futura · 2 lines</span>
+          </figcaption>
+        </figure>
+        <figure class="work f-t-black g-black is-dark" id="w-03" tabindex="-1">
+          <div class="work__frame"><span class="glow" aria-hidden="true"></span>
+            <img src="/fuchidori/img/t-black-480.webp" srcset="/fuchidori/img/t-black-480.webp 480w, /fuchidori/img/t-black-960.webp 960w, /fuchidori/img/t-black-1600.webp 1600w" sizes="(max-width: 760px) 78vw, 432px" width="480" height="480" alt="The torii on the lake under the Milky Way, in a black square frame with two lines of details below" loading="lazy" decoding="async">
+          </div>
+          <figcaption class="label">
+            <span class="label__no">03</span>
+            <span class="label__title">Torii and the Milky Way</span>
+            <span class="label__meta">SONY ILCE-7M4 / F1.8 15s ISO3200</span>
+            <span class="label__spec"><i class="sw g-black" aria-hidden="true"></i>1:1 · Black · DIN · 2 lines</span>
+          </figcaption>
+        </figure>
+        <figure class="work f-s-bleed g-night is-dark" id="w-04" tabindex="-1">
+          <div class="work__frame"><span class="glow" aria-hidden="true"></span>
+            <img src="/fuchidori/img/s-bleed-480.webp" srcset="/fuchidori/img/s-bleed-480.webp 480w, /fuchidori/img/s-bleed-960.webp 960w, /fuchidori/img/s-bleed-1600.webp 1600w" sizes="(max-width: 760px) 78vw, 353px" width="480" height="720" alt="Two people looking up at the Milky Way. No frame; the shooting details sit in white type near the bottom of the photo" loading="lazy" decoding="async">
+          </div>
+          <figcaption class="label">
+            <span class="label__no">04</span>
+            <span class="label__title">Under the Milky Way</span>
+            <span class="label__meta">Canon EOS R6 Mark II / F2.8 10s ISO6400</span>
+            <span class="label__spec"><i class="sw sw--none" aria-hidden="true"></i>No margin · Futura · caption on the photo</span>
+          </figcaption>
+        </figure>
+        <figure class="work f-t-ivory g-ivory" id="w-05" tabindex="-1">
+          <div class="work__frame"><span class="glow" aria-hidden="true"></span>
+            <img src="/fuchidori/img/t-ivory-480.webp" srcset="/fuchidori/img/t-ivory-480.webp 480w, /fuchidori/img/t-ivory-960.webp 960w, /fuchidori/img/t-ivory-1600.webp 1600w" sizes="(max-width: 760px) 78vw, 576px" width="480" height="270" alt="The torii and the Milky Way in a wide 16:9 ivory frame, with one line of details below" loading="lazy" decoding="async">
+          </div>
+          <figcaption class="label">
+            <span class="label__no">05</span>
+            <span class="label__title">Torii and the Milky Way</span>
+            <span class="label__meta">2025.05.24 / FE 20mm F1.8 G</span>
+            <span class="label__spec"><i class="sw g-ivory" aria-hidden="true"></i>16:9 · Ivory · Didot · 1 line</span>
+          </figcaption>
+        </figure>
+        <figure class="work f-tr-black g-black is-dark" id="w-06" tabindex="-1">
+          <div class="work__frame"><span class="glow" aria-hidden="true"></span>
+            <img src="/fuchidori/img/tr-black-480.webp" srcset="/fuchidori/img/tr-black-480.webp 480w, /fuchidori/img/tr-black-960.webp 960w, /fuchidori/img/tr-black-1600.webp 1600w" sizes="(max-width: 760px) 78vw, 324px" width="480" height="853" alt="The winter tree and two silhouettes in a tall 9:16 black frame, with the date and details below" loading="lazy" decoding="async">
+          </div>
+          <figcaption class="label">
+            <span class="label__no">06</span>
+            <span class="label__title">Winter tree, two figures</span>
+            <span class="label__meta">FUJIFILM X-T5 / XF56mmF1.2 R WR / F2</span>
+            <span class="label__spec"><i class="sw g-black" aria-hidden="true"></i>9:16 · Black · Didot · 2 lines</span>
+          </figcaption>
+        </figure>
+        <figure class="work f-s-ivory g-ivory" id="w-07" tabindex="-1">
+          <div class="work__frame"><span class="glow" aria-hidden="true"></span>
+            <img src="/fuchidori/img/s-ivory-480.webp" srcset="/fuchidori/img/s-ivory-480.webp 480w, /fuchidori/img/s-ivory-960.webp 960w, /fuchidori/img/s-ivory-1600.webp 1600w" sizes="(max-width: 760px) 78vw, 348px" width="480" height="739" alt="Two people under the Milky Way in a thin ivory frame, with the date and details below" loading="lazy" decoding="async">
+          </div>
+          <figcaption class="label">
+            <span class="label__no">07</span>
+            <span class="label__title">Under the Milky Way</span>
+            <span class="label__meta">2025.07.26 / RF15-35mm F2.8 L IS USM</span>
+            <span class="label__spec"><i class="sw g-ivory" aria-hidden="true"></i>Original ratio · Ivory · Baskerville · 2 lines</span>
+          </figcaption>
+        </figure>
+        <figure class="work f-t-bleed g-night is-dark" id="w-08" tabindex="-1">
+          <div class="work__frame"><span class="glow" aria-hidden="true"></span>
+            <img src="/fuchidori/img/t-bleed-480.webp" srcset="/fuchidori/img/t-bleed-480.webp 480w, /fuchidori/img/t-bleed-960.webp 960w, /fuchidori/img/t-bleed-1600.webp 1600w" sizes="(max-width: 760px) 78vw, 529px" width="480" height="320" alt="The torii and the Milky Way with no frame; the details sit in white type near the bottom of the photo" loading="lazy" decoding="async">
+          </div>
+          <figcaption class="label">
+            <span class="label__no">08</span>
+            <span class="label__title">Torii and the Milky Way</span>
+            <span class="label__meta">2025.05.24 / SONY ILCE-7M4</span>
+            <span class="label__spec"><i class="sw sw--none" aria-hidden="true"></i>No margin · Futura · caption on the photo</span>
+          </figcaption>
+        </figure>
+        <figure class="work f-tr-white g-white" id="w-09" tabindex="-1">
+          <div class="work__frame"><span class="glow" aria-hidden="true"></span>
+            <img src="/fuchidori/img/tr-white-480.webp" srcset="/fuchidori/img/tr-white-480.webp 480w, /fuchidori/img/tr-white-960.webp 960w, /fuchidori/img/tr-white-1600.webp 1600w" sizes="(max-width: 760px) 78vw, 346px" width="480" height="749" alt="The winter tree and two silhouettes in a thin white frame, with date, camera, lens and exposure in three lines below" loading="lazy" decoding="async">
+          </div>
+          <figcaption class="label">
+            <span class="label__no">09</span>
+            <span class="label__title">Winter tree, two figures</span>
+            <span class="label__meta">2025.02.15 / FUJIFILM X-T5</span>
+            <span class="label__spec"><i class="sw g-white" aria-hidden="true"></i>Original ratio · White · Helvetica · 3 lines</span>
+          </figcaption>
+        </figure>
+      </div>
+      <div class="walk__meter" aria-hidden="true"><span class="walk__count"><b>02</b> / 09</span><span class="walk__bar"><i></i></span></div>
+    </div>
+  </section>
+
+  <!-- 3'. 出口: 同じ一枚を七通りに刷る -->
+  <section class="stack" data-scene="stack" aria-labelledby="h-stack">
+    <div class="wrap stack__stage">
+      <div class="stack__text">
+        <p class="kicker">Room 01<span class="kicker__sep"></span><span class="kicker__ja">Exit</span></p>
+        <h2 id="h-stack"><span class="ib">One photo,</span> <span class="ib">printed seven ways.</span></h2>
+        <p class="lead">Eight ratios, nine background colours, fourteen typefaces. Set the margin to none and the caption sits on the photo itself.</p>
+      </div>
+      <ol class="pile" aria-label="The same beach photo exported in seven different frames">
+        <li class="pr f-v-bleed g-night"><img src="/fuchidori/img/v-bleed-480.webp" srcset="/fuchidori/img/v-bleed-480.webp 480w, /fuchidori/img/v-bleed-960.webp 960w" sizes="(min-width: 960px) 30vw, 60vw" width="480" height="320" alt="Silhouette of a person walking a dog on a beach at sunset, no frame, white type along the bottom edge" loading="lazy" decoding="async"><p class="pr__cap"><b>01</b><i class="sw sw--none" aria-hidden="true"></i>Original ratio · No margin · Futura</p></li>
+        <li class="pr f-v-white g-white"><img src="/fuchidori/img/v-white-480.webp" srcset="/fuchidori/img/v-white-480.webp 480w, /fuchidori/img/v-white-960.webp 960w" sizes="(min-width: 960px) 30vw, 60vw" width="480" height="600" alt="The same beach photo in a white 4:5 frame" loading="lazy" decoding="async"><p class="pr__cap"><b>02</b><i class="sw g-white" aria-hidden="true"></i>4:5 · White · Helvetica</p></li>
+        <li class="pr f-v-black g-black is-dark"><img src="/fuchidori/img/v-black-480.webp" srcset="/fuchidori/img/v-black-480.webp 480w, /fuchidori/img/v-black-960.webp 960w" sizes="(min-width: 960px) 30vw, 60vw" width="480" height="480" alt="The same photo in a black square frame" loading="lazy" decoding="async"><p class="pr__cap"><b>03</b><i class="sw g-black" aria-hidden="true"></i>1:1 · Black · DIN</p></li>
+        <li class="pr f-v-sakura g-sakura"><img src="/fuchidori/img/v-sakura-480.webp" srcset="/fuchidori/img/v-sakura-480.webp 480w, /fuchidori/img/v-sakura-960.webp 960w" sizes="(min-width: 960px) 30vw, 60vw" width="480" height="348" alt="The same photo in a thin pale pink frame" loading="lazy" decoding="async"><p class="pr__cap"><b>04</b><i class="sw g-sakura" aria-hidden="true"></i>Original ratio · Sakura · Baskerville</p></li>
+        <li class="pr f-b-silver g-silver"><img src="/fuchidori/img/b-silver-480.webp" srcset="/fuchidori/img/b-silver-480.webp 480w, /fuchidori/img/b-silver-960.webp 960w" sizes="(min-width: 960px) 30vw, 60vw" width="480" height="640" alt="The same photo in a silver-grey 3:4 frame" loading="lazy" decoding="async"><p class="pr__cap"><b>05</b><i class="sw g-silver" aria-hidden="true"></i>3:4 · Silver Sand · Futura</p></li>
+        <li class="pr f-v-tall g-warm"><img src="/fuchidori/img/v-tall-480.webp" srcset="/fuchidori/img/v-tall-480.webp 480w, /fuchidori/img/v-tall-960.webp 960w" sizes="(min-width: 960px) 30vw, 60vw" width="480" height="853" alt="The same photo in a tall 9:16 frame with wide margins and three lines of text" loading="lazy" decoding="async"><p class="pr__cap"><b>06</b><i class="sw g-warm" aria-hidden="true"></i>9:16 · Warm White · Didot · 3 lines</p></li>
+        <li class="pr f-v-wide g-gunmetal is-dark"><img src="/fuchidori/img/v-wide-480.webp" srcset="/fuchidori/img/v-wide-480.webp 480w, /fuchidori/img/v-wide-960.webp 960w" sizes="(min-width: 960px) 30vw, 60vw" width="480" height="270" alt="The same photo in a dark grey 16:9 frame" loading="lazy" decoding="async"><p class="pr__cap"><b>07</b><i class="sw g-gunmetal" aria-hidden="true"></i>16:9 · Gunmetal · Futura · 1 line</p></li>
+      </ol>
+      <div class="now" aria-hidden="true">
+        <p class="now__i"><span class="now__no">01<small>/07</small></span><span class="now__s"><i class="sw sw--none" aria-hidden="true"></i>Original ratio · No margin · Futura<span>Caption on the photo</span></span></p>
+        <p class="now__i"><span class="now__no">02<small>/07</small></span><span class="now__s"><i class="sw g-white" aria-hidden="true"></i>4:5 · White · Helvetica<span>White portrait, the Instagram shape</span></span></p>
+        <p class="now__i"><span class="now__no">03<small>/07</small></span><span class="now__s"><i class="sw g-black" aria-hidden="true"></i>1:1 · Black · DIN<span>Black square; the sunset gets deeper</span></span></p>
+        <p class="now__i"><span class="now__no">04<small>/07</small></span><span class="now__s"><i class="sw g-sakura" aria-hidden="true"></i>Original ratio · Sakura · Baskerville<span>A thin pale-pink edge</span></span></p>
+        <p class="now__i"><span class="now__no">05<small>/07</small></span><span class="now__s"><i class="sw g-silver" aria-hidden="true"></i>3:4 · Silver Sand · Futura<span>Silver-grey with a wide margin</span></span></p>
+        <p class="now__i"><span class="now__no">06<small>/07</small></span><span class="now__s"><i class="sw g-warm" aria-hidden="true"></i>9:16 · Warm White · Didot · 3 lines<span>Tall, for Stories</span></span></p>
+        <p class="now__i"><span class="now__no">07<small>/07</small></span><span class="now__s"><i class="sw g-gunmetal" aria-hidden="true"></i>16:9 · Gunmetal · Futura · 1 line<span>Dark grey, landscape</span></span></p>
+      </div>
+      <p class="stack__exif">2025.04.06 · FUJIFILM X-S20 · XF70-300mm · PRO Neg. Std · F5.6 1/1000s ISO200</p>
+    </div>
+  </section>
+
+  <div class="exit wrap rv">
+    <p class="kicker">Next</p>
+    <p class="exit__title"><span class="ib">Next on the wall:</span> <span class="ib">your photo.</span></p>
+    <div class="acts">
+      <a class="btn" href="https://fuchidori.yashimastudio.com/">Open the app</a>
+      <a class="btn btn--line" href="#share" data-tell>Share this exhibition</a>
+    </div>
   </div>
 
-  <section class="wrap sec" aria-labelledby="s-loupe">
-    <h2 id="s-loupe">It reads what your camera recorded and sets it in three lines</h2>
-    <p>Date, camera, lens, focal length, aperture, shutter speed and ISO come straight from the file. Anything missing can be typed in on the spot.</p>
-    <div class="sec__body loupe">
-      <div>
-        <div class="loupe__img"><img src="/fuchidori/img/hero-caption-720.webp" srcset="/fuchidori/img/hero-caption-720.webp 720w, /fuchidori/img/hero-caption-1440.webp 1440w" sizes="(max-width: 899px) 92vw, 640px" width="720" height="311" alt="A close-up of the caption: 2025.05.24, SONY ILCE-7M4, FE 20mm F1.8 G, 20mm, F1.8 15s ISO3200" loading="lazy" decoding="async"></div>
-        <table class="map">
-          <tr><th scope="row">Line 1</th><td>Date <span class="note">six formats, e.g. 2025.05.24</span></td></tr>
-          <tr><th scope="row">Line 2</th><td>Camera <span class="note">set in bold</span></td></tr>
-          <tr><th scope="row">Line 3</th><td>Lens, focal length, aperture, shutter speed, ISO</td></tr>
-        </table>
-        <p class="note mt2">For FUJIFILM photos it also reads the film simulation (CLASSIC CHROME and so on). Drag items between lines to rearrange them, and use one to four lines.</p>
+  <!-- 4. Room 02 撮影情報 -->
+  <section class="r2" id="caption" aria-labelledby="h-r2">
+    <div class="band" aria-hidden="true">
+      <dl class="band__row">
+        <div><dt>Aperture</dt><dd>F1.8</dd></div>
+        <div><dt>Shutter</dt><dd>15s</dd></div>
+        <div><dt>ISO</dt><dd>ISO3200</dd></div>
+        <div><dt>Focal length</dt><dd>20mm</dd></div>
+        <div><dt>Date</dt><dd>2025.05.24</dd></div>
+        <div><dt>Camera</dt><dd>ILCE-7M4</dd></div>
+      </dl>
+    </div>
+    <div class="wrap r2__grid">
+      <div class="r2__head rv">
+        <p class="kicker">Room 02<span class="kicker__sep"></span><span class="kicker__ja">Shooting details</span></p>
+        <h2 id="h-r2"><span class="ib">What your camera recorded,</span> <span class="ib">set in three lines.</span></h2>
+        <p class="lead">Aperture, shutter speed and the rest are already in your photo file, recorded as EXIF. Fuchidori reads them and arranges them line by line.</p>
       </div>
-      <figure class="shot">
-        <img src="/fuchidori/img/ui-info-360.webp" srcset="/fuchidori/img/ui-info-360.webp 360w, /fuchidori/img/ui-info-720.webp 720w" sizes="(max-width: 899px) 60vw, 280px" width="360" height="613" alt="The Info screen in Fuchidori, with line count, separator, date format and an input for each item" loading="lazy" decoding="async">
-        <figcaption class="note">The Info screen. Edit any item in place.</figcaption>
+      <figure class="loupe">
+        <img class="loupe__print" src="/fuchidori/img/hero-640.webp" srcset="/fuchidori/img/hero-640.webp 640w, /fuchidori/img/hero-1280.webp 1280w" sizes="(min-width: 960px) 26vw, 56vw" width="640" height="800" alt="" loading="lazy" decoding="async">
+        <svg class="loupe__lead" viewBox="0 0 100 92" preserveAspectRatio="none" aria-hidden="true"><rect x="19.31" y="56.22" width="17.37" height="5.47" fill="none" stroke="#d2402f" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
+        <div class="loupe__lens">
+          <div class="loupe__cap">
+            <img src="/fuchidori/img/hero-caption-720.webp" srcset="/fuchidori/img/hero-caption-720.webp 720w, /fuchidori/img/hero-caption-1440.webp 1440w" sizes="(min-width: 960px) 34vw, 70vw" width="720" height="311" alt="The caption of No. 01 seen through a loupe: 2025.05.24, SONY ILCE-7M4, FE 20mm F1.8 G, 20mm, F1.8 15s ISO3200 in three lines" loading="lazy" decoding="async">
+            <span class="loupe__cover loupe__cover--1" aria-hidden="true"></span>
+            <span class="loupe__cover loupe__cover--2" aria-hidden="true"></span>
+            <span class="loupe__cover loupe__cover--3" aria-hidden="true"></span>
+          </div>
+        </div>
+        <figcaption class="note">The margin of No. 01, under a loupe</figcaption>
+      </figure>
+      <ol class="lines rv" aria-label="What goes on each line, and the EXIF fields it comes from">
+        <li><span class="lines__n" aria-hidden="true">1</span><span class="lines__t"><small>Line 1</small>Date</span><span class="lines__v">2025.05.24<span class="note">　six date formats</span></span><span class="lines__f"><code>DateTimeOriginal</code></span></li>
+        <li><span class="lines__n" aria-hidden="true">2</span><span class="lines__t"><small>Line 2</small>Camera</span><span class="lines__v">SONY ILCE-7M4</span><span class="lines__f"><code>Make</code><code>Model</code></span></li>
+        <li><span class="lines__n" aria-hidden="true">3</span><span class="lines__t"><small>Line 3</small>Lens and exposure</span><span class="lines__v">FE 20mm F1.8 G, 20mm, F1.8 15s ISO3200</span><span class="lines__f"><code>LensModel</code><code>FocalLength</code><code>FNumber</code><code>ExposureTime</code><code>ISOSpeedRatings</code></span></li>
+      </ol>
+      <div class="r2__more rv">
+        <p>For FUJIFILM photos it also reads the film simulation (CLASSIC Neg. and so on). Anything missing, plus a title or your name, can be typed in on the spot.</p>
+        <p>Use one to four lines and drag items between them. Six separators, six date formats, four text sizes and four letter-spacing steps.</p>
+      </div>
+      <figure class="r2__ui rv">
+        <div class="phone"><img src="/fuchidori/img/ui-info-360.webp" srcset="/fuchidori/img/ui-info-360.webp 360w, /fuchidori/img/ui-info-720.webp 720w" sizes="(min-width: 960px) 220px, 44vw" width="360" height="613" alt="The Info tab in Fuchidori, with line count, separator, date format and an input for each item" loading="lazy" decoding="async"></div>
+        <figcaption class="label">The Info tab. Edit any item in place.</figcaption>
       </figure>
     </div>
   </section>
 
-  <section class="wrap sec" aria-labelledby="s-ba">
-    <h2 id="s-ba">Straight out of camera, then framed</h2>
-    <div class="sec__body ba">
-      <figure><img src="/fuchidori/img/before-560.webp" srcset="/fuchidori/img/before-560.webp 560w, /fuchidori/img/before-1120.webp 1120w" sizes="(max-width: 899px) 46vw, 380px" width="560" height="840" alt="Silhouettes of a bare winter tree and two people on a hill at dusk. The original photo with no frame" loading="lazy" decoding="async"><figcaption class="note">Straight out of camera</figcaption></figure>
-      <figure><img src="/fuchidori/img/after-560.webp" srcset="/fuchidori/img/after-560.webp 560w, /fuchidori/img/after-1120.webp 1120w" sizes="(max-width: 899px) 46vw, 480px" width="560" height="700" alt="The same photo in an ivory frame, with the date and camera details in two lines below" loading="lazy" decoding="async"><figcaption class="note">Through Fuchidori | 4:5 · Ivory · Futura</figcaption></figure>
-    </div>
-  </section>
-
-  <section class="wrap sec" aria-labelledby="s-works">
-    <div class="works-hd">
-      <div>
-        <h2 id="s-works">Same photo, different frame, different mood</h2>
-        <p class="mt2">Eight ratios, nine background colours and fourteen type styles. Set the margin to none and the caption sits on the photo itself.</p>
+  <!-- 5. Room 03 比率（昼の展示室。写真はそのままで、額の形が変わる） -->
+  <section class="ratio day" data-scene="ratio" aria-labelledby="h-r3">
+    <div class="ratio__stage">
+      <div class="ratio__head">
+        <p class="kicker">Room 03<span class="kicker__sep"></span><span class="kicker__ja">Ratios</span></p>
+        <h2 id="h-r3"><span class="ib">Fit the frame</span> <span class="ib">to where you post.</span></h2>
+        <p class="ratio__more">The same photo exported in four ratios. Also available: original, 3:4, 2:3 and 1.91:1.</p>
       </div>
-      <figure><img src="/fuchidori/img/v-bleed-480.webp" srcset="/fuchidori/img/v-bleed-480.webp 480w, /fuchidori/img/v-bleed-960.webp 960w" sizes="(max-width: 899px) 92vw, 760px" width="480" height="320" alt="Silhouette of a person walking a dog on a beach at sunset, no frame, with white text along the bottom edge" loading="lazy" decoding="async"><figcaption class="note">No margin (caption on the photo) | Original ratio · Futura</figcaption></figure>
-    </div>
-    <div class="sec__body works">
-      <figure><img src="/fuchidori/img/v-white-480.webp" srcset="/fuchidori/img/v-white-480.webp 480w, /fuchidori/img/v-white-960.webp 960w" sizes="(max-width: 899px) 46vw, 360px" width="480" height="600" alt="The same beach photo in a white frame" loading="lazy" decoding="async"><figcaption class="note">4:5 · White · Helvetica</figcaption></figure>
-      <figure><img src="/fuchidori/img/v-tall-480.webp" srcset="/fuchidori/img/v-tall-480.webp 480w, /fuchidori/img/v-tall-960.webp 960w" sizes="(max-width: 899px) 46vw, 360px" width="480" height="853" alt="The same photo in a tall 9:16 frame with wide margins" loading="lazy" decoding="async"><figcaption class="note">9:16 · Warm White · Didot · 3 lines</figcaption></figure>
-      <figure><img src="/fuchidori/img/v-black-480.webp" srcset="/fuchidori/img/v-black-480.webp 480w, /fuchidori/img/v-black-960.webp 960w" sizes="(max-width: 899px) 46vw, 360px" width="480" height="480" alt="The same photo in a black square frame" loading="lazy" decoding="async"><figcaption class="note">1:1 · Black · DIN</figcaption></figure>
-      <figure><img src="/fuchidori/img/v-sakura-480.webp" srcset="/fuchidori/img/v-sakura-480.webp 480w, /fuchidori/img/v-sakura-960.webp 960w" sizes="(max-width: 899px) 46vw, 360px" width="480" height="348" alt="The same photo in a thin pale pink frame" loading="lazy" decoding="async"><figcaption class="note">Original ratio · Sakura · Baskerville</figcaption></figure>
-      <figure><img src="/fuchidori/img/v-wide-480.webp" srcset="/fuchidori/img/v-wide-480.webp 480w, /fuchidori/img/v-wide-960.webp 960w" sizes="(max-width: 899px) 46vw, 360px" width="480" height="270" alt="The same photo in a dark grey wide frame" loading="lazy" decoding="async"><figcaption class="note">16:9 · Gunmetal · Futura · 1 line</figcaption></figure>
-    </div>
-  </section>
-
-  <section class="wrap sec" aria-labelledby="s-ratios">
-    <h2 id="s-ratios">Export straight to the shape each platform wants</h2>
-    <div class="sec__body ratios">
-      <figure><img src="/fuchidori/img/r-45-480.webp" srcset="/fuchidori/img/r-45-480.webp 480w, /fuchidori/img/r-45-960.webp 960w" sizes="(max-width: 899px) 46vw, 380px" width="480" height="600" alt="A photo of two people looking up at the Milky Way, exported in a 4:5 frame" loading="lazy" decoding="async"><figcaption><b>4:5</b><span class="note">Instagram portrait</span></figcaption></figure>
-      <figure><img src="/fuchidori/img/r-916-480.webp" srcset="/fuchidori/img/r-916-480.webp 480w, /fuchidori/img/r-916-960.webp 960w" sizes="(max-width: 899px) 46vw, 380px" width="480" height="853" alt="A photo of two people looking up at the Milky Way, exported in a 9:16 frame" loading="lazy" decoding="async"><figcaption><b>9:16</b><span class="note">Stories, Reels, TikTok</span></figcaption></figure>
-      <figure><img src="/fuchidori/img/r-11-480.webp" srcset="/fuchidori/img/r-11-480.webp 480w, /fuchidori/img/r-11-960.webp 960w" sizes="(max-width: 899px) 46vw, 380px" width="480" height="480" alt="A photo of two people looking up at the Milky Way, exported in a 1:1 frame" loading="lazy" decoding="async"><figcaption><b>1:1</b><span class="note">Instagram and X square</span></figcaption></figure>
-      <figure><img src="/fuchidori/img/r-169-480.webp" srcset="/fuchidori/img/r-169-480.webp 480w, /fuchidori/img/r-169-960.webp 960w" sizes="(max-width: 899px) 46vw, 380px" width="480" height="270" alt="A photo of two people looking up at the Milky Way, exported in a 16:9 frame" loading="lazy" decoding="async"><figcaption><b>16:9</b><span class="note">X and YouTube landscape</span></figcaption></figure>
-    </div>
-    <p class="note mt3">Also: original ratio, 3:4, 2:3 and 1.91:1.</p>
-  </section>
-
-  <section class="wrap sec" aria-labelledby="s-priv">
-    <div class="private">
-      <div>
-        <h2 id="s-priv">Your photos go nowhere</h2>
-        <p class="mt2">From opening to exporting, everything happens inside the browser on your phone or computer. Fuchidori’s server has no way to receive a photo.</p>
-        <p class="note mt2"><a href="/fuchidori/en/privacy/">Privacy policy</a></p>
+      <ol class="ratio__list" aria-hidden="true">
+        <li class="is-on"><b>4:5</b><span>Instagram portrait</span></li>
+        <li><b>9:16</b><span>Stories, Reels, TikTok</span></li>
+        <li><b>1:1</b><span>Instagram and X square</span></li>
+        <li><b>16:9</b><span>X and Threads landscape</span></li>
+      </ol>
+      <div class="ratio__box">
+        <span class="ratio__glow" aria-hidden="true"></span>
+        <span class="ratio__mat g-white" aria-hidden="true"></span>
+        <span class="ratio__mat g-black" aria-hidden="true"></span>
+        <span class="ratio__mat g-onyx" aria-hidden="true"></span>
+        <span class="ratio__mat g-warm" aria-hidden="true"></span>
+        <img class="ratio__photo" src="/fuchidori/img/raw-stars-960.webp" srcset="/fuchidori/img/raw-stars-960.webp 960w, /fuchidori/img/raw-stars-1333.webp 1333w" sizes="(min-width: 960px) 420px, 62vw" width="960" height="1440" alt="" aria-hidden="true" loading="lazy" decoding="async">
+        <figure class="ratio__item f-r-45 g-white" data-photo="0.1368 0.0352 0.7265 0.8711">
+          <img src="/fuchidori/img/r-45-480.webp" srcset="/fuchidori/img/r-45-480.webp 480w, /fuchidori/img/r-45-960.webp 960w, /fuchidori/img/r-45-1600.webp 1600w" sizes="(min-width: 960px) 44vw, 80vw" width="480" height="600" alt="Two people under the Milky Way, exported in a White 4:5 frame" loading="lazy" decoding="async">
+          <figcaption><b>4:5</b>Instagram portrait · <i class="sw g-white" aria-hidden="true"></i>White</figcaption>
+        </figure>
+        <figure class="ratio__item f-r-916 g-black" data-photo="0.0382 0.0908 0.9236 0.7793">
+          <img src="/fuchidori/img/r-916-480.webp" srcset="/fuchidori/img/r-916-480.webp 480w, /fuchidori/img/r-916-960.webp 960w, /fuchidori/img/r-916-1600.webp 1600w" sizes="(min-width: 960px) 44vw, 80vw" width="480" height="853" alt="Two people under the Milky Way, exported in a Black 9:16 frame" loading="lazy" decoding="async">
+          <figcaption><b>9:16</b>Stories, Reels, TikTok · <i class="sw g-black" aria-hidden="true"></i>Black</figcaption>
+        </figure>
+        <figure class="ratio__item f-r-11 g-onyx" data-photo="0.2148 0.0391 0.5703 0.8545">
+          <img src="/fuchidori/img/r-11-480.webp" srcset="/fuchidori/img/r-11-480.webp 480w, /fuchidori/img/r-11-960.webp 960w, /fuchidori/img/r-11-1600.webp 1600w" sizes="(min-width: 960px) 44vw, 80vw" width="480" height="480" alt="Two people under the Milky Way, exported in a Onyx 1:1 frame" loading="lazy" decoding="async">
+          <figcaption><b>1:1</b>Instagram and X square · <i class="sw g-onyx" aria-hidden="true"></i>Onyx</figcaption>
+        </figure>
+        <figure class="ratio__item f-r-169 g-warm" data-photo="0.3428 0.0486 0.3145 0.8368">
+          <img src="/fuchidori/img/r-169-480.webp" srcset="/fuchidori/img/r-169-480.webp 480w, /fuchidori/img/r-169-960.webp 960w, /fuchidori/img/r-169-1600.webp 1600w" sizes="(min-width: 960px) 44vw, 80vw" width="480" height="270" alt="Two people under the Milky Way, exported in a Warm White 16:9 frame" loading="lazy" decoding="async">
+          <figcaption><b>16:9</b>X and Threads landscape · <i class="sw g-warm" aria-hidden="true"></i>Warm White</figcaption>
+        </figure>
       </div>
-      <dl class="facts">
-        <div><dt>No uploads</dt><dd>Photos and videos never leave your device.</dd></div>
-        <div><dt>Location removed on export</dt><dd>Camera and exposure details stay; GPS is stripped.</dd></div>
-        <div><dt>No analytics, ads or cookies</dt><dd>We have no way of knowing who made what.</dd></div>
+    </div>
+  </section>
+
+  <!-- 6. 写真は端末の外に出ない -->
+  <section class="priv" aria-labelledby="h-priv">
+    <div class="wrap rv">
+      <p class="kicker">Notice<span class="kicker__sep"></span><span class="kicker__ja">Your photos</span></p>
+      <h2 id="h-priv"><span class="ib">Your photos</span> <span class="ib">never leave your device.</span></h2>
+      <p class="priv__text">Everything from opening to exporting happens in the browser on your phone or computer. Fuchidori’s server has no way to receive a photo.</p>
+      <dl class="priv__facts">
+        <div><dt>Photo uploads</dt><dd><span class="priv__big">0</span><span class="priv__d">Opening and exporting both happen on your device</span></dd></div>
+        <div><dt>Analytics, ads, cookies</dt><dd><span class="priv__big">0</span><span class="priv__d">We have no way of knowing who made what</span></dd></div>
+        <div><dt>Location (GPS)</dt><dd><span class="priv__big">GPS</span><span class="priv__d">Removed on export. Camera and exposure details stay</span></dd></div>
+      </dl>
+      <p class="priv__link"><a href="/fuchidori/en/privacy/">Privacy policy</a></p>
+    </div>
+  </section>
+
+  <!-- 7. 使い方3手（昼の展示室） -->
+  <section class="how day" id="how" aria-labelledby="h-how">
+    <div class="wrap">
+      <div class="rv">
+        <p class="kicker">How to</p>
+        <h2 id="h-how"><span class="ib">Open it and export</span> <span class="ib">in three steps.</span></h2>
+      </div>
+      <ol class="how__steps">
+        <li class="how__step rv">
+          <figure class="how__shot"><div class="phone"><img src="/fuchidori/img/ui-home-360.webp" srcset="/fuchidori/img/ui-home-360.webp 360w, /fuchidori/img/ui-home-720.webp 720w" sizes="(min-width: 760px) 240px, 38vw" width="360" height="613" alt="Fuchidori when first opened, with the frame for picking a photo circled in red" loading="lazy" decoding="async"></div><svg class="grease" viewBox="0 0 120 84" preserveAspectRatio="none" aria-hidden="true"><path d="M10 12 C 38 5, 84 6, 112 10 C 116 30, 117 56, 110 75 C 80 81, 40 80, 8 74 C 3 52, 4 30, 8 8 L 22 6" fill="none" stroke="#d2402f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg></figure>
+          <div class="how__txt"><span class="how__no">01</span><h3>Pick a photo</h3><p>Tap the frame in the middle and choose a photo or video. The shooting details are read right away.</p></div>
+        </li>
+        <li class="how__step rv">
+          <figure class="how__shot"><div class="phone"><img src="/fuchidori/img/ui-edit-360.webp" srcset="/fuchidori/img/ui-edit-360.webp 360w, /fuchidori/img/ui-edit-720.webp 720w" sizes="(min-width: 760px) 240px, 38vw" width="360" height="613" alt="The editor, with the result on top and ratio, margin and colour controls below" loading="lazy" decoding="async"></div></figure>
+          <div class="how__txt"><span class="how__no">02</span><h3>Set the frame</h3><p>Switch between the tabs at the bottom to choose ratio, margin, colour and caption.</p></div>
+        </li>
+        <li class="how__step rv">
+          <figure class="how__shot"><div class="phone"><img src="/fuchidori/img/ui-export-360.webp" srcset="/fuchidori/img/ui-export-360.webp 360w, /fuchidori/img/ui-export-720.webp 720w" sizes="(min-width: 760px) 240px, 38vw" width="360" height="613" alt="The export screen with a Save to Photos / Share button" loading="lazy" decoding="async"></div></figure>
+          <div class="how__txt"><span class="how__no">03</span><h3>Save</h3><p>On iPhone, save to Photos from the share sheet, or send it straight to Instagram or X. On a computer, it saves as an image file.</p></div>
+        </li>
+      </ol>
+      <div class="how__act rv">
+        <a class="btn" href="https://fuchidori.yashimastudio.com/">Open the app</a>
+        <p class="note">Nothing to install. Add it to your home screen and it opens like an app. The interface is in Japanese.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. 人に教える（いちばんしてほしいこと） -->
+  <section class="share" id="share" aria-labelledby="h-share" data-share data-url="https://yashimastudio.com/fuchidori/en/" data-text="Fuchidori — a free web app that frames your photos, shooting details and all" data-copied="Link copied">
+    <div class="wrap share__grid">
+      <div class="rv">
+        <p class="kicker">Share</p>
+        <h2 id="h-share"><span class="ib">Know someone</span> <span class="ib">who takes photos?</span></h2>
+        <p class="lead">Send them this page. The link shows up with a sample image.</p>
+        <div class="share__btns">
+          <button type="button" class="btn" data-act="native" hidden>Share</button>
+          <a class="btn btn--line" href="https://x.com/intent/post?text=Fuchidori%20%E2%80%94%20a%20free%20web%20app%20that%20frames%20your%20photos%2C%20shooting%20details%20and%20all&amp;url=https%3A%2F%2Fyashimastudio.com%2Ffuchidori%2Fen%2F" target="_blank" rel="noopener">Post on X</a>
+          <a class="btn btn--line" href="https://social-plugins.line.me/lineit/share?url=https%3A%2F%2Fyashimastudio.com%2Ffuchidori%2Fen%2F" target="_blank" rel="noopener">Send on LINE</a>
+          <button type="button" class="btn btn--line" data-act="copy" hidden>Copy link</button>
+        </div>
+        <p class="share__done" role="status"></p>
+        <p class="share__next"><a class="tell" href="https://fuchidori.yashimastudio.com/">Try it yourself — Open the app</a></p>
+      </div>
+      <figure class="card rv">
+        <div class="card__bubble">
+          <p class="card__msg">Love how this frames photos</p>
+          <div class="card__link">
+            <img src="/fuchidori/img/og-en.jpg" width="1200" height="630" alt="The image shown when the link is shared: a torii and Milky Way sample in a white frame on a dark gallery wall, with the words “Frame your photo, shooting details and all.”" loading="lazy" decoding="async">
+            <p><b>Fuchidori — Frame your photo, shooting details and all</b><span>yashimastudio.com</span></p>
+          </div>
+        </div>
+        <figcaption class="note">What your friend will see (sample).</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 9. 図録（動作環境と書き出し） -->
+  <section class="spec" aria-labelledby="h-spec">
+    <div class="wrap spec__in">
+      <div>
+        <p class="kicker">Catalogue</p>
+        <h2 id="h-spec">Requirements and output</h2>
+      </div>
+      <dl class="spec__t">
+        <div><dt>Runs in</dt><dd>Your browser. Nothing to install (you can add it to your home screen)</dd></div>
+        <div><dt>Frame</dt><dd>8 ratios (original, 4:5, 3:4, 2:3, 1:1, 9:16, 16:9, 1.91:1), 5 margin widths, 5 photo border widths, 9 background colours (White, Warm White, Ivory, Silver Sand, Gunmetal, Onyx, Black, Sakura, Sunny Yellow)</dd></div>
+        <div><dt>Caption</dt><dd>14 typefaces (Helvetica, Futura, DIN and Didot-style Latin faces, plus Japanese), 1–4 lines, 6 separators, 6 date formats, 4 sizes, 4 letter-spacing steps</dd></div>
+        <div><dt>Photos</dt><dd>JPEG, 4,096 px on the long edge. Camera and exposure details are kept; GPS location is removed</dd></div>
+        <div><dt>Videos</dt><dd>Up to 60 seconds, with the same frame and caption (if your browser supports it)</dd></div>
+        <div><dt>Saving</dt><dd>On iPhone, save to Photos from the share sheet or post straight to social apps. On a computer, save as an image file</dd></div>
+        <div><dt>Price</dt><dd>Free. No account needed</dd></div>
+        <div><dt>Language</dt><dd>The app interface is in Japanese</dd></div>
       </dl>
     </div>
   </section>
-
-  <section class="wrap sec" aria-labelledby="s-how">
-    <h2 id="s-how">Pick, adjust, save</h2>
-    <ol class="sec__body steps">
-      <li><img src="/fuchidori/img/ui-home-360.webp" srcset="/fuchidori/img/ui-home-360.webp 360w, /fuchidori/img/ui-home-720.webp 720w" sizes="(max-width: 899px) 30vw, 280px" width="360" height="613" alt="Fuchidori when first opened, with a frame to pick a photo in the middle" loading="lazy" decoding="async"><h3><span>1</span>Pick a photo</h3><p>Tap the frame in the middle to choose a photo or video. On a computer, drag it in or paste it.</p></li>
-      <li><img src="/fuchidori/img/ui-edit-360.webp" srcset="/fuchidori/img/ui-edit-360.webp 360w, /fuchidori/img/ui-edit-720.webp 720w" sizes="(max-width: 899px) 30vw, 280px" width="360" height="613" alt="The editor, with the result on top and ratio, margin and colour controls below" loading="lazy" decoding="async"><h3><span>2</span>Adjust</h3><p>Switch between the tabs at the bottom to set ratio, margin, colour and caption.</p></li>
-      <li><img src="/fuchidori/img/ui-export-360.webp" srcset="/fuchidori/img/ui-export-360.webp 360w, /fuchidori/img/ui-export-720.webp 720w" sizes="(max-width: 899px) 30vw, 280px" width="360" height="613" alt="The export screen with a Save to Photos / Share button" loading="lazy" decoding="async"><h3><span>3</span>Save</h3><p>On iPhone, save to Photos from the share sheet, or send it straight to Instagram or X.</p></li>
-    </ol>
-    <div class="act">
-      <a class="btn" href="https://fuchidori.yashimastudio.com/">Open the app</a>
-    </div>
-    <p class="note mt2 measure">Add it to your home screen and it opens like an app. On iPhone, use Safari’s Share button and choose “Add to Home Screen”. On Android, use Chrome’s menu and choose “Add to Home screen”.</p>
-  </section>
-
-  <section class="wrap sec share" aria-labelledby="s-share" data-share data-url="https://yashimastudio.com/fuchidori/en/" data-text="Fuchidori — a free web app that frames your photos with their shooting details" data-copied="Link copied">
-    <h2 id="s-share">Know someone who takes photos?</h2>
-    <p>If you like it, pass it on. Links show up with a sample image.</p>
-    <div class="act">
-      <button type="button" class="btn" data-act="native" hidden>Share</button>
-      <a class="btn btn--line" href="https://x.com/intent/post?text=Fuchidori%20%E2%80%94%20a%20free%20web%20app%20that%20frames%20your%20photos%20with%20their%20shooting%20details&amp;url=https%3A%2F%2Fyashimastudio.com%2Ffuchidori%2Fen%2F" target="_blank" rel="noopener">Post on X</a>
-      <a class="btn btn--line" href="https://social-plugins.line.me/lineit/share?url=https%3A%2F%2Fyashimastudio.com%2Ffuchidori%2Fen%2F" target="_blank" rel="noopener">Send on LINE</a>
-      <button type="button" class="btn btn--line" data-act="copy">Copy link</button>
-    </div>
-    <p class="note share__done" role="status"></p>
-  </section>
-
-  <section class="wrap sec" aria-labelledby="s-spec">
-    <h2 id="s-spec">Requirements and output</h2>
-    <dl class="sec__body specs">
-      <dt>Browsers</dt><dd>Safari on iPhone and iPad, Chrome on Android, and Chrome, Edge or Safari on a computer (latest versions recommended)</dd>
-      <dt>Photos</dt><dd>Exported as JPEG, 4,096 px on the long edge. Shooting details are kept; location is removed</dd>
-      <dt>Videos</dt><dd>Up to 60 seconds, with the same frame and caption (MP4 at 1,920 px on the long edge; MOV or WebM on some browsers)</dd>
-      <dt>Language</dt><dd>The app interface is in Japanese</dd>
-      <dt>Price</dt><dd>Free. No account needed</dd>
-    </dl>
-  </section>
 </main>
-<footer class="wrap foot note">
-  <div class="foot__row">
-    <span>© 2026 Yashima Studio</span>
-    <nav aria-label="Footer"><a href="/fuchidori/en/privacy/">Privacy policy</a></nav>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot__row">
+      <a class="brand brand--foot" href="/fuchidori/en/">Fuchidori</a>
+      <nav class="foot__nav" aria-label="Footer">
+        <a href="https://fuchidori.yashimastudio.com/">Open the app</a>
+        <a href="/fuchidori/en/privacy/">Privacy policy</a>
+        <a href="/fuchidori/" hreflang="ja" lang="ja">日本語</a>
+      </nav>
+    </div>
+    <p>Shooting details in the samples are illustrative values.</p>
+    <p>Company and product names are trademarks or registered trademarks of their respective owners. Fuchidori is an independent project and is not affiliated with them.</p>
+    <p class="foot__fonts"><span>Typefaces (SIL Open Font License)</span><a href="/fuchidori/fonts/PlayfairDisplay-OFL.txt">Playfair Display</a><a href="/fuchidori/fonts/Jost-OFL.txt">Jost</a></p>
+    <p class="foot__c">© 2026 Yashima Studio</p>
   </div>
-  <p>Shooting details in the samples are illustrative values.</p>
-  <p>Company and product names are trademarks or registered trademarks of their respective owners. Fuchidori is an independent project and is not affiliated with them.</p>
 </footer>
 </body>
 </html>

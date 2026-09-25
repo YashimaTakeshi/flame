@@ -1,11 +1,11 @@
-# yashimastudio.com（紹介ページ）の HTTP ヘッダ。スクリプトは共有ボタンの share.js だけ（同じ場所から）
+# yashimastudio.com（紹介ページ）の HTTP ヘッダ。スクリプトは /fuchidori/assets/ の boot.js と fuchidori.js（同じ場所から）
 /*
   Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   Referrer-Policy: strict-origin-when-cross-origin
   X-Content-Type-Options: nosniff
   Permissions-Policy: geolocation=(), camera=(), microphone=(), interest-cohort=()
 
-# ページは毎回確かめる（ETag で軽い）。画像は1日、CSS と JS は1時間。
+# ページは毎回確かめる（ETag で軽い）。画像は1日、CSS と JS は1時間、書体は1週間。
 # 複数の規則に当たると値がつながってしまうので、ページは1つずつ書く
 /fuchidori/
   Cache-Control: no-cache
@@ -19,3 +19,5 @@
   Cache-Control: public, max-age=86400
 /fuchidori/assets/*
   Cache-Control: public, max-age=3600
+/fuchidori/fonts/*
+  Cache-Control: public, max-age=604800

@@ -6,7 +6,7 @@
  * 撮るもの
  *   <幅>-step-NN.png … 画面1枚ずつ（0.6 画面ずつ送り、動きが落ち着くのを待ってから撮る）
  *   <幅>-reduced.png … 「視差効果を減らす」を入れたときのページ全体
- *   report.json      … 横のはみ出し、コンソールのエラー・CSP 違反、読み込めなかったもの、転送量
+ *   report.json      … 横のはみ出し（画面の幅と比べた、途中の位置での最大）、コンソールのエラー・CSP 違反、読み込めなかったもの、転送量
  */
 import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -41,9 +41,10 @@ for (const name of which === 'both' ? ['phone', 'desk'] : [which]) {
         await page.evaluate((yy) => window.scrollTo(0, yy), y);
         await page.waitForTimeout(450);
         await page.screenshot({ path: resolve(out, `${name}-step-${String(i).padStart(2, '0')}.png`) });
+        // はみ出しは、決めた画面の幅と比べる（innerWidth ははみ出しに合わせて広がることがある）。途中の位置の最大
+        r.overflowPx = Math.max(r.overflowPx, await page.evaluate((w) => document.documentElement.scrollWidth - w, VIEWS[name].viewport.width));
       }
       r.steps = i;
-      r.overflowPx = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     } else {
       await page.evaluate(() => document.querySelectorAll('img').forEach((i) => { i.loading = 'eager'; }));
       await page.waitForLoadState('networkidle');
