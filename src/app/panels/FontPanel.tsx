@@ -6,6 +6,7 @@ import { useCallback, useState } from 'react';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
 import { ensureJapaneseFont, JP_FAMILY, LATIN_FONTS, type LatinFontKey } from '../fonts-catalog';
+import { ToolPanel } from '../ui/tools';
 
 type Key = LatinFontKey | 'jp';
 
@@ -45,26 +46,38 @@ export function FontPanel(): React.ReactElement {
     [set, setHint],
   );
 
+  const current = CARDS.find((c) => c.key === fontKey)?.label;
   return (
-    <div className="pnl">
-      <div className="fonts" role="radiogroup" aria-label="書体" aria-busy={loading || undefined}>
-        {CARDS.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            role="radio"
-            className="fontcard"
-            aria-checked={fontKey === c.key}
-            aria-label={c.label}
-            title={c.label}
-            data-busy={(loading && c.key === 'jp') || undefined}
-            onClick={() => fontKey !== c.key && pick(c.key)}
-          >
-            <b style={c.style}>{c.sample}</b>
-            <span>{c.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
+    <ToolPanel
+      tab="font"
+      tools={[
+        {
+          key: 'font',
+          label: '書体',
+          note: current,
+          bare: true,
+          control: (
+            <div className="fonts" role="radiogroup" aria-label="書体" aria-busy={loading || undefined}>
+              {CARDS.map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  role="radio"
+                  className="fontcard"
+                  aria-checked={fontKey === c.key}
+                  aria-label={c.label}
+                  title={c.label}
+                  data-busy={(loading && c.key === 'jp') || undefined}
+                  onClick={() => fontKey !== c.key && pick(c.key)}
+                >
+                  <b style={c.style}>{c.sample}</b>
+                  <span>{c.label}</span>
+                </button>
+              ))}
+            </div>
+          ),
+        },
+      ]}
+    />
   );
 }

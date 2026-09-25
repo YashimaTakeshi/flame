@@ -37,6 +37,7 @@ import { IconExpand, IconMuted, IconPhoto, IconPlay, IconRedo, IconShare, IconSo
 import { Viewer } from './Viewer';
 import { Sheet } from './ui/Sheet';
 import { usePan } from './usePan';
+import { preventPageZoom, useStageZoom } from './useStageZoom';
 import { usePreview } from './usePreview';
 import { usePageVisible, useVideoPlayback } from './useVideoPlayback';
 import { useViewportHeight } from './useViewportHeight';
@@ -288,54 +289,16 @@ export function App(): React.ReactElement {
   const pannable =
     bleed && loaded !== null && crop?.op === 'photo' && (crop.srcNorm.w < 0.999 || crop.srcNorm.h < 0.999);
   /*
-   * ダブルタップで拡大して見る（スマホ）。プレビューの文字は画面では数 px しかなく、
-   * 書体・字間・大きさを変えても違いが見えなかった。拡大の間は指で送って見回し、
-   * もう一度ダブルタップ（か ✕）で戻る。拡大の間だけ細かく描き直すので、にじまない。
-   * 余白なしで動かせるときも、1本指のドラッグは切り取り、ダブルタップは拡大、と役目を分ける
+   * 写真だけを指で拡大して見る（スマホ）。2本指で広げる・つまむ、ダブルタップで 1倍 ⇄ 2.5倍。
+   * プレビューの文字は画面では数 px しかなく、書体・字間・大きさを変えても違いが見えなかった。
+   * ページそのものは拡大させない（設定の欄をピンチすると画面ごと拡大されて崩れた。依頼者の指摘）。
+   * 拡大の間は1本指で見回し、指を離すと、その倍率に合う細かさで描き直すので、にじまない。
+   * 余白なしで動かせるときも、拡大していなければ1本指のドラッグは切り取り、と役目を分ける
    */
-  const [zoomState, setZoomState] = useState<{ x: number; y: number; of: Loaded; lay: string } | null>(null);
-  const ZOOM = 2.5;
-  // 写真・組み方が変わったら戻す（覚えた拡大はその写真・その組み方のときだけ効く）
-  const zoom = zoomState && zoomState.of === loaded && zoomState.lay === layout ? zoomState : null;
-  const setZoom = (z: { x: number; y: number } | null): void =>
-    setZoomState(z && loaded ? { ...z, of: loaded, lay: layout } : null);
-  usePan(canvasRef, scene, pannable && zoom === null, readFocus, beginDrag, dragFocus, layout);
-  const tapRef = useRef({ t: 0, x: 0, y: 0 });
-  const zoomDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
-  const onZoomDown = (e: React.PointerEvent<HTMLCanvasElement>): void => {
-    if (desk) return;
-    const now = e.timeStamp;
-    const last = tapRef.current;
-    const near = Math.hypot(e.clientX - last.x, e.clientY - last.y) < 30;
-    tapRef.current = { t: now, x: e.clientX, y: e.clientY };
-    if (near && now - last.t < 320) {
-      tapRef.current.t = 0;
-      if (zoom) {
-        setZoom(null);
-      } else {
-        const r = e.currentTarget.getBoundingClientRect();
-        setZoom({ x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
-      }
-      return;
-    }
-    if (zoom) {
-      zoomDrag.current = { x: e.clientX, y: e.clientY, ox: zoom.x, oy: zoom.y };
-      e.currentTarget.setPointerCapture(e.pointerId);
-    }
-  };
-  const onZoomMove = (e: React.PointerEvent<HTMLCanvasElement>): void => {
-    const d = zoomDrag.current;
-    if (!d || !zoom) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    // r は拡大後の大きさ。拡大前の幅に戻し、原点の動く量に直す（原点は 0..1 で端から端まで）
-    const w = r.width / ZOOM;
-    const h = r.height / ZOOM;
-    const c = (n: number): number => Math.min(1, Math.max(0, n));
-    setZoom({ x: c(d.ox - (e.clientX - d.x) / (w * (ZOOM - 1))), y: c(d.oy - (e.clientY - d.y) / (h * (ZOOM - 1))) });
-  };
-  const onZoomUp = (): void => {
-    zoomDrag.current = null;
-  };
+  const zoom = useStageZoom(stageRef, canvasRef, { enabled: !desk && loaded !== null, resetKey: `${layout}|${loaded?.file.name ?? ''}|${loaded?.file.lastModified ?? ''}` });
+  usePan(canvasRef, scene, pannable && zoom.level === 1, readFocus, beginDrag, dragFocus, layout);
+  // スマホではページそのものを拡大させない（拡大は写真の上だけ）。PC はブラウザの拡大を残す
+  useEffect(() => (desk ? undefined : preventPageZoom()), [desk]);
 
   /*
    * 動かせることは見ても分からない。余白なしにしたとき（と比率を変えて動かせるようになったとき）、
@@ -402,7 +365,8 @@ export function App(): React.ReactElement {
     EXPORT_LONG_EDGE,
     layout,
     loaded?.video ? playback.subscribe : null,
-    zoom ? ZOOM : 1,
+    // 拡大の上限（描く細かさ）は target.ts が押さえる。4倍より先は同じ細かさで足りる
+    Math.min(zoom.level, 4),
   );
 
   /* 拡大できることは見ても分からない。スマホで最初の数回だけ足元で知らせる */
@@ -416,7 +380,7 @@ export function App(): React.ReactElement {
       return;
     }
     const t = setTimeout(() => {
-      if (!useUi.getState().hint) setHint('ダブルタップで文字を拡大');
+      if (!useUi.getState().hint) setHint('写真を2本指で広げると拡大（ダブルタップでも）');
     }, 900);
     return () => clearTimeout(t);
   }, [loaded, desk, setHint]);
@@ -753,17 +717,11 @@ export function App(): React.ReactElement {
                 tabIndex={pannable ? 0 : undefined}
                 onKeyDown={pannable ? onCanvasKey : undefined}
                 onDoubleClick={pannable && desk ? onCanvasDouble : undefined}
-                onPointerDown={onZoomDown}
-                onPointerMove={onZoomMove}
-                onPointerUp={onZoomUp}
-                onPointerCancel={onZoomUp}
-                data-zoomed={zoom ? true : undefined}
-                style={zoom ? { transform: `scale(${ZOOM})`, transformOrigin: `${zoom.x * 100}% ${zoom.y * 100}%` } : undefined}
               />
               {preview.slow && <span className="stage__dot" aria-hidden="true" />}
-              {zoom && (
-                <button type="button" className="stage__chip stage__chip--btn stage__zoom" aria-label="拡大をやめる" onClick={() => setZoom(null)}>
-                  {ZOOM}× ✕
+              {zoom.level > 1 && (
+                <button type="button" className="stage__chip stage__chip--btn stage__zoom" aria-label="拡大をやめる" onClick={zoom.reset}>
+                  {zoom.level.toFixed(1)}× ✕
                 </button>
               )}
               {/*

@@ -11,7 +11,8 @@ import type { BadgeMode, BadgeSize } from '../../core/badge';
 import type { BandSide } from '../../core/styles/layout';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
-import { Anchor, Pics, Row, Stepper, Switch, type Opt } from '../ui/controls';
+import { Anchor, Pics, Stepper, Switch, type Opt } from '../ui/controls';
+import { ToolPanel } from '../ui/tools';
 import { PlacePic } from '../ui/pics';
 import { FilmSelect } from './FilmSelect';
 import { CAPTION_PLACE_JA, CAPTION_PLACES_UI } from './constants';
@@ -55,34 +56,53 @@ export function BadgePanel(): React.ReactElement {
     setHint(noFilm ? '先に「仕上がり」を選んでください' : '刻印を「文字」か「ロゴ」にしてください');
 
   return (
-    <div className="pnl">
-      <Row label="仕上がり">
-        <FilmSelect label="仕上がり（刻む名前）" />
-      </Row>
-      <Row label="刻印">
-        <Pics label="刻印の見せ方" variant="text" options={MODE_OPTIONS} value={mode} onChange={(v) => set('badge', v)} />
-      </Row>
-      <Row label="置き場所" dim={off || bleed}>
-        <div className="pair">
-          <Pics
-            label="刻印を置く辺"
-            options={PLACES}
-            value={place}
-            onChange={(v) => set('badgePlace', v)}
-            disabled={off || bleed}
-            onDisabledPick={off ? why : () => setHint('余白なしでは写真の上に置きます。辺は選べません')}
-          />
-        </div>
-      </Row>
-      <Row label="位置" dim={off}>
-        <Anchor label="刻印の位置" h={align} v={valign} onChange={setBadgePos} disabled={off} onDisabledPick={why} />
-      </Row>
-      <Row label="大きさ" dim={off}>
-        <Stepper label="刻印の大きさ" options={SIZE_OPTIONS} value={size} defaultValue="M" onChange={(v) => set('badgeSize', v)} disabled={off} onDisabledPick={why} />
-      </Row>
-      <Row label="枠線" dim={off}>
-        <Switch label="刻印の枠線" on={framed} onChange={(on) => set('badgeFramed', on)} disabled={off} onDisabledPick={why} />
-      </Row>
-    </div>
+    <ToolPanel
+      tab="badge"
+      tools={[
+        { key: 'film', label: '仕上がり', control: <FilmSelect label="仕上がり（刻む名前）" /> },
+        {
+          key: 'mode',
+          label: '刻印',
+          control: <Pics label="刻印の見せ方" variant="text" options={MODE_OPTIONS} value={mode} onChange={(v) => set('badge', v)} />,
+        },
+        {
+          key: 'place',
+          label: '置き場所',
+          dim: off || bleed,
+          control: (
+            <div className="pair">
+              <Pics
+                label="刻印を置く辺"
+                options={PLACES}
+                value={place}
+                onChange={(v) => set('badgePlace', v)}
+                disabled={off || bleed}
+                onDisabledPick={off ? why : () => setHint('余白なしでは写真の上に置きます。辺は選べません')}
+              />
+            </div>
+          ),
+        },
+        {
+          key: 'pos',
+          label: '位置',
+          dim: off,
+          control: <Anchor label="刻印の位置" h={align} v={valign} onChange={setBadgePos} disabled={off} onDisabledPick={why} />,
+        },
+        {
+          key: 'size',
+          label: '大きさ',
+          dim: off,
+          control: (
+            <Stepper label="刻印の大きさ" options={SIZE_OPTIONS} value={size} defaultValue="M" onChange={(v) => set('badgeSize', v)} disabled={off} onDisabledPick={why} />
+          ),
+        },
+        {
+          key: 'frame',
+          label: '枠線',
+          dim: off,
+          control: <Switch label="刻印の枠線" on={framed} onChange={(on) => set('badgeFramed', on)} disabled={off} onDisabledPick={why} />,
+        },
+      ]}
+    />
   );
 }

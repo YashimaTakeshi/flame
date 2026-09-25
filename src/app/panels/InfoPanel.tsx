@@ -11,8 +11,9 @@ import { groupsFor } from '../../core/styles/tokens';
 import type { FieldId, LineCount, SeparatorId } from '../../core/styles/types';
 import { SHOT_FACTS, effectiveFields } from '../caption';
 import { useDoc } from '../state/doc';
-import { useUi } from '../state/ui';
-import { Pics, Row, Switch, type Opt } from '../ui/controls';
+import { INFO_ITEMS, useUi } from '../state/ui';
+import { Pics, Switch, type Opt } from '../ui/controls';
+import { ToolPanel } from '../ui/tools';
 import { LinesPicker, useLinesUsed } from './LinesPicker';
 import { IconReset } from '../ui/icons';
 import { DATE_FORMATS, formatWallClock, type DateFormatId, type WallClock } from '../../core/wallclock';
@@ -137,7 +138,8 @@ export function InfoPanel(): React.ReactElement {
 
   /** 面の端に指が来たら送る（スマホの面は低い） */
   const autoScroll = (y: number): void => {
-    const sc = rootRef.current?.closest<HTMLElement>('.side__scroll, .pnl');
+    // スマホは一覧の項目（.tool）が送られる。PC は欄（.side__scroll）
+    const sc = rootRef.current?.closest<HTMLElement>('.side__scroll, .tool, .pnl');
     if (!sc) return;
     const r = sc.getBoundingClientRect();
     if (y < r.top + 32) sc.scrollTop -= 10;
@@ -175,30 +177,9 @@ export function InfoPanel(): React.ReactElement {
     else if (g < groups.length - 1) moveField(id, g + 1, 0, lines);
   };
 
-  return (
-    <div className="pnl pnl--list" ref={rootRef}>
-      {/* 文字を切っているあいだは何も載らない。どこで入れ直すかを1行で */}
-      {!captionOn && (
-        <button type="button" className="irows__off" onClick={() => setTab('text')}>
-          文字は入れない設定です（文字タブで入れられます）
-        </button>
-      )}
-      <Row label="行数">
-        <LinesPicker />
-      </Row>
-      {/* 項目の区切り（依頼者の要望で選べるようにした）。字そのものを見せて選ぶ */}
-      <Row label="区切り">
-        <Pics label="項目の区切り" variant="text" options={SEPARATOR_OPTIONS} value={separator} onChange={(v) => set('separator', v)} />
-      </Row>
-      <Row label="日付">
-        <select className="pselect" aria-label="日付の書き方" value={dateFormat} onChange={(e) => set('dateFormat', asFormat(e.target.value))}>
-          {DATE_FORMATS.map((f) => (
-            <option key={f} value={f}>
-              {formatWallClock(photoDate ?? SAMPLE_DATE, f)}
-            </option>
-          ))}
-        </select>
-      </Row>
+  // 項目の一覧（その場で入力・つまみで並べ替え）。スマホでは「項目」を選ぶと、欄を高くしてこれを出す
+  const items = (
+    <div className="ilist" ref={rootRef}>
       <p className="irows__how">⠿ をドラッグして、項目を出す行や順番を変えられます</p>
       {groups.map((g, gi) => (
         <section key={gi} className="igroup" data-group={gi} data-drop-end={(drag?.target?.g === gi && drag.target.i === g.length) || undefined}>
@@ -248,5 +229,43 @@ export function InfoPanel(): React.ReactElement {
         </button>
       </div>
     </div>
+  );
+
+  return (
+    <ToolPanel
+      tab="info"
+      className="pnl--list"
+      banner={
+        // 文字を切っているあいだは何も載らない。どこで入れ直すかを1行で
+        !captionOn && (
+          <button type="button" className="irows__off" onClick={() => setTab('text')}>
+            文字は入れない設定です（文字タブで入れられます）
+          </button>
+        )
+      }
+      tools={[
+        { key: 'lines', label: '行数', control: <LinesPicker /> },
+        {
+          // 項目の区切り（依頼者の要望で選べるようにした）。字そのものを見せて選ぶ
+          key: 'sep',
+          label: '区切り',
+          control: <Pics label="項目の区切り" variant="text" options={SEPARATOR_OPTIONS} value={separator} onChange={(v) => set('separator', v)} />,
+        },
+        {
+          key: 'date',
+          label: '日付',
+          control: (
+            <select className="pselect" aria-label="日付の書き方" value={dateFormat} onChange={(e) => set('dateFormat', asFormat(e.target.value))}>
+              {DATE_FORMATS.map((f) => (
+                <option key={f} value={f}>
+                  {formatWallClock(photoDate ?? SAMPLE_DATE, f)}
+                </option>
+              ))}
+            </select>
+          ),
+        },
+        { key: INFO_ITEMS, label: '項目', bare: true, tall: true, lead: true, control: items },
+      ]}
+    />
   );
 }

@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'react';
 import type { Scene } from '../core/scene/scene';
 import type { PhotoId } from '../core/scene/ops';
 import { usePreview } from './usePreview';
+import { useStageZoom } from './useStageZoom';
 
 export function Viewer({
   scene,
@@ -25,8 +26,14 @@ export function Viewer({
 }): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  /*
+   * 全画面でも写真は2本指で拡大できる（1本指で見回し）。ここでは1回押すと閉じるので、ダブルタップの拡大は使わない。
+   * 拡大している間・指で動かした直後は、押しても閉じない（✕ か、1倍に戻してから押す）
+   */
+  const zoom = useStageZoom(rootRef, canvasRef, { enabled: true, doubleTap: false, resetKey: scene.canvas });
   // 画面いっぱいに描くので細かく描く（拡大の上限まで）
-  const state = usePreview(canvasRef, hostRef, scene, image, exportLongEdge, 'view', subscribe, 1.6);
+  const state = usePreview(canvasRef, hostRef, scene, image, exportLongEdge, 'view', subscribe, Math.max(1.6, Math.min(zoom.level, 4)));
 
   /*
    * PC はブラウザ自体も全画面にする（見出しやタブの帯まで消す）。使えない端末（iPhone）は黙って窓の中だけ
@@ -66,11 +73,34 @@ export function Viewer({
   }, [onClose]);
 
   return (
-    <div className="viewer" role="dialog" aria-modal="true" aria-label="全画面で見る" onClick={onClose}>
+    <div
+      className="viewer"
+      ref={rootRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="全画面で見る"
+      onClick={() => {
+        if (zoom.level > 1 || zoom.justGestured()) return;
+        onClose();
+      }}
+    >
       <div className="viewer__host" ref={hostRef}>
         <canvas ref={canvasRef} className="viewer__canvas" role="img" aria-label="仕上がりの全画面表示" />
       </div>
       {state.error && <p className="viewer__err">{state.error}</p>}
+      {zoom.level > 1 && (
+        <button
+          type="button"
+          className="viewer__zoom"
+          aria-label="拡大をやめる"
+          onClick={(e) => {
+            e.stopPropagation();
+            zoom.reset();
+          }}
+        >
+          {zoom.level.toFixed(1)}× ✕
+        </button>
+      )}
       <button
         type="button"
         className="viewer__close"

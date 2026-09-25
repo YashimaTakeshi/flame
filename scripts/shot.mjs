@@ -32,57 +32,80 @@ await page.waitForSelector('canvas.stage__canvas', { timeout: 15000 });
 await page.waitForTimeout(700);
 await page.screenshot({ path: '/tmp/u2-place.png' });
 
+/*
+ * 道具（下の浮かぶ帯。印だけ）と、道具の中の項目（設定欄の上の名前の列）。
+ * 同じ名前（「文字」「書体」「刻印」）が両方にあるので、どちらの列かを限って押す
+ */
+const mainTab = (name) => page.locator('.tabbar').getByRole('tab', { name, exact: true });
+const chip = (name) => page.locator('.chips').getByRole('tab', { name, exact: true });
+
 // タブを順に開く
 for (const [name, file] of [['文字','u3-text'],['書体','u5-font'],['刻印','u5b-badge'],['情報','u6-info']]) {
-  await page.getByRole('tab', { name }).click();
+  await mainTab(name).click();
   await page.waitForTimeout(350);
   await page.screenshot({ path: `/tmp/${file}.png` });
 }
 
 /*
  * 「部品が切れている」を目で探さない。
- * 操作面は縦に送れる（情報・書体は長い）。送らずに見えている行が、途中で切れていないかを測る。
- * 最後に半分だけ見える行は「下に続きがある」合図なので許す（消え際のマスクがかかる）。
- * 文字・フレームは最初の4行が送らずに全部見えること。
+ * スマホの設定欄は、道具ごとに項目を1つずつ出す（名前の列＋選んだ1項目の操作）。
+ * 全部の項目を順に選び、次を測る:
+ *   - 操作の部品が欄（.tool）の上下からはみ出していない（以前は3×3の点が隣の行に重なった）
+ *   - 欄の高さが、どの道具・どの項目でも同じ（切り替えてもプレビューが跳ねない）。
+ *     情報の「項目」だけは一覧を送るために高くする（data-tall）
+ *   - 項目の名前が切れていない
  */
+const panelHeights = new Set();
 async function clippedIn(tabName) {
-  if (tabName) { await page.getByRole('tab', { name: tabName }).click(); await page.waitForTimeout(250); }
-  return page.evaluate(() => {
-    const row = document.querySelector('.optrow')?.getBoundingClientRect();
-    if (!row) return ['操作面が無い'];
-    const out = [];
-    const rows = [...document.querySelectorAll('.optrow .prow')];
-    // ★行の中身が次の行に重ならない★（以前は3×3の点が地色の行に重なった。スマホで実機に指摘された）
-    for (const el of rows) {
-      const r = el.getBoundingClientRect();
-      for (const k of el.querySelectorAll('.pic, .anchor, .swatch, .switch, .stepper, .pselect')) {
-        const b = k.getBoundingClientRect();
-        if (b.height > 0 && (b.top < r.top - 3 || b.bottom > r.bottom + 3)) {
-          out.push(`「${(el.textContent ?? '').trim().slice(0, 6)}」の ${k.className.split(' ')[0]} が行からはみ出して次の行に重なる`);
+  if (tabName) { await mainTab(tabName).click(); await page.waitForTimeout(250); }
+  const out = [];
+  const names = await page.locator('.chips .chip').evaluateAll((els) => els.map((e) => e.getAttribute('data-key')));
+  for (const key of names) {
+    await page.locator(`.chips .chip[data-key="${key}"]`).click();
+    await page.waitForTimeout(150);
+    const r = await page.evaluate(() => {
+      const tool = document.querySelector('.tool');
+      const pnl = document.querySelector('.pnl--one');
+      if (!tool || !pnl) return { problems: ['設定欄が無い'], h: 0, tall: false };
+      const name = document.querySelector('.chips .chip[aria-selected="true"]')?.textContent?.trim() ?? '?';
+      const tr = tool.getBoundingClientRect();
+      const tall = pnl.hasAttribute('data-tall');
+      const problems = [];
+      if (!tall) {
+        for (const k of tool.querySelectorAll('.pic, .anchor, .swatch, .switch, .stepper, .pselect, .pinput, .fontcard, .plink')) {
+          const b = k.getBoundingClientRect();
+          if (b.height > 0 && (b.top < tr.top - 1 || b.bottom > tr.bottom + 1)) {
+            problems.push(`「${name}」の ${k.className.split(' ')[0]} ${Math.round(b.top)}〜${Math.round(b.bottom)} が欄 ${Math.round(tr.top)}〜${Math.round(tr.bottom)} からはみ出す`);
+          }
         }
       }
-    }
-    rows.slice(0, 4).forEach((el, i) => {
-      const r = el.getBoundingClientRect();
-      if (r.top < row.top - 0.5 || r.bottom > row.bottom + 0.5) {
-        out.push(`${i + 1}行目「${(el.textContent ?? '').trim().slice(0, 8)}」 ${Math.round(r.top)}〜${Math.round(r.bottom)} が面 ${Math.round(row.top)}〜${Math.round(row.bottom)} からはみ出す`);
+      for (const c of document.querySelectorAll('.chips .chip')) {
+        if (c.scrollWidth > c.clientWidth + 1) problems.push(`項目の名前「${c.textContent?.trim()}」が切れている`);
       }
+      return { problems, h: Math.round(document.querySelector('.optrow').getBoundingClientRect().height), tall };
     });
-    return out;
-  });
+    out.push(...r.problems);
+    if (!r.tall) panelHeights.add(r.h);
+  }
+  return out;
 }
 
 const clipped = {};
-for (const t of ['フレーム', '文字', '刻印']) clipped[t] = await clippedIn(t);
+for (const t of ['フレーム', '文字', '書体', '刻印', '情報']) clipped[t] = await clippedIn(t);
 
-// フレームの6比率を順に選んで、どの比率でも行が切れないか
-await page.getByRole('tab', { name: 'フレーム' }).click();
+// フレームの比率を順に選んで、どの比率でも部品が切れないか
+await mainTab('フレーム').click();
 await page.waitForTimeout(250);
-const ratioGroup = page.getByRole('radiogroup', { name: 'キャンバスの比率' });
-const ratios = await ratioGroup.getByRole('radio').evaluateAll((els) => els.map((e) => e.textContent?.trim() ?? ''));
+const pickRatio = async (r) => {
+  await chip('比率').click();
+  await page.waitForTimeout(150);
+  await page.getByRole('radiogroup', { name: 'キャンバスの比率' }).getByRole('radio').filter({ hasText: r }).first().click();
+};
+await chip('比率').click();
+const ratios = await page.getByRole('radiogroup', { name: 'キャンバスの比率' }).getByRole('radio').evaluateAll((els) => els.map((e) => e.textContent?.trim() ?? ''));
 const perRatio = {};
 for (const r of ratios) {
-  await ratioGroup.getByRole('radio').filter({ hasText: r }).first().click();
+  await pickRatio(r);
   await page.waitForTimeout(450);
   perRatio[r] = await clippedIn(null);
   await page.screenshot({ path: `/tmp/u7-place-${r.replace(/[:\/]/g, '-')}.png` });
@@ -110,9 +133,9 @@ const fitOf = () => {
 };
 const phoneDialogs = {};
 for (const r of ['9:16', '16:9']) {
-  await page.getByRole('tab', { name: 'フレーム' }).click();
+  await mainTab('フレーム').click();
   await page.waitForTimeout(250);
-  await page.getByRole('radiogroup', { name: 'キャンバスの比率' }).getByRole('radio').filter({ hasText: r }).first().click();
+  await pickRatio(r);
   await page.waitForTimeout(450);
   await page.getByRole('button', { name: '書き出す' }).click();
   await page.waitForTimeout(2500);
@@ -146,6 +169,33 @@ await page.waitForTimeout(500);
 const afterClose = await page.evaluate(() => ({ sheet: !!document.querySelector('.sheet'), hash: location.hash }));
 console.log('戻るで面が閉じる:', JSON.stringify({ opened: sheetOpened, afterBack, afterClose }));
 console.log('切れている部品:', JSON.stringify(clipped, null, 1));
+console.log('設定欄の高さ（情報の一覧を除き1つであること）:', JSON.stringify([...panelHeights]));
+
+/*
+ * 写真だけが拡大する（ページは拡大しない）。★依頼者の指摘: 設定の欄をピンチすると画面ごと拡大されて崩れた★
+ * 実際の指の動き（CDP の touch）で、写真の上と設定欄の上を2本指で広げる
+ */
+const cdp = await ctx.newCDPSession(page);
+const touch = async (from, to, n = 10) => {
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: from.map((q, i) => ({ ...q, id: i })) });
+  for (let k = 1; k <= n; k++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: from.map((q, i) => ({ x: q.x + ((to[i].x - q.x) * k) / n, y: q.y + ((to[i].y - q.y) * k) / n, id: i })) });
+    await page.waitForTimeout(16);
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await page.waitForTimeout(400);
+};
+const zoomState = () => page.evaluate(() => ({ page: window.visualViewport?.scale ?? 1, chip: document.querySelector('.stage__zoom')?.textContent ?? null }));
+const sb = await page.locator('.stage').boundingBox();
+const [zx, zy] = [sb.x + sb.width / 2, sb.y + sb.height / 2];
+await touch([{ x: zx - 30, y: zy }, { x: zx + 30, y: zy }], [{ x: zx - 90, y: zy }, { x: zx + 90, y: zy }]);
+const onPhoto = await zoomState();
+const ob = await page.locator('.optrow').boundingBox();
+await touch([{ x: 150, y: ob.y + ob.height / 2 }, { x: 240, y: ob.y + ob.height / 2 }], [{ x: 60, y: ob.y + ob.height / 2 }, { x: 330, y: ob.y + ob.height / 2 }]);
+const onPanel = await zoomState();
+if (onPhoto.chip) await page.getByRole('button', { name: '拡大をやめる' }).click();
+await page.waitForTimeout(300);
+console.log('ピンチ:', JSON.stringify({ 写真の上: onPhoto, 設定欄の上: onPanel, ok: onPhoto.chip !== null && onPhoto.page === 1 && onPanel.page === 1 }));
 
 /*
  * PC の組み方（desk）。幅 1440 で開き直し、
@@ -283,9 +333,9 @@ const scrolls = await page.evaluate(() => ({
     const cy = r.top + r.height / 2;
     // 画面の外にある要素（横スクロール行の続き）は測れないので飛ばす
     if (cx < 0 || cx > window.innerWidth || cy < 0 || cy > window.innerHeight) return null;
-    // 操作面の中で送られて途中までしか見えていない行（下に続きがある合図）も飛ばす
-    const sc = el.closest('.pnl');
-    if (sc) { const pr = sc.getBoundingClientRect(); if (r.top < pr.top - 0.5 || r.bottom > pr.bottom + 0.5) return null; }
+    // 設定欄の中で送られて途中までしか見えていない部品（横に送る項目の列・縦に送る一覧の続き）も飛ばす
+    const sc = el.closest('.chips, .tool, .pnl');
+    if (sc) { const pr = sc.getBoundingClientRect(); if (r.top < pr.top - 0.5 || r.bottom > pr.bottom + 0.5 || r.left < pr.left - 0.5 || r.right > pr.right + 0.5) return null; }
     // 上下に送られて見えていない行も飛ばす。そこは指が届かなくて正しい
     const atCenter = document.elementFromPoint(cx, cy);
     if (!(atCenter === el || el.contains(atCenter))) return null;

@@ -13,7 +13,8 @@ import { cssColor } from '../../core/scene/ops';
 import { DEFAULT_SPEC } from '../../core/styles/spec';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
-import { Anchor, Pics, Row, Stepper, Swatches, type Opt } from '../ui/controls';
+import { Anchor, Pics, Stepper, Swatches, type Opt } from '../ui/controls';
+import { ToolPanel } from '../ui/tools';
 import type { BorderWeight } from '../state/doc';
 import { COLORS, MARGIN_OPTIONS, RATIO_OPTIONS, hvOfPhoto, photoOfHv } from './constants';
 
@@ -48,55 +49,81 @@ export function FramePanel(): React.ReactElement {
   const colorName = COLORS.find((c) => c.key === colorKey)?.label ?? '';
 
   return (
-    <div className="pnl">
-      <Row label="比率">
-        <Pics label="キャンバスの比率" variant="shape" options={RATIO_OPTIONS} value={style.ratio} onChange={(v) => setStyle({ ratio: v })} />
-      </Row>
-      <Row label="余白">
-        <Stepper
-          label="余白の広さ"
-          options={MARGIN_OPTIONS}
-          value={style.margin}
-          defaultValue={DEFAULT_SPEC.margin}
-          ends={['なし', '広い']}
-          onChange={(v) => setStyle({ margin: v })}
-        />
-      </Row>
-      <Row label="写真" dim={bleed}>
-        <div className="pair">
-          <Anchor
-            label="額の中の写真の位置"
-            h={h}
-            v={v}
-            activeH={freedom.photoX}
-            activeV={freedom.photoY}
-            onChange={(hh, vv) => setStyle({ photo: photoOfHv(hh, vv) })}
-            disabled={bleed}
-            onDisabledPick={photoWhy}
-          />
-          {!bleed && !freedom.photoX && !freedom.photoY && <span className="pair__note">余りなし</span>}
-        </div>
-      </Row>
-      <Row label="地色" note={bleed ? undefined : colorName} dim={bleed}>
-        <Swatches
-          label="地色"
-          options={SWATCHES}
-          value={colorKey}
-          onChange={(k) => set('colorKey', k)}
-          disabled={bleed}
-          onDisabledPick={() => setHint('余白なしでは地色は見えません')}
-        />
-      </Row>
-      <Row label="枠線">
-        {/* 入り切りと太さを1本で（依頼者の要望で太さを選べるようにした） */}
-        <Stepper
-          label="写真の枠線の太さ"
-          options={BORDER_OPTIONS}
-          value={bordered ? borderWeight : 'none'}
-          defaultValue="none"
-          onChange={(v) => setBorder(v === 'none' ? null : v)}
-        />
-      </Row>
-    </div>
+    <ToolPanel
+      tab="frame"
+      tools={[
+        {
+          key: 'ratio',
+          label: '比率',
+          control: (
+            <Pics label="キャンバスの比率" variant="shape" options={RATIO_OPTIONS} value={style.ratio} onChange={(v) => setStyle({ ratio: v })} />
+          ),
+        },
+        {
+          key: 'margin',
+          label: '余白',
+          control: (
+            <Stepper
+              label="余白の広さ"
+              options={MARGIN_OPTIONS}
+              value={style.margin}
+              defaultValue={DEFAULT_SPEC.margin}
+              ends={['なし', '広い']}
+              onChange={(v) => setStyle({ margin: v })}
+            />
+          ),
+        },
+        {
+          key: 'photo',
+          label: '写真',
+          dim: bleed,
+          control: (
+            <div className="pair">
+              <Anchor
+                label="額の中の写真の位置"
+                h={h}
+                v={v}
+                activeH={freedom.photoX}
+                activeV={freedom.photoY}
+                onChange={(hh, vv) => setStyle({ photo: photoOfHv(hh, vv) })}
+                disabled={bleed}
+                onDisabledPick={photoWhy}
+              />
+              {!bleed && !freedom.photoX && !freedom.photoY && <span className="pair__note">余りなし</span>}
+            </div>
+          ),
+        },
+        {
+          key: 'color',
+          label: '地色',
+          note: bleed ? undefined : colorName,
+          dim: bleed,
+          control: (
+            <Swatches
+              label="地色"
+              options={SWATCHES}
+              value={colorKey}
+              onChange={(k) => set('colorKey', k)}
+              disabled={bleed}
+              onDisabledPick={() => setHint('余白なしでは地色は見えません')}
+            />
+          ),
+        },
+        {
+          key: 'border',
+          label: '枠線',
+          // 入り切りと太さを1本で（依頼者の要望で太さを選べるようにした）
+          control: (
+            <Stepper
+              label="写真の枠線の太さ"
+              options={BORDER_OPTIONS}
+              value={bordered ? borderWeight : 'none'}
+              defaultValue="none"
+              onChange={(v) => setBorder(v === 'none' ? null : v)}
+            />
+          ),
+        },
+      ]}
+    />
   );
 }

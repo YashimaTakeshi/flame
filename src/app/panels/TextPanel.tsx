@@ -11,7 +11,8 @@
 import type { CaptionPlace } from '../../core/styles/types';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
-import { Anchor, Pics, Row, Stepper, Switch, type Opt } from '../ui/controls';
+import { Anchor, Pics, Stepper, Switch, type Opt } from '../ui/controls';
+import { ToolPanel } from '../ui/tools';
 import { PlacePic } from '../ui/pics';
 import { CAPTION_PLACE_JA, CAPTION_PLACES_UI, SIZE_OPTIONS, TRACK_OPTIONS } from './constants';
 import { useLinesUsed } from './LinesPicker';
@@ -41,49 +42,81 @@ export function TextPanel(): React.ReactElement {
   const lockV = overlay && style.caption === 'above' ? 'start' : overlay && style.caption === 'below' ? 'end' : undefined;
 
   return (
-    <div className="pnl">
-      {/* 文字を入れない写真もある。切ると帯ごと消え、設定は薄く残る（入れ直せば元どおり） */}
-      <Row label="文字">
-        <div className="pair">
-          <Switch label="文字を入れる" on={on} onChange={(v) => set('captionOn', v)} />
-          <span className="pair__note">{on ? '入れる' : '入れない'}</span>
-        </div>
-      </Row>
-      <Row label="置き場所" dim={!on}>
-        <Pics label="文字の置き場所" options={places} value={style.caption} onChange={(v) => setStyle({ caption: v })} disabled={!on} onDisabledPick={off} />
-      </Row>
-      <Row label="位置" dim={!on}>
-        <div className="pair">
-          <Anchor
-            label="帯の中の文字の位置"
-            h={align}
-            v={style.captionAlign}
-            lockV={lockV}
-            activeV={textY}
-            onChange={(h, v) => setCaptionPos(h, v)}
-            disabled={!on}
-            onDisabledPick={(why) =>
-              why === 'all' ? off() : setHint('文字の上下に余りがありません（写真を上下に寄せると動かせます）')
-            }
-          />
-
-        </div>
-      </Row>
-      {/*
-       * 行数と「何を何行目に出すか」は情報タブにまとめた（役割で分けた。以前は両方のタブに行数があり、
-       * 連動していることが分からなかった）。ここからは入口だけ
-       */}
-      <Row label="行数" dim={!on}>
-        <button type="button" className="plink" onClick={() => openInfo()}>
-          {used}行 ・ 並びと区切りは「情報」で ›
-        </button>
-      </Row>
-      <Row label="大きさ" dim={!on}>
-        <Stepper label="文字の大きさ" options={SIZE_OPTIONS} value={size} defaultValue="Medium" onChange={(v) => set('size', v)} disabled={!on} onDisabledPick={off} />
-      </Row>
-      <Row label="字間" dim={!on}>
-        <Stepper label="字間" options={TRACK_OPTIONS} value={tracking} defaultValue="Normal" onChange={(v) => set('tracking', v)} disabled={!on} onDisabledPick={off} />
-      </Row>
-    </div>
+    <ToolPanel
+      tab="text"
+      tools={[
+        {
+          // 文字を入れない写真もある。切ると帯ごと消え、設定は薄く残る（入れ直せば元どおり）
+          key: 'on',
+          label: '文字',
+          note: on ? undefined : '入れない',
+          control: (
+            <div className="pair">
+              <Switch label="文字を入れる" on={on} onChange={(v) => set('captionOn', v)} />
+              <span className="pair__note">{on ? '入れる' : '入れない'}</span>
+            </div>
+          ),
+        },
+        {
+          key: 'place',
+          label: '置き場所',
+          dim: !on,
+          control: (
+            <Pics label="文字の置き場所" options={places} value={style.caption} onChange={(v) => setStyle({ caption: v })} disabled={!on} onDisabledPick={off} />
+          ),
+        },
+        {
+          key: 'pos',
+          label: '位置',
+          dim: !on,
+          control: (
+            <div className="pair">
+              <Anchor
+                label="帯の中の文字の位置"
+                h={align}
+                v={style.captionAlign}
+                lockV={lockV}
+                activeV={textY}
+                onChange={(h, v) => setCaptionPos(h, v)}
+                disabled={!on}
+                onDisabledPick={(why) =>
+                  why === 'all' ? off() : setHint('文字の上下に余りがありません（写真を上下に寄せると動かせます）')
+                }
+              />
+            </div>
+          ),
+        },
+        {
+          /*
+           * 行数と「何を何行目に出すか」は情報タブにまとめた（役割で分けた。以前は両方のタブに行数があり、
+           * 連動していることが分からなかった）。ここからは入口だけ
+           */
+          key: 'lines',
+          label: '行数',
+          dim: !on,
+          control: (
+            <button type="button" className="plink" onClick={() => openInfo()}>
+              {used}行 ・ 並びと区切りは「情報」で ›
+            </button>
+          ),
+        },
+        {
+          key: 'size',
+          label: '大きさ',
+          dim: !on,
+          control: (
+            <Stepper label="文字の大きさ" options={SIZE_OPTIONS} value={size} defaultValue="Medium" onChange={(v) => set('size', v)} disabled={!on} onDisabledPick={off} />
+          ),
+        },
+        {
+          key: 'track',
+          label: '字間',
+          dim: !on,
+          control: (
+            <Stepper label="字間" options={TRACK_OPTIONS} value={tracking} defaultValue="Normal" onChange={(v) => set('tracking', v)} disabled={!on} onDisabledPick={off} />
+          ),
+        },
+      ]}
+    />
   );
 }

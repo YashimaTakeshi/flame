@@ -36,7 +36,7 @@ export function Row({
   label: string;
   /** 見出しの下に小さく添える今の値（色の名前など、形だけでは見分けにくいもの） */
   note?: string | undefined;
-  dim?: boolean;
+  dim?: boolean | undefined;
   children: React.ReactNode;
 }): React.ReactElement {
   return (

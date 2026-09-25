@@ -1,7 +1,8 @@
 /*
  * 画面の骨格。
  *
- * 上から ヘッダー / プレビュー / 帯 / オプション行 / タブバー の5行。
+ * 上から ヘッダー / プレビュー / 帯 / 設定欄 / 浮かぶ道具の帯 の5行。
+ * 設定欄と道具の帯は中身の高さ（どの道具でも同じ。情報の一覧だけ高くなる）。
  * **画面本体は1pxもスクロールさせない。** プレビューだけが伸び縮みする。
  * これを守らないと、設定を触るたびにタブバーが画面外へ逃げる。
  */
@@ -17,9 +18,14 @@
     calc(var(--header-h) + var(--safe-top))
     minmax(0, 1fr)
     auto
-    var(--optionrow-h)
-    calc(var(--tabbar-h) + var(--safe-bottom));
+    auto
+    auto;
   overflow: hidden;
+  /*
+   * ページごとの拡大（2本指）をさせない。拡大できるのは写真（.stage）だけ（依頼者の指摘:
+   * 設定の欄をピンチすると画面ごと拡大されて、配置が崩れた）。縦横のスクロールは残す
+   */
+  touch-action: pan-x pan-y;
 }
 
 @supports not (height: 100dvh) {
@@ -184,8 +190,13 @@
   grid-template-rows: minmax(0, 1fr);
   grid-template-columns: minmax(0, 1fr);
   place-items: center;
-  /* 左右は画面の縁と同じ 16px。以前の 32px は横位置の写真を1割小さくしていた */
-  padding: var(--s3) var(--gutter);
+  /*
+   * 左右は画面の縁と同じ 16px。以前の 32px は横位置の写真を1割小さくしていた。
+   * 上下も 12px に詰める（以前は 24px。縦位置の写真はこの上下の余白ぶん小さくなっていた）
+   */
+  padding: 12px var(--gutter);
+  /* 写真の上の2本指は、この中で拡大に使う（ページは拡大しない） */
+  touch-action: none;
 }
 
 /*
@@ -195,10 +206,10 @@
 @media (max-height: 620px) {
   :root {
     --header-h: 40px;
-    --tabbar-h: 54px;
+    --tabbar-h: 52px;
   }
   .stage {
-    padding: 12px var(--gutter);
+    padding: 8px var(--gutter);
   }
 }
 
@@ -417,70 +428,218 @@
 }
 
 /* ───────── オプション行 ───────── */
-/*
- * 罫は border ではなく内側の影で描く。border にすると 96px から 1px を食い、
- * 中身（44 + 8 + 44 = 96）が入りきらずに下端のボタンが切れる。
- * その 1px がタブバーと当たり判定を食い合い、少し低く押すとタブが切り替わっていた。
- */
+/* ───────── 設定欄（スマホ）: 項目の名前の列＋選んだ1項目の操作（ui/tools.tsx） ───────── */
 .optrow {
-  box-shadow: inset 0 1px 0 var(--line);
   overflow: hidden;
 }
+.pnl.pnl--one {
+  height: auto;
+  overflow: visible;
+  padding: 0;
+  display: block;
+  mask-image: none;
+}
+.chips {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--chips-h);
+  padding: 0 var(--gutter);
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-padding-inline: var(--gutter);
+}
+.chips::-webkit-scrollbar {
+  display: none;
+}
+/* 右に続きがあるときは、右端を薄く消して知らせる（ui/tools.tsx が data-more を付ける） */
+.chips[data-more] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+}
+.chip {
+  flex: none;
+  position: relative;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t2);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+/* 見た目は 32px の丸、押せる範囲は上下に広げて 44px */
+.chip::before {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.chip[aria-selected='true'] {
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.chip small {
+  margin-left: 6px;
+  font-size: var(--t1);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+}
+/* 今は効かない項目。消さずに薄く（押すと中の部品が理由を出す） */
+.chip[data-dim] {
+  color: var(--ink-3);
+}
+.chip:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+.tool {
+  height: var(--tool-h);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--gutter);
+}
+.tool > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tool > .anchor,
+.tool > .switch {
+  flex: none;
+}
+.tool .pselect {
+  max-width: none;
+}
+/* 仕上がりの「その他」: 選ぶ欄と入力欄を横に並べる（縦に積むと欄の高さを超える） */
+.tool .filmsel {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+/* 書体: 見本を1列に並べて横に送る */
+.tool .fonts {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 calc(var(--gutter) * -1);
+  padding: 0 var(--gutter);
+}
+.tool .fonts::-webkit-scrollbar {
+  display: none;
+}
+.tool .fontcard {
+  flex: none;
+  width: 76px;
+  height: 64px;
+}
+/* 情報の「項目」: 欄を高くして一覧を送る（入力と並べ替えにはこの高さが要る） */
+.pnl.pnl--one[data-tall] .tool {
+  height: min(300px, calc(var(--app-h, 100dvh) * 0.34));
+  display: block;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: var(--s2);
+}
 
-/* ───────── 道具の列（タブバー） ───────── */
+/* ───────── 道具の帯（スマホ）: 下に浮かぶ丸い帯に印だけ（Instagram・iPhone の編集画面の形） ───────── */
 /*
- * 地を塗らない。選んでいる道具だけ字と印を白く、上に短い線（Lightroom と同じ控えめな見せ方）。
- * 以前の白い丸の塗りは、写真の白いフチに次いで画面でいちばん明るく、写真より目を引いた。
+ * 画面の下端に寄せる。ホーム画面から開いたとき（下に安全域があるとき）は、安全域に少し食い込ませる。
+ * 以前の帯は安全域の上に 64px を取り、写真の場所を削っていた
  */
 .tabbar {
-  padding: 0 var(--s1) var(--safe-bottom);
+  padding: 4px var(--gutter) max(6px, calc(var(--safe-bottom) - 12px));
   background: var(--bg);
-  box-shadow: inset 0 1px 0 var(--line);
 }
-.tabbar__row {
+.tabbar__cap {
+  position: relative;
   height: var(--tabbar-h);
-  max-width: 480px;
+  max-width: 400px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: rgba(30, 30, 31, 0.92);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 32px -10px rgba(0, 0, 0, 0.8);
+}
+/* 選んでいる道具の明るい丸。道具を替えると滑って移る */
+.tabbar__pill {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / 5);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateX(calc(var(--i, 0) * 100%));
+  transition: transform 320ms cubic-bezier(0.3, 1.2, 0.4, 1);
 }
 .tab {
   position: relative;
+  z-index: 1;
   display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 3px;
+  place-items: center;
   border: 0;
   background: none;
-  color: var(--ink-3);
+  color: var(--ink-2);
   padding: 0;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--motion);
 }
 .tab svg {
-  width: 22px;
-  height: 22px;
-}
-.tab__label {
-  font-size: var(--t1);
-  line-height: 1;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
+  width: 26px;
+  height: 26px;
 }
 .tab[aria-selected='true'] {
   color: var(--ink);
 }
-.tab[aria-selected='true'] .tab__label {
-  font-weight: 600;
+.tab:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -4px;
+  border-radius: var(--radius-pill);
 }
-.tab[aria-selected='true']::before {
-  content: '';
+/* 押した道具の名前（一瞬）・長押しの間の名前 */
+.tabbar__name {
   position: absolute;
-  top: 0;
-  left: 50%;
-  width: 22px;
-  height: 2px;
+  bottom: calc(100% + 8px);
+  left: calc(4px + (100% - 8px) / 5 * (var(--n, 0) + 0.5));
   translate: -50% 0;
-  border-radius: 0 0 2px 2px;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
   background: var(--ink);
+  color: var(--bg);
+  font-size: var(--t1);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: tabname 160ms ease-out;
+}
+@keyframes tabname {
+  from {
+    opacity: 0;
+    translate: -50% 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tabbar__pill {
+    transition: none;
+  }
+  .tabbar__name {
+    animation: none;
+  }
 }
 
 /* ───────── 操作の部品（ui/controls.tsx） ───────── */
@@ -1799,6 +1958,22 @@
   z-index: 50;
   display: grid;
   background: #000;
+  overflow: hidden;
+  /* 2本指は写真の拡大に使う（useStageZoom）。ページは拡大しない */
+  touch-action: none;
+}
+.viewer__zoom {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 16px);
+  translate: -50% 0;
+  min-height: var(--tap);
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, #000 55%, transparent);
+  color: var(--ink);
+  font-size: var(--t2);
 }
 .viewer__host {
   min-height: 0;

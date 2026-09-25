@@ -54,7 +54,16 @@ interface UiStore {
   /** PC の欄で開いている見出し */
   openSecs: Readonly<Record<TabId, boolean>>;
   toggleSec(id: TabId): void;
+  /**
+   * スマホで、道具ごとにいま出している項目（フレームなら比率・余白・写真・地色・枠線のどれか）。
+   * 道具を切り替えて戻ってきたとき、前に触っていた項目から続けられるように覚えておく
+   */
+  toolOf: Readonly<Partial<Record<TabId, string>>>;
+  setTool(tab: TabId, key: string): void;
 }
+
+/** 情報の道具で、項目の一覧（その場で入力する欄）を出す項目の名前 */
+export const INFO_ITEMS = 'items';
 
 /** 注記が出ている時間。読み終わる長さだけ出して、あとは黙る */
 const HINT_MS = 2500;
@@ -88,9 +97,18 @@ export const useUi = create<UiStore>((set) => ({
   infoFocus: null,
   // 情報タブ（PC は情報の欄）を開き、その欄から入力を始める。別の画面は開かない
   openInfo: (focus = null) =>
-    set((s) => ({ tab: 'info', openSecs: { ...s.openSecs, info: true }, infoFocus: focus, hint: null })),
+    set((s) => ({
+      tab: 'info',
+      openSecs: { ...s.openSecs, info: true },
+      // スマホは項目を1つずつ出す。入力の欄がある一覧を出してから、その欄へ
+      toolOf: { ...s.toolOf, info: INFO_ITEMS },
+      infoFocus: focus,
+      hint: null,
+    })),
   openSecs: { frame: true, text: true, font: false, badge: false, info: false },
   toggleSec: (id) => set((s) => ({ openSecs: { ...s.openSecs, [id]: !s.openSecs[id] } })),
+  toolOf: {},
+  setTool: (tab, key) => set((s) => ({ toolOf: { ...s.toolOf, [tab]: key }, hint: null })),
   setTab: (tab) => set({ tab, hint: null }),
   openSheet: (sheet) => {
     set({ sheet });

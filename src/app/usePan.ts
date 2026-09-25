@@ -41,6 +41,8 @@ export function usePan(
     if (!el || !enabled) return;
 
     let active = false;
+    /** 動かしている指。2本目の指が来たら切り取りをやめ、写真の拡大（useStageZoom）に譲る */
+    let pid: number | null = null;
     let lastX = 0;
     let lastY = 0;
     let fx = 0;
@@ -48,6 +50,11 @@ export function usePan(
 
     const down = (e: PointerEvent): void => {
       if (e.button !== 0 && e.pointerType === 'mouse') return;
+      if (pid !== null && pid !== e.pointerId) {
+        active = false;
+        return;
+      }
+      pid = e.pointerId;
       active = true;
       lastX = e.clientX;
       lastY = e.clientY;
@@ -59,7 +66,7 @@ export function usePan(
       e.preventDefault();
     };
     const move = (e: PointerEvent): void => {
-      if (!active) return;
+      if (!active || e.pointerId !== pid) return;
       const r = el.getBoundingClientRect();
       const { w, h } = cropRef.current;
       const slackX = 1 - w;
@@ -76,7 +83,8 @@ export function usePan(
       onMove({ x: fx, y: fy });
     };
     const up = (e: PointerEvent): void => {
-      if (!active) return;
+      if (e.pointerId !== pid) return;
+      pid = null;
       active = false;
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
     };
