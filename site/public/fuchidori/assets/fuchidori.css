@@ -1953,6 +1953,12 @@ h2 {
 .m .stack__exif {
   margin-top: 6px;
 }
+/* タブレットの縦持ち: 舞台が高いので、束を大きく */
+@media (min-width: 760px) {
+  .m .pile {
+    --s: min(360px, 44vw, calc(30 * var(--svh)), calc((100 * var(--svh) - 360px) / 1.4));
+  }
+}
 @media (min-width: 960px) {
   .m .stack__stage {
     display: grid;
