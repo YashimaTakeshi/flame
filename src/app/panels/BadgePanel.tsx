@@ -12,7 +12,7 @@ import type { BandSide } from '../../core/styles/layout';
 import { useDoc } from '../state/doc';
 import { useUi } from '../state/ui';
 import { Anchor, Pics, Stepper, Switch, type Opt } from '../ui/controls';
-import { ToolPanel } from '../ui/tools';
+import { Cells, Line, ToolPanel } from '../ui/tools';
 import { PlacePic } from '../ui/pics';
 import { FilmSelect } from './FilmSelect';
 import { CAPTION_PLACE_JA, CAPTION_PLACES_UI } from './constants';
@@ -55,52 +55,78 @@ export function BadgePanel(): React.ReactElement {
   const why = (): void =>
     setHint(noFilm ? '先に「仕上がり」を選んでください' : '刻印を「文字」か「ロゴ」にしてください');
 
+  const film = <FilmSelect label="仕上がり（刻む名前）" />;
+  const modeCtl = <Pics label="刻印の見せ方" variant="text" options={MODE_OPTIONS} value={mode} onChange={(v) => set('badge', v)} />;
+  const placeCtl = (
+    <Pics
+      label="刻印を置く辺"
+      options={PLACES}
+      value={place}
+      onChange={(v) => set('badgePlace', v)}
+      disabled={off || bleed}
+      onDisabledPick={off ? why : () => setHint('余白なしでは写真の上に置きます。辺は選べません')}
+    />
+  );
+  const posCtl = <Anchor label="刻印の位置" h={align} v={valign} onChange={setBadgePos} disabled={off} onDisabledPick={why} />;
+  const sizeCtl = (
+    <Stepper label="刻印の大きさ" options={SIZE_OPTIONS} value={size} defaultValue="M" onChange={(v) => set('badgeSize', v)} disabled={off} onDisabledPick={why} />
+  );
+  const frameCtl = <Switch label="刻印の枠線" on={framed} onChange={(on) => set('badgeFramed', on)} disabled={off} onDisabledPick={why} />;
+
+  /* 組: 仕上がり（何を・どう刻むか）／配置（置き場所・位置）／大きさ・枠線 */
   return (
     <ToolPanel
       tab="badge"
       tools={[
-        { key: 'film', label: '仕上がり', control: <FilmSelect label="仕上がり（刻む名前）" /> },
         {
-          key: 'mode',
-          label: '刻印',
-          control: <Pics label="刻印の見せ方" variant="text" options={MODE_OPTIONS} value={mode} onChange={(v) => set('badge', v)} />,
-        },
-        {
-          key: 'place',
-          label: '置き場所',
-          dim: off || bleed,
+          key: 'what',
+          label: '仕上がり',
           control: (
-            <div className="pair">
-              <Pics
-                label="刻印を置く辺"
-                options={PLACES}
-                value={place}
-                onChange={(v) => set('badgePlace', v)}
-                disabled={off || bleed}
-                onDisabledPick={off ? why : () => setHint('余白なしでは写真の上に置きます。辺は選べません')}
-              />
+            <div className="grp">
+              <Line label="仕上がり">{film}</Line>
+              <Line label="刻印">{modeCtl}</Line>
             </div>
           ),
+          rows: [
+            { key: 'film', label: '仕上がり', control: film },
+            { key: 'mode', label: '刻印', control: modeCtl },
+          ],
         },
         {
-          key: 'pos',
-          label: '位置',
-          dim: off,
-          control: <Anchor label="刻印の位置" h={align} v={valign} onChange={setBadgePos} disabled={off} onDisabledPick={why} />,
-        },
-        {
-          key: 'size',
-          label: '大きさ',
+          key: 'layout',
+          label: '配置',
           dim: off,
           control: (
-            <Stepper label="刻印の大きさ" options={SIZE_OPTIONS} value={size} defaultValue="M" onChange={(v) => set('badgeSize', v)} disabled={off} onDisabledPick={why} />
+            <Cells
+              cells={[
+                { label: '置き場所', dim: off || bleed, node: placeCtl },
+                { label: '位置', dim: off, node: posCtl },
+              ]}
+            />
           ),
+          rows: [
+            { key: 'place', label: '置き場所', dim: off || bleed, control: <div className="pair">{placeCtl}</div> },
+            { key: 'pos', label: '位置', dim: off, control: posCtl },
+          ],
         },
         {
-          key: 'frame',
-          label: '枠線',
+          key: 'look',
+          label: '大きさ・枠線',
           dim: off,
-          control: <Switch label="刻印の枠線" on={framed} onChange={(on) => set('badgeFramed', on)} disabled={off} onDisabledPick={why} />,
+          control: (
+            <div className="grp">
+              <Line label="大きさ" dim={off}>
+                {sizeCtl}
+              </Line>
+              <Line label="枠線" dim={off}>
+                {frameCtl}
+              </Line>
+            </div>
+          ),
+          rows: [
+            { key: 'size', label: '大きさ', dim: off, control: sizeCtl },
+            { key: 'frame', label: '枠線', dim: off, control: frameCtl },
+          ],
         },
       ]}
     />

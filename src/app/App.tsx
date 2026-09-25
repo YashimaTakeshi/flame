@@ -295,7 +295,12 @@ export function App(): React.ReactElement {
    * 拡大の間は1本指で見回し、指を離すと、その倍率に合う細かさで描き直すので、にじまない。
    * 余白なしで動かせるときも、拡大していなければ1本指のドラッグは切り取り、と役目を分ける
    */
-  const zoom = useStageZoom(stageRef, canvasRef, { enabled: !desk && loaded !== null, resetKey: `${layout}|${loaded?.file.name ?? ''}|${loaded?.file.lastModified ?? ''}` });
+  const zoom = useStageZoom(stageRef, canvasRef, {
+    enabled: !desk && loaded !== null,
+    resetKey: `${layout}|${loaded?.file.name ?? ''}|${loaded?.file.lastModified ?? ''}`,
+    // 写真を長押しすると全画面で見る（依頼者の要望。端末のコピーの網掛けの代わりに）
+    onLongPress: scene ? () => useUi.getState().openSheet('view') : undefined,
+  });
   usePan(canvasRef, scene, pannable && zoom.level === 1, readFocus, beginDrag, dragFocus, layout);
   // スマホではページそのものを拡大させない（拡大は写真の上だけ）。PC はブラウザの拡大を残す
   useEffect(() => (desk ? undefined : preventPageZoom()), [desk]);

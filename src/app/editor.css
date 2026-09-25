@@ -197,6 +197,22 @@
   padding: 12px var(--gutter);
   /* 写真の上の2本指は、この中で拡大に使う（ページは拡大しない） */
   touch-action: none;
+  /* 長押しで端末の選択・コピーの網掛けを出さない（長押しは全画面表示に使う） */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* 見出し・道具の帯・項目の名前も、長押しで字が選ばれて網掛けにならないように（入力欄は別） */
+.hdr,
+.tabbar,
+.chips,
+.ln__lbl,
+.cell__lbl,
+.prow__lbl {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /*
@@ -431,6 +447,32 @@
 /* ───────── 設定欄（スマホ）: 項目の名前の列＋選んだ1項目の操作（ui/tools.tsx） ───────── */
 .optrow {
   overflow: hidden;
+  /* 左右の払いは JS が受ける（隣の道具へ）。縦の送り（情報の一覧）はブラウザに任せる */
+  touch-action: pan-y;
+}
+/* 払った向き（とタブで選んだ向き）から、次の道具の欄が滑り込む */
+.optrow[data-dir='next'] .pnl--one {
+  animation: tool-in-next 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.optrow[data-dir='prev'] .pnl--one {
+  animation: tool-in-prev 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes tool-in-next {
+  from {
+    opacity: 0.3;
+    transform: translateX(28px);
+  }
+}
+@keyframes tool-in-prev {
+  from {
+    opacity: 0.3;
+    transform: translateX(-28px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .optrow .pnl--one {
+    animation: none !important;
+  }
 }
 .pnl.pnl--one {
   height: auto;
@@ -452,9 +494,27 @@
 .chips::-webkit-scrollbar {
   display: none;
 }
+/*
+ * 欄の中の送れる箱のうち、横に送る中身が無いもの（OptionRow が data-swipe を付ける）。
+ * 横の指はブラウザに取らせず、道具を移る払いにする。縦の送り（情報の一覧）は残す
+ */
+.optrow [data-swipe='pass'] {
+  touch-action: pan-y;
+}
+/* 横に送り切ったあとの指が、ページの「戻る」（Android の Chrome）に抜けないように */
+.optrow * {
+  overscroll-behavior-x: contain;
+}
 /* 右に続きがあるときは、右端を薄く消して知らせる（ui/tools.tsx が data-more を付ける） */
 .chips[data-more] {
   mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+}
+/* 入りきるときは真ん中に。はみ出すときは左から送れる（auto の余白ははみ出すと 0 になる） */
+.chips > :first-child {
+  margin-left: auto;
+}
+.chips > :last-child {
+  margin-right: auto;
 }
 .chip {
   flex: none;
@@ -502,15 +562,128 @@
   height: var(--tool-h);
   display: flex;
   align-items: center;
+  justify-content: center;
   padding: 0 var(--gutter);
 }
 .tool > * {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 440px;
+}
+/* 横に並ぶ部品の列（比率・地色・区切りなど）は、入りきるときは真ん中に。はみ出すときは左から送れる */
+.tool .pics > :first-child,
+.tool .swatches > :first-child,
+.tool .fonts > :first-child {
+  margin-left: auto;
+}
+.tool .pics > :last-child,
+.tool .swatches > :last-child,
+.tool .fonts > :last-child {
+  margin-right: auto;
+}
+.tool > .pics,
+.tool > .fonts,
+.tool > .grp,
+.tool > .cells {
+  flex: 1 1 auto;
+}
+/* 組: 見出し付きの行を縦に（余白・地色、大きさ・字間 など） */
+.grp {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+.ln {
+  display: grid;
+  grid-template-columns: 3.5em minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s1);
+  min-height: var(--tap);
+}
+.ln__lbl,
+.cell__lbl {
+  font-size: var(--t1);
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.ln__lbl[data-dim],
+.cell__lbl[data-dim] {
+  color: var(--ink-3);
+}
+.ln__ctl {
+  min-width: 0;
+  display: flex;
+}
+.ln__ctl > * {
   flex: 1 1 auto;
   min-width: 0;
 }
-.tool > .anchor,
-.tool > .switch {
+.ln__ctl > .switch {
   flex: none;
+}
+/* 組: 横に並べる（写真の位置と枠線、文字の配置 など）。それぞれ上に小さな見出し */
+.cells {
+  display: flex;
+  align-items: flex-start;
+  /* 文字の配置（切り替え・置き場所・位置）が 375px の iPhone でも1行に入るように、幅に合わせて詰める */
+  gap: clamp(10px, 4.5%, 20px);
+  width: 100%;
+}
+/*
+ * 幅の狭い端末（320px）で入りきらないときは、組ごと横に送れる（以前は置き場所の絵が縮んで4つ目が隠れていた）。
+ * 送れる箱にするのは狭いときだけ。送れる箱の上では横の指をブラウザが取り、左右に払って道具を移れなくなる
+ */
+@media (max-width: 359px) {
+  .cells {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+}
+.cells::-webkit-scrollbar {
+  display: none;
+}
+.cells > :first-child {
+  margin-left: auto;
+}
+.cells > :last-child {
+  margin-right: auto;
+}
+.cell {
+  flex: none;
+  display: grid;
+  justify-items: start;
+  /* 位置の 3×3（78px）と見出しが、欄の高さ（--tool-h）に収まるように詰める */
+  gap: 2px;
+}
+/* 組ごと並べる（狭いときは組ごと送る）ので、中の絵の列は自分では送らない */
+.cell .pics {
+  overflow: visible;
+}
+.cell__lbl {
+  line-height: 1.25;
+}
+/* 幅の狭い端末（320px）で「余りなし」が縦に折れて欄からはみ出していた */
+.cell .pair__note {
+  white-space: nowrap;
+}
+.cell[data-grow] {
+  flex: 1 1 auto;
+  min-width: 120px;
+  justify-items: stretch;
+}
+/* 情報の一覧の上の行数（すぐ下の行の組と対） */
+.ilines {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 4px 0 2px;
+}
+.ilines__lbl {
+  font-size: var(--t1);
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
 }
 .tool .pselect {
   max-width: none;

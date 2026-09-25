@@ -5,6 +5,7 @@
  *   2本指      … 広げて拡大・つまんで縮小（1〜5倍）。指の間の点を中心に、2本指のまま動かせば見回せる
  *   1本指      … 拡大している間は見回し（拡大していないときは何もしない。余白なしの切り取りは usePan）
  *   ダブルタップ … 1倍 ⇄ 2.5倍（押した所を中心に）
+ *   長押し     … onLongPress（編集画面では全画面表示を開く。依頼者の要望。以前は長押しで端末のコピーの網掛けが出て操作しづらかった）
  *
  * 指で動かしている間は canvas の transform だけを書き換える（描き直さない。軽い）。
  * 指を離したら、その倍率を level として返す。呼ぶ側は level に合う細かさで描き直す（文字がにじまない）。
@@ -18,6 +19,9 @@ const MAX = 5;
 const TAP_MS = 250;
 const DOUBLE_MS = 320;
 const DOUBLE_PX = 30;
+/** 長押しと見なす時間と、その間に指がずれてもよい量 */
+const HOLD_MS = 480;
+const HOLD_PX = 8;
 /** ダブルタップで寄る倍率（以前の固定の拡大と同じ） */
 export const DOUBLE_TAP_ZOOM = 2.5;
 
@@ -44,8 +48,11 @@ export function useStageZoom(
     enabled,
     doubleTap = true,
     resetKey,
+    onLongPress,
   }: {
     enabled: boolean;
+    /** 1本指で動かさずに押し続けたとき（拡大していないときだけ） */
+    onLongPress?: (() => void) | undefined;
     /** ダブルタップで拡大するか（全画面表示では、1回押すと閉じるので使わない） */
     doubleTap?: boolean;
     /** これが変わったら1倍に戻す（写真を替えた・組み方が変わった） */
@@ -57,6 +64,10 @@ export function useStageZoom(
   const [committed, setCommitted] = useState<{ level: number; key: unknown }>({ level: 1, key: resetKey });
   const level = committed.key === resetKey ? committed.level : 1;
   const lastGesture = useRef(0);
+  const longPressRef = useRef(onLongPress);
+  useEffect(() => {
+    longPressRef.current = onLongPress;
+  }, [onLongPress]);
 
   /** 拡大した写真の縁が欄の内側に入らないように押さえる。欄より小さい向きは真ん中に */
   const clamp = useCallback(
@@ -132,6 +143,25 @@ export function useStageZoom(
     let downAt = { t: 0, x: 0, y: 0 };
     let lastTap = { t: 0, x: 0, y: 0 };
     let moved = false;
+    let hold: ReturnType<typeof setTimeout> | null = null;
+    /** 長押しで全画面を開いたあとの指の離れは、タップとして数えない */
+    let held = false;
+    const stopHold = (): void => {
+      if (hold) clearTimeout(hold);
+      hold = null;
+    };
+    /*
+     * 長押しで開いた全画面の上に、指を離したときの click が落ちる（端末は離した所の一番上の物に送る）。
+     * そのままだと開いた全画面が「押したら閉じる」で即座に閉じるので、直後の1回だけ捨てる。
+     */
+    const swallowClick = (): void => {
+      const eat = (ev: Event): void => {
+        ev.preventDefault();
+        ev.stopPropagation();
+      };
+      window.addEventListener('click', eat, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener('click', eat, { capture: true }), 500);
+    };
 
     const local = (e: PointerEvent): Pt => {
       const r = st.getBoundingClientRect();
@@ -160,8 +190,20 @@ export function useStageZoom(
       if (pts.size === 1) {
         downAt = { t: e.timeStamp, x: p.x, y: p.y };
         moved = false;
+        held = false;
+        stopHold();
+        if (longPressRef.current && view.current.s <= 1.001) {
+          hold = setTimeout(() => {
+            hold = null;
+            if (moved || pts.size !== 1) return;
+            held = true;
+            lastGesture.current = performance.now();
+            longPressRef.current?.();
+          }, HOLD_MS);
+        }
       } else {
         moved = true; // 2本目が来たら、もうタップではない
+        stopHold();
       }
       begin();
     };
@@ -170,7 +212,9 @@ export function useStageZoom(
       if (!pts.has(e.pointerId)) return;
       const p = local(e);
       pts.set(e.pointerId, p);
-      if (pts.size === 1 && Math.hypot(p.x - downAt.x, p.y - downAt.y) > 10) moved = true;
+      const far = Math.hypot(p.x - downAt.x, p.y - downAt.y);
+      if (pts.size === 1 && far > HOLD_PX) stopHold();
+      if (pts.size === 1 && far > 10) moved = true;
       if (!g) return;
       const c = canvasRef.current;
       if (!c) return;
@@ -213,6 +257,14 @@ export function useStageZoom(
     const up = (e: PointerEvent): void => {
       if (!pts.has(e.pointerId)) return;
       pts.delete(e.pointerId);
+      stopHold();
+      if (held) {
+        held = false;
+        pts.clear();
+        g = null;
+        swallowClick();
+        return;
+      }
       if (pts.size > 0) {
         begin(); // 残った指で続ける（拡大中なら見回し）
         return;
@@ -247,7 +299,12 @@ export function useStageZoom(
     st.addEventListener('pointermove', move);
     st.addEventListener('pointerup', up);
     st.addEventListener('pointercancel', up);
+    // 長押しで出る端末の選択メニュー（画像のコピーなど）を出さない
+    const noMenu = (e: Event): void => e.preventDefault();
+    st.addEventListener('contextmenu', noMenu);
     return () => {
+      stopHold();
+      st.removeEventListener('contextmenu', noMenu);
       st.removeEventListener('pointerdown', down);
       st.removeEventListener('pointermove', move);
       st.removeEventListener('pointerup', up);

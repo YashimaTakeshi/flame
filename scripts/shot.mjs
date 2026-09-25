@@ -198,6 +198,44 @@ await page.waitForTimeout(300);
 console.log('ピンチ:', JSON.stringify({ 写真の上: onPhoto, 設定欄の上: onPanel, ok: onPhoto.chip !== null && onPhoto.page === 1 && onPanel.page === 1 }));
 
 /*
+ * 設定欄を左右に払うと隣の道具へ。横に送れる列（書体の見本）の上では、列が送られて道具は移らない。
+ * 写真を長押しすると全画面（離したときの click で閉じない）。★依頼者の要望★
+ */
+const curTab = () => page.evaluate(() => document.querySelector('.tabbar [aria-selected=true]')?.getAttribute('aria-label'));
+await mainTab('フレーム').click();
+await chip('写真').click();
+await page.waitForTimeout(300);
+const tb = await page.locator('.tool').boundingBox();
+const ty = tb.y + tb.height - 8;
+const swipe = { start: await curTab() };
+await touch([{ x: tb.x + tb.width - 30, y: ty }], [{ x: tb.x + 40, y: ty }], 8);
+swipe.left = await curTab();
+await touch([{ x: tb.x + 40, y: ty }], [{ x: tb.x + tb.width - 30, y: ty }], 8);
+swipe.right = await curTab();
+await touch([{ x: tb.x + 40, y: ty }], [{ x: tb.x + tb.width - 30, y: ty }], 8);
+swipe.edge = await curTab();
+await mainTab('書体').click();
+await page.waitForTimeout(300);
+const fb = await page.locator('.tool .fonts').boundingBox();
+await touch([{ x: fb.x + fb.width - 40, y: fb.y + fb.height / 2 }], [{ x: fb.x + 40, y: fb.y + fb.height / 2 }], 8);
+swipe.onFonts = { tab: await curTab(), scrolled: await page.evaluate(() => document.querySelector('.tool .fonts').scrollLeft > 0) };
+swipe.ok = swipe.start === 'フレーム' && swipe.left === '文字' && swipe.right === 'フレーム' && swipe.edge === 'フレーム' && swipe.onFonts.tab === '書体' && swipe.onFonts.scrolled;
+console.log('左右に払う:', JSON.stringify(swipe));
+await mainTab('フレーム').click();
+const hold = async (ms) => {
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: zx, y: zy, id: 0 }] });
+  await page.waitForTimeout(ms);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await page.waitForTimeout(500);
+  return page.locator('.viewer').count();
+};
+const longPress = { short: await hold(250), long: await hold(700) };
+if (longPress.long) await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+longPress.ok = longPress.short === 0 && longPress.long === 1;
+console.log('長押しで全画面:', JSON.stringify(longPress));
+
+/*
  * PC の組み方（desk）。幅 1440 で開き直し、
  *   - 設定の欄に 6 つの節が全部あり、押しボタンの並びが出ていること
  *   - 欄の中の部品が欄の横幅からはみ出さないこと

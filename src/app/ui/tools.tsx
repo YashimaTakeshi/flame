@@ -1,10 +1,13 @@
 /**
  * 道具（フレーム・文字・書体・刻印・情報）の中の「項目」の並べ方。
  *
- * スマホ … 項目の名前を小さなボタンで横に並べ、**選んだ1つの操作だけ**を出す
+ * スマホ … 項目の名前を小さなボタンで横に並べ、**選んだ1つの組の操作だけ**を出す
  *          （iPhone の写真アプリの編集と同じ考え方）。
  *          以前は全部の行を縦に積んだ 236px の面で、iPhone の Safari では写真が 177×268px まで縮み、
  *          「写真が小さくなりすぎて編集しづらい」と指摘された（依頼者が選んだ形）。
+ *          1項目ずつにしたら今度は「まとめ過ぎ（細切れ過ぎ）」と言われ、意味の近い項目は同じ組に入れた
+ *          （例: 余白と地色＝額、写真の位置と枠線＝写真）。組の中は Line（小さな見出し＋部品の1行）と
+ *          Cells（横に並べる）で組む。
  * PC     … 欄に幅があるので、今までどおり全部の行を縦に並べる（Row）。
  *
  * どちらで並べるかは、置かれた場所が決める（ToolModeContext。スマホの OptionRow が 'one' にする）。
@@ -29,7 +32,47 @@ export interface Tool {
   tall?: boolean;
   /** スマホで項目の並びの先頭に置く（PC の並びは変えない） */
   lead?: boolean;
+  /** スマホで出す組の操作 */
   control: React.ReactNode;
+  /** PC の欄での行（組を行に分けて並べる）。無ければ label と control で1行 */
+  rows?: readonly ToolRow[];
+}
+
+export interface ToolRow {
+  key: string;
+  label: string;
+  note?: string | undefined;
+  dim?: boolean | undefined;
+  bare?: boolean;
+  control: React.ReactNode;
+}
+
+/** 組の中の1行。左に小さな見出し、右に部品 */
+export function Line({ label, dim, children }: { label: string; dim?: boolean | undefined; children: React.ReactNode }): React.ReactElement {
+  return (
+    <div className="ln">
+      <span className="ln__lbl" data-dim={dim || undefined}>
+        {label}
+      </span>
+      <div className="ln__ctl">{children}</div>
+    </div>
+  );
+}
+
+/** 組の中で横に並べる。それぞれ上に小さな見出し */
+export function Cells({ cells }: { cells: readonly { label: string; dim?: boolean | undefined; grow?: boolean; node: React.ReactNode }[] }): React.ReactElement {
+  return (
+    <div className="cells">
+      {cells.map((c) => (
+        <div key={c.label} className="cell" data-grow={c.grow || undefined}>
+          <span className="cell__lbl" data-dim={c.dim || undefined}>
+            {c.label}
+          </span>
+          {c.node}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export type ToolMode = 'rows' | 'one';
@@ -85,15 +128,17 @@ export function ToolPanel({
     return (
       <div className={className ? `pnl ${className}` : 'pnl'}>
         {banner}
-        {tools.map((t) =>
-          t.bare ? (
-            <Fragment key={t.key}>{t.control}</Fragment>
-          ) : (
-            <Row key={t.key} label={t.label} note={t.note} dim={t.dim}>
-              {t.control}
-            </Row>
-          ),
-        )}
+        {tools
+          .flatMap((t): readonly ToolRow[] => t.rows ?? [{ key: t.key, label: t.label, note: t.note, dim: t.dim, bare: t.bare ?? false, control: t.control }])
+          .map((r) =>
+            r.bare ? (
+              <Fragment key={r.key}>{r.control}</Fragment>
+            ) : (
+              <Row key={r.key} label={r.label} note={r.note} dim={r.dim}>
+                {r.control}
+              </Row>
+            ),
+          )}
       </div>
     );
   }

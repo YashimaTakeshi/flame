@@ -13,7 +13,7 @@ import { SHOT_FACTS, effectiveFields } from '../caption';
 import { useDoc } from '../state/doc';
 import { INFO_ITEMS, useUi } from '../state/ui';
 import { Pics, Switch, type Opt } from '../ui/controls';
-import { ToolPanel } from '../ui/tools';
+import { Line, ToolPanel } from '../ui/tools';
 import { LinesPicker, useLinesUsed } from './LinesPicker';
 import { IconReset } from '../ui/icons';
 import { DATE_FORMATS, formatWallClock, type DateFormatId, type WallClock } from '../../core/wallclock';
@@ -180,6 +180,14 @@ export function InfoPanel(): React.ReactElement {
   // 項目の一覧（その場で入力・つまみで並べ替え）。スマホでは「項目」を選ぶと、欄を高くしてこれを出す
   const items = (
     <div className="ilist" ref={rootRef}>
+      {/*
+       * 行数はここだけ（すぐ下の「1行目・2行目…」の組が、その場で増え減りして見える）。
+       * 以前は文字タブにも入口があり、同じ設定が2か所にあるように見えた
+       */}
+      <div className="ilines">
+        <span className="ilines__lbl">行数</span>
+        <LinesPicker />
+      </div>
       <p className="irows__how">⠿ をドラッグして、項目を出す行や順番を変えられます</p>
       {groups.map((g, gi) => (
         <section key={gi} className="igroup" data-group={gi} data-drop-end={(drag?.target?.g === gi && drag.target.i === g.length) || undefined}>
@@ -231,6 +239,18 @@ export function InfoPanel(): React.ReactElement {
     </div>
   );
 
+  // 項目の区切り（依頼者の要望で選べるようにした）。字そのものを見せて選ぶ
+  const sepCtl = <Pics label="項目の区切り" variant="text" options={SEPARATOR_OPTIONS} value={separator} onChange={(v) => set('separator', v)} />;
+  const dateCtl = (
+    <select className="pselect" aria-label="日付の書き方" value={dateFormat} onChange={(e) => set('dateFormat', asFormat(e.target.value))}>
+      {DATE_FORMATS.map((f) => (
+        <option key={f} value={f}>
+          {formatWallClock(photoDate ?? SAMPLE_DATE, f)}
+        </option>
+      ))}
+    </select>
+  );
+
   return (
     <ToolPanel
       tab="info"
@@ -244,25 +264,19 @@ export function InfoPanel(): React.ReactElement {
         )
       }
       tools={[
-        { key: 'lines', label: '行数', control: <LinesPicker /> },
         {
-          // 項目の区切り（依頼者の要望で選べるようにした）。字そのものを見せて選ぶ
-          key: 'sep',
-          label: '区切り',
-          control: <Pics label="項目の区切り" variant="text" options={SEPARATOR_OPTIONS} value={separator} onChange={(v) => set('separator', v)} />,
-        },
-        {
-          key: 'date',
-          label: '日付',
+          key: 'style',
+          label: '区切り・日付',
           control: (
-            <select className="pselect" aria-label="日付の書き方" value={dateFormat} onChange={(e) => set('dateFormat', asFormat(e.target.value))}>
-              {DATE_FORMATS.map((f) => (
-                <option key={f} value={f}>
-                  {formatWallClock(photoDate ?? SAMPLE_DATE, f)}
-                </option>
-              ))}
-            </select>
+            <div className="grp">
+              <Line label="区切り">{sepCtl}</Line>
+              <Line label="日付">{dateCtl}</Line>
+            </div>
           ),
+          rows: [
+            { key: 'sep', label: '区切り', control: sepCtl },
+            { key: 'date', label: '日付', control: dateCtl },
+          ],
         },
         { key: INFO_ITEMS, label: '項目', bare: true, tall: true, lead: true, control: items },
       ]}

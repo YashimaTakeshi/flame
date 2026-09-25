@@ -21,6 +21,10 @@ export const TABS: { id: TabId; label: string }[] = [
 
 interface UiStore {
   tab: TabId;
+  /** 直前に道具を替えた向き（右隣へ 1・左隣へ -1）。設定欄を横から滑り込ませる向き */
+  tabDir: 1 | -1 | 0;
+  /** 隣の道具へ（設定欄を左右に払ったとき）。端では止まる */
+  stepTab(dir: 1 | -1): void;
   sheet: SheetId;
   /** オプション行の下に1行だけ出る注記。モーダルの代わり */
   hint: string | null;
@@ -83,8 +87,16 @@ const hasHistory = (): boolean =>
 /** 自分で履歴を積んだか。積んでいないのに戻ると、前のページ（LINE など）へ出てしまう */
 let pushed = false;
 
+const indexOf = (t: TabId): number => TABS.findIndex((x) => x.id === t);
+
 export const useUi = create<UiStore>((set) => ({
   tab: 'frame',
+  tabDir: 0,
+  stepTab: (dir) =>
+    set((s) => {
+      const next = TABS[indexOf(s.tab) + dir];
+      return next ? { tab: next.id, tabDir: dir, hint: null } : {};
+    }),
   sheet: null,
   hint: null,
   hasFilm: false,
@@ -99,6 +111,7 @@ export const useUi = create<UiStore>((set) => ({
   openInfo: (focus = null) =>
     set((s) => ({
       tab: 'info',
+      tabDir: s.tab === 'info' ? 0 : 1,
       openSecs: { ...s.openSecs, info: true },
       // スマホは項目を1つずつ出す。入力の欄がある一覧を出してから、その欄へ
       toolOf: { ...s.toolOf, info: INFO_ITEMS },
@@ -109,7 +122,7 @@ export const useUi = create<UiStore>((set) => ({
   toggleSec: (id) => set((s) => ({ openSecs: { ...s.openSecs, [id]: !s.openSecs[id] } })),
   toolOf: {},
   setTool: (tab, key) => set((s) => ({ toolOf: { ...s.toolOf, [tab]: key }, hint: null })),
-  setTab: (tab) => set({ tab, hint: null }),
+  setTab: (tab) => set((s) => ({ tab, tabDir: tab === s.tab ? 0 : indexOf(tab) > indexOf(s.tab) ? 1 : -1, hint: null })),
   openSheet: (sheet) => {
     set({ sheet });
     if (!hasHistory()) return;
