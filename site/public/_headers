@@ -1,6 +1,6 @@
 # yashimastudio.com（紹介ページ）の HTTP ヘッダ。スクリプトは共有ボタンの share.js だけ（同じ場所から）
 /*
-  Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   Referrer-Policy: strict-origin-when-cross-origin
   X-Content-Type-Options: nosniff
   Permissions-Policy: geolocation=(), camera=(), microphone=(), interest-cohort=()

@@ -34,7 +34,7 @@ const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbo
  * 作例ごとの設定。押す部品は画面の名前（読み上げ名）で指す。
  * ratio は比率ボタンの名前の頭（「4:5 の比率」など）。margin は 0=なし〜4=広い。size は 0=極小〜3=大
  */
-const R = { OR: '元の比率', FF: '4:5 の比率', SQ: '1:1 の比率', NST: '9:16 の比率', STN: '16:9 の比率' };
+const R = { OR: '元の比率', FF: '4:5 の比率', TF: '3:4 の比率', SQ: '1:1 の比率', NST: '9:16 の比率', STN: '16:9 の比率' };
 const DEMOS = [
   // 冒頭の1枚
   { out: 'hero', photo: 'torii', ratio: R.FF, margin: 3, color: 'White', lines: '3行', size: 2, font: 'Didot' },
@@ -52,7 +52,18 @@ const DEMOS = [
   { out: 'r-916', photo: 'stars', ratio: R.NST, margin: 3, color: 'Black', lines: '2行', size: 2, font: 'Futura' },
   { out: 'r-11', photo: 'stars', ratio: R.SQ, margin: 3, color: 'Onyx', lines: '2行', size: 2, font: 'Futura' },
   { out: 'r-169', photo: 'stars', ratio: R.STN, margin: 3, color: 'Warm White', lines: '1行', size: 2, font: 'Futura' },
+  // ギャラリー用（写真ごとに額の替え方を増やす）
+  { out: 't-bleed', photo: 'torii', ratio: R.OR, margin: 0, color: 'White', lines: '2行', size: 2, font: 'Futura' },
+  { out: 't-black', photo: 'torii', ratio: R.SQ, margin: 3, color: 'Black', lines: '2行', size: 2, font: 'DIN' },
+  { out: 't-ivory', photo: 'torii', ratio: R.STN, margin: 3, color: 'Ivory', lines: '1行', size: 2, font: 'Didot' },
+  { out: 'tr-black', photo: 'tree', ratio: R.NST, margin: 3, color: 'Black', lines: '2行', size: 2, font: 'Didot', film: 'CLASSIC Neg.' },
+  { out: 'tr-white', photo: 'tree', ratio: R.OR, margin: 3, color: 'White', lines: '3行', size: 2, font: 'Helvetica', film: 'CLASSIC Neg.' },
+  { out: 's-ivory', photo: 'stars', ratio: R.OR, margin: 2, color: 'Ivory', lines: '2行', size: 2, font: 'Baskerville' },
+  { out: 's-bleed', photo: 'stars', ratio: R.OR, margin: 0, color: 'White', lines: '2行', size: 2, font: 'Futura' },
+  { out: 'b-silver', photo: 'beach', ratio: R.TF, margin: 3, color: 'Silver Sand', lines: '2行', size: 2, font: 'Futura', film: 'PRO Neg. Std' },
 ];
+// ONLY=名前,名前 で一部だけ作り直す
+const ONLY = process.env.ONLY?.split(',');
 
 async function open(ctx, photo) {
   const page = await ctx.newPage();
@@ -105,14 +116,14 @@ const iosShare = () => {
   Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
   Object.defineProperty(navigator, 'share', { value: async () => {}, configurable: true });
 };
-{
+if (!ONLY) {
   // 画面写真: 何も開いていないホーム
   const ctx = await browser.newContext(phone);
   const page = await open(ctx, null);
   await page.screenshot({ path: resolve(WORK, 'ui-home.png') });
   await ctx.close();
 }
-for (const d of DEMOS) {
+for (const d of DEMOS.filter((x) => !ONLY || ONLY.includes(x.out))) {
   const ctx = await browser.newContext(phone);
   const page = await open(ctx, d.photo);
   await apply(page, d);
