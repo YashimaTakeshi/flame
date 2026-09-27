@@ -2,7 +2,12 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!--
+      maximum-scale=1: iPhone の Safari は 16px 未満の入力欄を押すと画面を自動で拡大し、離れても戻さない。
+      スマホではページの拡大（ピンチ）を止めているので、拡大されたまま戻せなくなっていた（依頼者の指摘）。
+      写真の拡大はアプリが自分で行う。PC のブラウザはこの指定を無視するので、ブラウザの拡大は残る
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
     <!-- 公開し直した直後に古い HTML で開いても自力で取り直す。CSP のため外に置く（public/boot.js） -->
     <script src="./boot.js"></script>
     <meta name="color-scheme" content="dark" />
