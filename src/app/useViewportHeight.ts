@@ -38,14 +38,48 @@ export function useViewportHeight(): void {
       root.dataset['framed'] = 'true';
     }
 
+    /*
+     * iPhone の Safari は、入力欄を押してキーボードを出すとき、入力欄が見えるように画面ごとずらす
+     * （overflow: hidden の文書でも）。キーボードを閉じてもずれたまま戻さないことがあり、
+     * 上の見出しが隠れ、下に空きができ、左右も切れていた（依頼者の指摘）。
+     * 入力欄から離れたら、ずれを元に戻す。入力中は戻さない（入力欄がキーボードに隠れる）
+     */
+    const typing = (): boolean => {
+      const a = document.activeElement;
+      return a instanceof HTMLElement && (a.matches('input, textarea, select') || a.isContentEditable);
+    };
+    const unshift = (): void => {
+      if (typing()) return;
+      if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+      for (const el of [document.documentElement, document.body, document.querySelector('.app')]) {
+        if (el && (el.scrollTop || el.scrollLeft)) {
+          el.scrollTop = 0;
+          el.scrollLeft = 0;
+        }
+      }
+    };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const later = (): void => {
+      clearTimeout(timer);
+      // キーボードが閉じきってから（閉じる動きの途中で戻すと、また ずらされる）
+      timer = setTimeout(unshift, 120);
+    };
+    const onResize = (): void => {
+      apply();
+      later();
+    };
+
     apply();
-    window.addEventListener('resize', apply);
-    window.addEventListener('orientationchange', apply);
-    window.visualViewport?.addEventListener('resize', apply);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    window.visualViewport?.addEventListener('resize', onResize);
+    document.addEventListener('focusout', later);
     return () => {
-      window.removeEventListener('resize', apply);
-      window.removeEventListener('orientationchange', apply);
-      window.visualViewport?.removeEventListener('resize', apply);
+      clearTimeout(timer);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+      window.visualViewport?.removeEventListener('resize', onResize);
+      document.removeEventListener('focusout', later);
     };
   }, []);
 }
