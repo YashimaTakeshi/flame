@@ -23,13 +23,23 @@ export function useViewportHeight(): void {
   useEffect(() => {
     const root = document.documentElement;
 
+    const typing = (): boolean => {
+      const a = document.activeElement;
+      return a instanceof HTMLElement && (a.matches('input, textarea, select') || a.isContentEditable);
+    };
+
     const apply = (): void => {
       // clientHeight はこの文書のレイアウト領域＝枠の内側の実寸
-      const h = Math.min(
-        root.clientHeight || window.innerHeight,
-        window.visualViewport?.height ?? Number.POSITIVE_INFINITY,
-      );
-      root.style.setProperty('--app-h', `${Math.round(h)}px`);
+      const layoutH = root.clientHeight || window.innerHeight;
+      const vvH = window.visualViewport?.height ?? Number.POSITIVE_INFINITY;
+      /*
+       * キーボードが出ている間（入力中に見える高さだけが大きく縮んだとき）は、高さを変えない。
+       * iPhone の Safari はキーボードで見える範囲だけを縮め、入力欄が見えるよう画面をずらす。
+       * そこへこちらが画面全体を縮めて組み直すと、ずらす先が動いて画面が上へ吹き飛んでいた（依頼者の録画）。
+       * Android の Chrome はキーボードでレイアウトごと縮むので、ここには当たらない
+       */
+      if (typing() && vvH < layoutH - 120) return;
+      root.style.setProperty('--app-h', `${Math.round(Math.min(layoutH, vvH))}px`);
     };
 
     if (inFrame()) {
@@ -44,10 +54,6 @@ export function useViewportHeight(): void {
      * 上の見出しが隠れ、下に空きができ、左右も切れていた（依頼者の指摘）。
      * 入力欄から離れたら、ずれを元に戻す。入力中は戻さない（入力欄がキーボードに隠れる）
      */
-    const typing = (): boolean => {
-      const a = document.activeElement;
-      return a instanceof HTMLElement && (a.matches('input, textarea, select') || a.isContentEditable);
-    };
     const unshift = (): void => {
       if (typing()) return;
       if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
