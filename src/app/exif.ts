@@ -52,6 +52,27 @@ interface RawExif {
   makerNote?: Uint8Array;
 }
 
+/**
+ * 35mm 換算の焦点距離を、撮像素子の大きさから見積もる。
+ * 換算値（FocalLengthIn35mmFormat）は多くのカメラが書くが、編集・書き出しで落ちた写真や、
+ * 書かない機種では実焦点距離しか残らない。依頼者の指定で焦点距離は 35mm 換算で出すため、
+ * 撮像素子の大きさが機種名で確実に決まるものだけ換算する。分からない機種は null（実焦点距離のまま出す）。
+ * 写真に書き戻す値（minimalExifOf）には使わない（見積もりを写真の記録として残さない）
+ */
+const CROP: readonly (readonly [RegExp, number])[] = [
+  [/^FUJIFILM GFX/i, 0.79], // 中判 44×33mm
+  [/^FUJIFILM X/i, 1.5], // APS-C
+  [/^SONY (ILCE-[56]\d{3}|NEX-|ZV-E10)/i, 1.5],
+  [/^NIKON Z ?(50|fc|30)\b/i, 1.5],
+  [/^CANON EOS (R10|R7|R50|R100|M\d*)\b/i, 1.6],
+];
+
+export function equiv35(camera: string | null, focalLength: number | null): number | null {
+  if (!camera || !focalLength || focalLength <= 0) return null;
+  const hit = CROP.find(([re]) => re.test(camera));
+  return hit ? Math.round(focalLength * hit[1]) : null;
+}
+
 /** 「Apple iPhone 16 Pro」のような重複を畳む */
 function cameraName(make?: string, model?: string): string | null {
   if (!model) return make ?? null;

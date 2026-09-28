@@ -9,7 +9,7 @@
 import type { Facts, Gates } from '../core/caption';
 import type { FieldId } from '../core/styles/types';
 import { formatWallClock, type DateFormatId, type WallClock } from '../core/wallclock';
-import { formatAperture, formatFocal, formatIso, formatShutter, type ExifFacts } from './exif';
+import { equiv35, formatAperture, formatFocal, formatIso, formatShutter, type ExifFacts } from './exif';
 
 /**
  * 露出の手入力（F値・シャッター速度（秒）・ISO）。null の部分は写真の値を使う。
@@ -58,7 +58,8 @@ export function collectFacts(exif: ExifFacts, parts: CaptionParts): Facts {
   put('lens', parts.overrides.lens ?? tidyLens(exif.camera, exif.lens));
   put('film', parts.overrides.film ?? exif.film);
 
-  const mm = exif.focalLength35 ?? exif.focalLength;
+  // 35mm 換算で出す（依頼者の指定）。写真に換算値が無ければ機種から見積もり、それも無理なら実焦点距離
+  const mm = exif.focalLength35 ?? equiv35(exif.camera, exif.focalLength) ?? exif.focalLength;
   if (mm) put('focalLength', formatFocal(mm));
 
   // 手入力も写真の値と同じ書き方で出す（F2.8 30s ISO6400）。入れていない部分は写真の値
