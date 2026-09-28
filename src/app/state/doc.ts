@@ -18,6 +18,7 @@ import { CENTER_FOCUS, type Align, type CaptionAlign, type FieldId, type Focus, 
 import type { BadgeMode, BadgeSize } from '../../core/badge';
 import type { BandSide } from '../../core/styles/layout';
 import type { DateFormatId, WallClock } from '../../core/wallclock';
+import type { ExposureParts } from '../caption';
 import type { LatinFontKey } from '../fonts-catalog';
 import { loadSettings, saveSettings, type Saved } from './persist';
 import type { BorderWeight } from './border';
@@ -30,6 +31,8 @@ export interface Overrides {
   readonly date: WallClock | null;
   /** 仕上がり（フィルムシミュレーション／ピクチャーコントロール等）。FUJIFILM 以外は手入力しかない */
   readonly film: string | null;
+  /** 露出（F値・シャッター速度・ISO）。null は写真の値。部分ごとにも写真の値へ戻る（§3.32） */
+  readonly exposure: ExposureParts | null;
 }
 
 export interface DocState {
@@ -109,7 +112,7 @@ const BASE: DocState = {
   size: 'Medium',
   bordered: false,
   fields: DEFAULT_FIELDS,
-  overrides: { camera: null, lens: null, date: null, film: null },
+  overrides: { camera: null, lens: null, date: null, film: null, exposure: null },
   dateFormat: 'dots',
   badge: 'logo',
   badgePlace: 'below',
@@ -335,6 +338,7 @@ export const useDoc = create<DocStore>((set, get) => ({
         (o.camera !== cur.overrides.camera ||
           o.lens !== cur.overrides.lens ||
           o.film !== cur.overrides.film ||
+          !sameExposure(o.exposure, cur.overrides.exposure) ||
           !sameClock(o.date, cur.overrides.date)));
     if (!changed) return;
     set({ ...remember(cur, 'info', true), ...patch });
@@ -393,6 +397,9 @@ const sameStyle = (a: StyleSpec, b: StyleSpec): boolean =>
 
 const sameClock = (a: WallClock | null, b: WallClock | null): boolean =>
   a === b || (a !== null && b !== null && a.y === b.y && a.m === b.m && a.d === b.d && a.hh === b.hh && a.mm === b.mm && a.ss === b.ss);
+
+const sameExposure = (a: ExposureParts | null, b: ExposureParts | null): boolean =>
+  a === b || (a !== null && b !== null && a.f === b.f && a.s === b.s && a.iso === b.iso);
 
 /** テスト用。履歴を空にする */
 export function __resetHistoryForTest(): void {

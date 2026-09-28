@@ -1361,6 +1361,57 @@
 .irow[data-off] .irow__name {
   color: var(--ink-2);
 }
+/*
+ * 前に入れた値（候補）。欄を触っている間だけ、その行のすぐ下に1列で出す（§3.32）。
+ * 入りきらなければ横に送る。上下の余白 6px は chip の押せる範囲（上下に 6px 広げて 44px）を
+ * 送る箱の中に収めるため（はみ出すと縦にも送れてしまう）
+ */
+.cands {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  /* 入力欄の列に揃える（つまみ 32px・名前 4.5em・間） */
+  padding: 6px 0 6px calc(32px + 4.5em + 2 * var(--s1));
+  box-shadow: inset 0 -1px 0 var(--line);
+}
+.cands::-webkit-scrollbar {
+  display: none;
+}
+.cands .cands__chip {
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 0.8125rem;
+  letter-spacing: 0;
+  /* 長押しで外す。OS の選択・メニューを出さない */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+/* 長い値は切って見せる。chip 自身で切ると押せる範囲（::before）まで切れるので、中の字で切る */
+.cands__chip span {
+  display: block;
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 露出: F値・シャッター速度・ISO を横に3つ。375px 幅でも収まるよう、矢印を消して余白を詰める */
+.expsel {
+  display: grid;
+  /* 字数の違い（F2.8・1/8000s・ISO12800）に合わせて幅を配る。等分だと ISO12800 が切れる */
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.05fr) minmax(0, 1.23fr);
+  gap: 4px;
+  min-width: 0;
+}
+.irow .expsel__one {
+  min-width: 0;
+  padding: 0 4px;
+  background-image: none;
+  font-size: 0.75rem;
+  text-align: center;
+  text-align-last: center;
+}
 /* 行の組。見出し（何行目か・見え方）と、その行に出る項目 */
 .igroup {
   display: grid;

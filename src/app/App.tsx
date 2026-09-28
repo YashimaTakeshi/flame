@@ -16,7 +16,7 @@ import { renderScene } from '../render/executor';
 import { createVerifiedCanvas, encodeCanvas, release } from '../render/guards';
 import { canvasMeasurer } from '../render/measure';
 import { makeExportTarget } from '../render/target';
-import { applyFieldSwitches, collectFacts, effectiveFields, gatesFrom } from './caption';
+import { NO_OVERRIDES, applyFieldSwitches, collectFacts, effectiveFields, gatesFrom } from './caption';
 import { Diagnostics } from './Diagnostics';
 import { Band } from './editor/Band';
 import { OptionRow } from './editor/OptionRow';
@@ -31,7 +31,8 @@ import { flushSettings } from './state/persist';
 import { fontRefFor, preloadLatinFonts } from './fonts-catalog';
 import { colorOf } from './panels/constants';
 import { ExportSheet, type Render } from './sheets/ExportSheet';
-import { BORDER_LU, useDoc } from './state/doc';
+import { BORDER_LU, DEFAULT_FIELDS, useDoc } from './state/doc';
+import { useRecent } from './state/recent';
 import { bindSheetHistory, useUi } from './state/ui';
 import { IconExpand, IconMuted, IconPhoto, IconPlay, IconRedo, IconShare, IconSound, IconUndo } from './ui/icons';
 import { Viewer } from './Viewer';
@@ -193,9 +194,11 @@ export function App(): React.ReactElement {
       : {};
     // 写真そのものの値（入力欄の見本の字）。手入力・タイトル・作者を除いて組む
     const photoFacts = loaded
-      ? collectFacts(loaded.exif, { dateFormat: doc.dateFormat, title: '', artist: '', fields: doc.fields, overrides: { camera: null, lens: null, date: null, film: null } })
+      ? collectFacts(loaded.exif, { dateFormat: doc.dateFormat, title: '', artist: '', fields: doc.fields, overrides: NO_OVERRIDES })
       : {};
-    useUi.setState({ facts, photoFacts, photoDate: loaded?.exif.dateTaken ?? null });
+    const x = loaded?.exif;
+    const photoExposure = x ? { f: x.fNumber, s: x.exposureTime, iso: x.iso } : null;
+    useUi.setState({ facts, photoFacts, photoDate: loaded?.exif.dateTaken ?? null, photoExposure });
   }, [loaded, doc.dateFormat, doc.title, doc.artist, doc.fields, doc.overrides]);
 
   const sceneInput: SceneInput | null = useMemo(() => {
@@ -413,6 +416,12 @@ export function App(): React.ReactElement {
       });
       // 前の写真のタイトル・手入力・切り取り・取り消しの履歴を持ち越さない
       useDoc.getState().startPhoto();
+      // 写真から読めたカメラ・レンズ・仕上がりを候補に覚える。一覧に出るのと同じ表記で（整えたあと）
+      const seen = collectFacts(next.exif, { dateFormat: 'dots', title: '', artist: '', fields: DEFAULT_FIELDS, overrides: NO_OVERRIDES });
+      const { record } = useRecent.getState();
+      record('camera', seen.camera);
+      record('lens', seen.lens);
+      record('film', seen.film);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'この写真を開けませんでした');
     } finally {

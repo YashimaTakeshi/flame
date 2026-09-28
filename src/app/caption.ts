@@ -11,6 +11,16 @@ import type { FieldId } from '../core/styles/types';
 import { formatWallClock, type DateFormatId, type WallClock } from '../core/wallclock';
 import { formatAperture, formatFocal, formatIso, formatShutter, type ExifFacts } from './exif';
 
+/**
+ * 露出の手入力（F値・シャッター速度（秒）・ISO）。null の部分は写真の値を使う。
+ * EXIF の無い写真でも露出を載せたいという要望で足した（§3.32）。3つは別々に写真の値へ戻る
+ */
+export interface ExposureParts {
+  readonly f: number | null;
+  readonly s: number | null;
+  readonly iso: number | null;
+}
+
 export interface CaptionParts {
   readonly title: string;
   readonly artist: string;
@@ -22,10 +32,14 @@ export interface CaptionParts {
     readonly lens: string | null;
     readonly date: WallClock | null;
     readonly film: string | null;
+    readonly exposure: ExposureParts | null;
   };
   /** 日付の書き方（2026.09.20 / 2026年9月20日 …）。情報シートで選ぶ */
   readonly dateFormat: DateFormatId;
 }
+
+/** 手入力なし。写真そのものの値（入力欄の見本の字・候補に覚える値）を組むときに渡す */
+export const NO_OVERRIDES: CaptionParts['overrides'] = { camera: null, lens: null, date: null, film: null, exposure: null };
 
 export function collectFacts(exif: ExifFacts, parts: CaptionParts): Facts {
   const out: Partial<Record<FieldId, string>> = {};
@@ -47,10 +61,15 @@ export function collectFacts(exif: ExifFacts, parts: CaptionParts): Facts {
   const mm = exif.focalLength35 ?? exif.focalLength;
   if (mm) put('focalLength', formatFocal(mm));
 
+  // 手入力も写真の値と同じ書き方で出す（F2.8 30s ISO6400）。入れていない部分は写真の値
+  const xo = parts.overrides.exposure;
+  const fNumber = xo?.f ?? exif.fNumber;
+  const shutter = xo?.s ?? exif.exposureTime;
+  const iso = xo?.iso ?? exif.iso;
   const ex: string[] = [];
-  if (exif.fNumber) ex.push(formatAperture(exif.fNumber));
-  if (exif.exposureTime) ex.push(formatShutter(exif.exposureTime));
-  if (exif.iso) ex.push(formatIso(exif.iso));
+  if (fNumber) ex.push(formatAperture(fNumber));
+  if (shutter) ex.push(formatShutter(shutter));
+  if (iso) ex.push(formatIso(iso));
   if (ex.length) put('exposure', ex.join(' '));
 
   // 撮影地は未実装（段階7）。GPS があっても地名には直せないので入れない

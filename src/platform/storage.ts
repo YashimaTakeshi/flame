@@ -159,6 +159,8 @@ export const KEYS = {
   netLog: 'flame:v1:netlog',
   errLog: 'flame:v1:errlog',
   flags: 'flame:v1:flags',
+  /** 情報タブの候補（前に入れたカメラ名・作者など）。この端末の中だけ */
+  recent: 'flame:v1:recent',
 } as const;
 
 /** 壊れて読めなかった中身の退避先。不具合報告に使えるよう捨てずに取っておく */

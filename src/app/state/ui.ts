@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import type { FieldId } from '../../core/styles/types';
 import type { WallClock } from '../../core/wallclock';
+import type { ExposureParts } from '../caption';
 
 /**
  * 5つの道具。以前の6タブ（配置・組み・地色・書体・刻印・情報）を、触る対象で分け直した。
@@ -52,6 +53,8 @@ interface UiStore {
   photoFacts: Partial<Record<FieldId, string>>;
   /** 写真の撮影日（手入力を除く） */
   photoDate: WallClock | null;
+  /** 写真の露出（手入力を除く）。露出の選ぶ欄で、写真の値を初めから選んでおくため */
+  photoExposure: ExposureParts | null;
   /** 情報シートを開いたとき、最初に入力する欄 */
   infoFocus: FieldId | null;
   openInfo(focus?: FieldId | null): void;
@@ -106,6 +109,7 @@ export const useUi = create<UiStore>((set) => ({
   facts: {},
   photoFacts: {},
   photoDate: null,
+  photoExposure: null,
   infoFocus: null,
   // 情報タブ（PC は情報の欄）を開き、その欄から入力を始める。別の画面は開かない
   openInfo: (focus = null) =>

@@ -5,13 +5,17 @@
  * 以前は名前を押すと別の画面（情報シート）が開いた。依頼者の提案で、その場で打てるようにした。
  * つまみ（⠿）をドラッグすると、ほかの行へ移したり順番を入れ替えたりできる（キーボードは上下キー）。
  * 組の数は「行数」と連動する（1行なら組は1つ）。行数は文字タブと同じ設定。
+ * カメラ・レンズ・仕上がり・タイトル・作者は、欄を触っている間だけ、すぐ下に前に入れた値（候補）を出す（§3.32）。
  */
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { groupsFor } from '../../core/styles/tokens';
 import type { FieldId, LineCount, SeparatorId } from '../../core/styles/types';
 import { SHOT_FACTS, effectiveFields } from '../caption';
 import { useDoc } from '../state/doc';
+import { isRecentField, useRecent, type RecentField } from '../state/recent';
 import { INFO_ITEMS, useUi } from '../state/ui';
+import { FILM_SUGGESTIONS } from '../fuji';
+import { Candidates } from './Candidates';
 import { Pics, Switch, type Opt } from '../ui/controls';
 import { Line, ToolPanel } from '../ui/tools';
 import { LinesPicker, useLinesUsed } from './LinesPicker';
@@ -23,7 +27,7 @@ import { FieldEditor } from './FieldEditor';
 const FIELDS: { id: FieldId; label: string; editable: boolean; empty: string }[] = [
   { id: 'camera', label: 'カメラ', editable: true, empty: '記録なし' },
   { id: 'lens', label: 'レンズ', editable: true, empty: '記録なし' },
-  { id: 'exposure', label: '露出', editable: false, empty: '記録なし' },
+  { id: 'exposure', label: '露出', editable: true, empty: '記録なし' },
   { id: 'focalLength', label: '焦点距離', editable: false, empty: '記録なし' },
   { id: 'date', label: '日付', editable: true, empty: '記録なし' },
   { id: 'film', label: '仕上がり', editable: true, empty: '記録なし' },
@@ -79,6 +83,37 @@ export function InfoPanel(): React.ReactElement {
     useUi.setState({ infoFocus: null });
   }, [infoFocus]);
   const setTab = useUi((s) => s.setTab);
+
+  /* ── 候補（前に入れた値） ── */
+  const title = useDoc((s) => s.title);
+  const artist = useDoc((s) => s.artist);
+  const overrides = useDoc((s) => s.overrides);
+  const setOverride = useDoc((s) => s.setOverride);
+  const facts = useUi((s) => s.facts);
+  const record = useRecent((s) => s.record);
+  /** 候補を出している項目。その項目の欄を触っている間だけ */
+  const [open, setOpen] = useState<RecentField | null>(null);
+  /** 絞り込みに使う、欄に打ってある字。仕上がりは一覧から選んだ名前では絞らない（候補が消えるだけなので） */
+  const typed = (id: RecentField): string => {
+    if (id === 'title') return title;
+    if (id === 'artist') return artist;
+    const v = overrides[id] ?? '';
+    return id === 'film' && FILM_SUGGESTIONS.includes(v) ? '' : v;
+  };
+  /** 打つのと同じ道で入れる（取り消せる）。入れたら欄を離れてスマホのキーボードを閉じる */
+  const pick = (id: RecentField, v: string): void => {
+    if (id === 'title' || id === 'artist') set(id, v);
+    else setOverride(id, v);
+    record(id, v);
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setOpen(null);
+  };
+  /** 欄から候補へ（Tab・押す）はそのまま。行と候補の外へ出たら閉じる */
+  const leave = (id: RecentField) => (e: React.FocusEvent): void => {
+    const to = e.relatedTarget;
+    if (to instanceof Element && to.closest(`[data-row="${id}"]`)) return;
+    setOpen((o) => (o === id ? null : o));
+  };
 
   const known = new Set(FIELDS.map((f) => f.id));
   const groups = groupsFor(layout, lines).map((g) => g.filter((id) => known.has(id)));
@@ -198,34 +233,55 @@ export function InfoPanel(): React.ReactElement {
           {g.length === 0 && <p className="igroup__empty">ここに項目をドラッグ</p>}
           {g.map((id, i) => {
             const f = meta(id);
+            const rf = isRecentField(id) ? id : null;
             return (
-              <div
-                key={id}
-                className="irow"
-                data-i={i}
-                data-off={!shown[id] || undefined}
-                data-dragging={drag?.id === id || undefined}
-                data-drop-before={(drag?.target?.g === gi && drag.target.i === i) || undefined}
-              >
-                <button
-                  type="button"
-                  className="irow__handle"
-                  data-handle={id}
-                  aria-label={`${f.label}を動かす（上下キーで順番と行を変える）`}
-                  onPointerDown={onHandleDown(id)}
-                  onPointerMove={onHandleMove}
-                  onPointerUp={onHandleUp}
-                  onPointerCancel={() => setDrag(null)}
-                  onKeyDown={onHandleKey(id, gi, i)}
+              <Fragment key={id}>
+                <div
+                  className="irow"
+                  data-i={i}
+                  data-row={id}
+                  onFocus={
+                    rf
+                      ? (e) => {
+                          // 入れる欄を触ったときだけ開く（つまみ・スイッチでは開かない）
+                          if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) setOpen(rf);
+                        }
+                      : undefined
+                  }
+                  onBlur={rf ? leave(rf) : undefined}
+                  data-off={!shown[id] || undefined}
+                  data-dragging={drag?.id === id || undefined}
+                  data-drop-before={(drag?.target?.g === gi && drag.target.i === i) || undefined}
                 >
-                  <svg viewBox="0 0 12 18" width="12" height="18" aria-hidden="true">
-                    {[3, 9].map((x) => [3, 9, 15].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.5" fill="currentColor" />))}
-                  </svg>
-                </button>
-                <span className="irow__name">{f.label}</span>
-                <FieldEditor id={id} />
-                <Switch label={`${f.label}を載せる`} on={shown[id]} onChange={() => toggle(id)} />
-              </div>
+                  <button
+                    type="button"
+                    className="irow__handle"
+                    data-handle={id}
+                    aria-label={`${f.label}を動かす（上下キーで順番と行を変える）`}
+                    onPointerDown={onHandleDown(id)}
+                    onPointerMove={onHandleMove}
+                    onPointerUp={onHandleUp}
+                    onPointerCancel={() => setDrag(null)}
+                    onKeyDown={onHandleKey(id, gi, i)}
+                  >
+                    <svg viewBox="0 0 12 18" width="12" height="18" aria-hidden="true">
+                      {[3, 9].map((x) => [3, 9, 15].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.5" fill="currentColor" />))}
+                    </svg>
+                  </button>
+                  <span className="irow__name">{f.label}</span>
+                  <FieldEditor id={id} />
+                  <Switch label={`${f.label}を載せる`} on={shown[id]} onChange={() => toggle(id)} />
+                </div>
+                {rf && open === rf && (
+                  <Candidates
+                    field={rf}
+                    query={typed(rf)}
+                    current={[typed(rf), facts[rf]]}
+                    onPick={(v) => pick(rf, v)}
+                    onLeave={leave(rf)}
+                  />
+                )}
+              </Fragment>
             );
           })}
         </section>

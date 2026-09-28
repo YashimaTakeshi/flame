@@ -43,7 +43,7 @@ describe('collectFacts での整理', () => {
     artist: '',
     fields: DEFAULT_FIELDS,
     dateFormat: 'dots' as const,
-    overrides: { camera: null, lens: null, date: null, film: null },
+    overrides: { camera: null, lens: null, date: null, film: null, exposure: null },
   };
   it('写真の値は整える', () => {
     const f = collectFacts(exif, parts);
