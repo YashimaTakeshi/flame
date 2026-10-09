@@ -18,6 +18,7 @@
     "assets:verify": "node scripts/verify-assets.mjs",
     "verify": "npm run assets:verify && npx depcruise --config .dependency-cruiser.cjs src && npx eslint . && npm run typecheck",
     "test:browser": "node tests/browser/runner.mjs",
+    "setup": "node scripts/setup-local.mjs",
     "assets:fixtures": "python3 scripts/build-fixtures.py"
   },
   "devDependencies": {

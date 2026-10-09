@@ -3,6 +3,13 @@
 写真・動画に額（フレーム）と撮影情報の文字を付ける PWA。React + Zustand + Vite、Cloudflare Workers で配信。
 新しいセッションは、まずこのファイルだけで状況をつかむ（リポジトリ全体の読み直しはしない）。
 
+## 自分のPCで始める（クラウドではなくローカルで続けるとき）
+1. `git clone https://github.com/YashimaTakeshi/flame.git` → `cd flame` → `git checkout claude/mobile-photo-frame-app-2rx12i`
+2. `npm run setup`（Node 20 以上が必要。依存・テスト用 Chromium を入れ、型・lint・単体テストまで確かめる）
+3. `claude` を起動し、「CLAUDE.md を読んで続きから」と伝える
+- 実ブラウザ試験・`scripts/shot.mjs` は、プリインストールの Chromium が無い環境では playwright が入れた版を使う（`FLAME_CHROMIUM` で上書き可）
+- `site/tools/work/`（紹介ページ用の元写真・加工画像）は Git に入れていない。紹介ページの画像を作り直すときは元の写真を `site/tools/work/src/` に置く
+
 ## 公開先
 - アプリ: https://fuchidori.yashimastudio.com（ほか fuchidori.my-sakura.workers.dev・GitHub Pages）
 - 紹介ページ: https://yashimastudio.com/fuchidori/（英語 /fuchidori/en/）。ソースは `site/`（別 worker `yashimastudio-site`）

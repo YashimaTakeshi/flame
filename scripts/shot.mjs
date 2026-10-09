@@ -17,7 +17,12 @@ const server = createServer((req,res)=>{
 await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
 const origin = `http://127.0.0.1:${server.address().port}`;
 
-const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox'] });
+// この環境にプリインストールされた Chromium があればそれを使い、無い環境（自分のPCなど）では
+// playwright が入れた版に任せる（npm run setup）。FLAME_CHROMIUM で上書きできる（tests/browser/runner.mjs と同じ）
+const PREINSTALLED = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const CHROMIUM = process.env.FLAME_CHROMIUM === '' ? undefined
+               : (process.env.FLAME_CHROMIUM ?? (existsSync(PREINSTALLED) ? PREINSTALLED : undefined));
+const b = await chromium.launch({ ...(CHROMIUM ? { executablePath: CHROMIUM } : {}), args:['--no-sandbox'] });
 const ctx = await b.newContext({ ...devices['iPhone 13'] });
 const page = await ctx.newPage();
 const errs = [];
