@@ -4,7 +4,7 @@
 
 | アドレス | 中身 |
 |---|---|
-| `yashimastudio.com/` | 構想が固まるまで `/fuchidori/` へ一時転送（`public/_redirects`） |
+| `yashimastudio.com/` | Yashima Studio の概要ページ（`public/index.html`、英語は `/en/`。スタイルは `public/assets/studio.css`。手書きで、`tools/build-pages.mjs` は触らない） |
 | `yashimastudio.com/fuchidori/` | 紹介（日本語） |
 | `yashimastudio.com/fuchidori/en/` | 紹介（英語） |
 | `yashimastudio.com/fuchidori/privacy/` | プライバシーポリシー（`/en/privacy/` に英語版） |

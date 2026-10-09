@@ -55,6 +55,9 @@ jobs:
           done
           [ -n "$ok" ] || { echo "紹介ページが開けない"; exit 1; }
           grep -q 'lang="en"' <<<"$(body "$URL/fuchidori/en/")" || { echo "英語版が無い"; exit 1; }
+          # トップ（/）は転送せず Yashima Studio の概要ページを返す（301/302 なら curl -f は転送先を追わないので本文が空になる）
+          grep -q "Yashima Studio" <<<"$(body "$URL/")" || { echo "トップの概要ページが無い"; exit 1; }
+          grep -q 'lang="en"' <<<"$(body "$URL/en/")" || { echo "トップの英語版が無い"; exit 1; }
           grep -q "プライバシーポリシー" <<<"$(body "$URL/fuchidori/privacy/")" || { echo "プライバシーポリシーが無い"; exit 1; }
           H=$(curl -fsSI "$URL/fuchidori/")
           grep -qi "^content-security-policy:.*default-src 'none'" <<<"$H" || { echo "CSP が効いていない"; exit 1; }

@@ -1,0 +1,262 @@
+/*
+ * Yashima Studio（yashimastudio.com のトップ）。事業の概要・プロダクト・今後の計画・連絡先を静かに並べる。
+ * 色・書体は Fuchidori の紹介ページ（/fuchidori/assets/fuchidori.css）と揃える（炭色の壁に、明るい文字）。
+ * CSP で style 属性・inline script が使えないので、ページ側に style="…" は書かない。
+ */
+@font-face {
+  font-family: 'Playfair Display';
+  src: url(/fuchidori/fonts/PlayfairDisplay-regular.woff2) format('woff2');
+  font-weight: 400 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Jost';
+  src: url(/fuchidori/fonts/Jost-regular.woff2) format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --wall: #1f1e1c;
+  --wall-deep: #171614;
+  --ink: #ece7de;
+  --ink-2: #aca69b;
+  --ink-3: #7f796f;
+  --rule: rgb(236 231 222 / 0.14);
+  --line: rgb(236 231 222 / 0.4);
+  --btn-bg: #ece7de;
+  --btn-ink: #1b1a18;
+  --mincho: 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', 'Noto Serif JP', serif;
+  --gothic: 'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif;
+  --display: 'Playfair Display', 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', 'Noto Serif JP', serif;
+  --latin: 'Jost', 'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif;
+  --g: 20px;
+  --max: 960px;
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  background: var(--wall);
+  color: var(--ink);
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  font-family: var(--gothic);
+  font-size: 16px;
+  line-height: 1.85;
+  background: var(--wall);
+  color: var(--ink);
+}
+html[lang='en'] body {
+  line-height: 1.7;
+}
+a {
+  color: inherit;
+  text-decoration-color: var(--line);
+  text-underline-offset: 0.25em;
+}
+a:hover {
+  text-decoration-color: var(--ink);
+}
+a:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.wrap {
+  width: min(var(--max), 100% - var(--g) * 2);
+  margin-inline: auto;
+}
+
+/* 上の帯 */
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top, 0px) + 18px) 0 18px;
+}
+.brand {
+  font-family: var(--latin);
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.lang {
+  font-family: var(--latin);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--ink-2);
+}
+
+/* 冒頭 */
+.hero {
+  padding: 40px 0 72px;
+}
+.hero h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(40px, 9vw, 84px);
+  line-height: 1.08;
+  letter-spacing: 0.01em;
+}
+.hero__tag {
+  margin: 22px 0 0;
+  font-family: var(--mincho);
+  font-size: clamp(18px, 3.4vw, 26px);
+  line-height: 1.6;
+}
+.hero__lead {
+  margin: 18px 0 0;
+  max-width: 36em;
+  color: var(--ink-2);
+}
+.hero__photo {
+  margin: 44px 0 0;
+}
+.hero__photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 28px 56px -24px rgb(0 0 0 / 0.85);
+}
+.btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 1px solid var(--line);
+  font-size: 15px;
+  text-decoration: none;
+}
+.btn:hover {
+  border-color: var(--ink);
+}
+.btn--main {
+  background: var(--btn-bg);
+  color: var(--btn-ink);
+  border-color: var(--btn-bg);
+}
+
+/* 節 */
+section {
+  padding: 56px 0;
+  border-top: 1px solid var(--rule);
+}
+.label {
+  margin: 0 0 8px;
+  font-family: var(--latin);
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+h2 {
+  margin: 0 0 28px;
+  font-family: var(--mincho);
+  font-weight: 500;
+  font-size: clamp(22px, 4vw, 30px);
+  line-height: 1.5;
+}
+h3 {
+  margin: 0 0 6px;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 26px;
+}
+p {
+  margin: 0 0 1em;
+}
+
+/* 概要の表 */
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  border-top: 1px solid var(--rule);
+}
+.facts > div {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.facts dt {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.facts dd {
+  margin: 0;
+}
+@media (min-width: 640px) {
+  .facts > div {
+    grid-template-columns: 11em 1fr;
+    gap: 24px;
+  }
+  .facts dt {
+    padding-top: 0.2em;
+  }
+}
+
+/* プロダクト・計画 */
+.cols {
+  display: grid;
+  gap: 28px 48px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 760px) {
+  .cols {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.ticks {
+  margin: 0 0 1.2em;
+  padding: 0;
+  list-style: none;
+}
+.ticks li {
+  position: relative;
+  padding: 0 0 0 1.4em;
+  margin: 0 0 0.6em;
+}
+.ticks li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.95em;
+  width: 0.7em;
+  border-top: 1px solid var(--ink-2);
+}
+.links {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+/* 足 */
+footer {
+  padding: 40px 0 calc(env(safe-area-inset-bottom, 0px) + 48px);
+  border-top: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-size: 13px;
+}
+footer .links a {
+  color: var(--ink-2);
+}
+.note {
+  margin-top: 14px;
+}
